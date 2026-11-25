@@ -194,7 +194,7 @@ export function BallotResults({ state }: { state: PublicForumState }) {
               <p className="mt-1 font-bold text-slate-600">Not held — no voting quorum (not a rejection)</p>
             ) : b.result ? (
               <p className="mt-1">
-                <span className={`font-black ${b.result.passed ? "text-emerald-700" : "text-red-700"}`}>{b.result.passed ? "ADOPTED" : "NOT ADOPTED"}</span> · Yes {b.result.yes} · No {b.result.no}
+                <span className={`font-black ${b.result.passed ? "text-emerald-700" : "text-red-700"}`}>{b.subject.type === "division_part" ? (b.result.passed ? "INCLUDED" : "EXCLUDED") : b.result.passed ? "ADOPTED" : "NOT ADOPTED"}</span> · Yes {b.result.yes} · No {b.result.no}
                 {b.kind === "substantive" && ` · Abstain ${b.result.abstain}`} · Did not vote {b.result.notVoted.length}
                 {b.result.notVotedOffline.length > 0 && ` (${b.result.notVotedOffline.length} offline)`}
                 <span className="block text-[10px] text-gray-400">{b.result.formula}</span>

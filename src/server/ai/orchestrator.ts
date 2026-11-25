@@ -530,7 +530,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       } else if (d.action === "propose_division" && docId && p.type === "DIVISION_PROPOSALS" && d.separateClauses.length) {
         res = await act(forumId, seat, { type: "submit_division_proposal", seat, docId, parts: d.separateClauses.map((g) => g.map((n) => n - 1)) }, { phaseId });
       }
-      await logAction(forumId, { seat, kind: "voting_motion", phaseId, ok: res ? res.ok : true, action: d.action, summary: d.rationale.slice(0, 400), model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
+      await logAction(forumId, { seat, kind: "voting_motion", phaseId, ok: res ? res.ok : true, action: d.action, summary: d.rationale.slice(0, 400), evidence: ev.chunks.map((c) => c.id), matchLevel: ev.matchLevel, model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
     }
     const s = await loadState(db, forumId);
     if (!s || s.phaseId !== phaseId) return;
