@@ -102,6 +102,8 @@ export async function createForum(db: Firestore, user: AuthedUser, raw: unknown)
           status: "lobby",
           seatCount: seats.length,
           durationMin: input.durationMin,
+          // Pinned for the life of the forum; later material uploads never change a running forum.
+          positionSetVersion: process.env.POSITION_SET_VERSION ?? "none",
           createdAtMs: now,
         });
         tx.set(db.doc(`forums/${forumId}/members/${user.uid}`), {

@@ -54,3 +54,6 @@ docs/
 *-debug.log
 .firebase/
 emulator-data/
+
+# generated audio and local runtime data (dev)
+.data/

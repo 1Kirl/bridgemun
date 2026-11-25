@@ -8,6 +8,9 @@ import type { ForumViewProps } from "@/components/forum/Lobby";
 import type { RecordEntry } from "@/engine/types";
 import { closedReason, fmtClock } from "@/lib/phaseText";
 import { ActionPanel } from "./ActionPanel";
+import { AiRationale } from "./AiRationale";
+import { AiSpeechAudio } from "./AiSpeechAudio";
+import { useSpeechRecorder } from "@/hooks/useSpeechRecorder";
 import { PhaseBar } from "./PhaseBar";
 import { BallotResults, CurrentBallot, FloorMotions, RecordFeed, SeatGrid, SpeakersList } from "./Panels";
 
@@ -23,6 +26,7 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
   const speaker = "seat" in p ? state.seats[(p as { seat: string }).seat] : null;
   const iHoldFloor = p.type === "SPEECH" && p.seat === mySeat && p.speakerKind === "human";
   const canSpeak = iHoldFloor || p.type === "UNMOD_CAUCUS";
+  const recorder = useSpeechRecorder(forumId, state, mySeat);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f1f5f9]">
@@ -86,8 +90,10 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
                     <Bot size={30} className="text-purple-200" />
                   </div>
                   <p className="text-sm text-purple-100">{p.ai.text}</p>
-                  <p className="text-[10px] text-purple-300">Captions only — AI voice (ElevenLabs) arrives in Phase 5.</p>
                 </div>
+              ) : null}
+              {p.type === "SPEECH" && p.speakerKind === "ai" ? (
+                <AiSpeechAudio forumId={forumId} state={state} now={now} />
               ) : (
                 <div className="relative h-[260px]">
                   <ZoomVideo
@@ -103,7 +109,7 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
                 </div>
               )}
             </div>
-            <ActionPanel state={state} mySeat={mySeat} actions={actions} />
+            <ActionPanel state={state} mySeat={mySeat} actions={actions} recorder={recorder} />
             {isOwner && (
               <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
                 <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">Room owner controls</p>
@@ -130,6 +136,7 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
               <SeatGrid state={state} mySeat={mySeat} />
             </div>
             <BallotResults state={state} />
+            <AiRationale forumId={forumId} state={state} positionSetVersion={meta.positionSetVersion} />
             <RecordFeed state={state} record={record} />
           </div>
         </main>

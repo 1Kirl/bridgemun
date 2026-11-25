@@ -9,13 +9,18 @@ import { allowedChoices } from "@/engine/voting";
 import { MOTION_LABEL } from "@/lib/phaseText";
 import type { useForumActions } from "@/hooks/useForumActions";
 
-type Props = { state: PublicForumState; mySeat: string; actions: ReturnType<typeof useForumActions> };
+type Props = {
+  state: PublicForumState;
+  mySeat: string;
+  actions: ReturnType<typeof useForumActions>;
+  recorder?: { status: string; detail: string };
+};
 
 const box = "rounded-2xl border border-gray-100 bg-white p-4 shadow-sm";
 const h3 = "mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800";
 
 /** "What can I do now?" — every button maps to one engine command; the server validates it. */
-export function ActionPanel({ state, mySeat, actions }: Props) {
+export function ActionPanel({ state, mySeat, actions, recorder }: Props) {
   const p = state.phase;
   const me = state.seats[mySeat];
   const present = me.attendance === "present" || me.attendance === "present_and_voting";
@@ -44,7 +49,7 @@ export function ActionPanel({ state, mySeat, actions }: Props) {
         </div>
       )}
 
-      {present && <SpeakerControls state={state} mySeat={mySeat} actions={actions} />}
+      {present && <SpeakerControls state={state} mySeat={mySeat} actions={actions} recorder={recorder} />}
       {present && p.type === "FLOOR_OPEN" && <FloorControls state={state} mySeat={mySeat} actions={actions} />}
       {present && (p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && <VoteControls state={state} mySeat={mySeat} actions={actions} />}
       {present && p.type === "MOD_CAUCUS" && (
@@ -65,7 +70,7 @@ export function ActionPanel({ state, mySeat, actions }: Props) {
   );
 }
 
-function SpeakerControls({ state, mySeat, actions }: Props) {
+function SpeakerControls({ state, mySeat, actions, recorder }: Props) {
   const p = state.phase;
   const { send, busy } = actions;
   const [text, setText] = useState("");
@@ -99,6 +104,13 @@ function SpeakerControls({ state, mySeat, actions }: Props) {
           <p className="flex items-center gap-1 text-sm font-black text-red-700">
             <Mic size={14} /> You have the floor
           </p>
+          <p className="text-xs text-red-800">
+            {recorder?.status === "recording"
+              ? "Recording your microphone for the transcript (your live audio reaches others via the video session)."
+              : recorder?.status === "unavailable"
+                ? recorder.detail
+                : "Preparing microphone…"}
+          </p>
           <Button size="sm" disabled={busy} onClick={() => void send({ type: "end_speech", seat: mySeat }, { phaseId: state.phaseId })}>
             End speech
           </Button>
@@ -110,7 +122,9 @@ function SpeakerControls({ state, mySeat, actions }: Props) {
           <p className="text-sm font-black text-amber-900">Confirm what enters the record</p>
           <p className="text-xs text-amber-800">
             {p.transcript.status === "pending"
-              ? "Automatic transcription is not connected yet in this environment (Phase 4). Type your statement, or skip."
+              ? recorder?.status === "uploading"
+                ? "Transcribing your speech… You can also type it, or skip."
+                : "Waiting for the transcript. You can type your statement instead, or skip."
               : p.transcript.status === "failed"
                 ? "Transcription failed. Type your statement, or skip."
                 : "Edit the transcript if needed, then confirm."}

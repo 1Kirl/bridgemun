@@ -1,0 +1,22 @@
+{
+  "status": "candidate — labels say accent=american (ElevenLabs API, 2026-11-25); NOT yet verified by listening",
+  "excluded": [
+    "MUN brazil – Charles / MUN brazil – Sabine: names imply a nationality",
+    "character/novelty voices (e.g. 'Fierce Warrior', 'Husky Trickster', 'Influencer', 'Quirky', 'Playful')"
+  ],
+  "pool": [
+    { "voiceId": "nPczCjzI2devNBz1zQrb", "label": "Brian", "gender": "male" },
+    { "voiceId": "XrExE9yKIg1WjnnlVkGX", "label": "Matilda", "gender": "female" },
+    { "voiceId": "pqHfZKP75CvOlQylNhV4", "label": "Bill", "gender": "male" },
+    { "voiceId": "EXAVITQu4vr4xnSDxMaL", "label": "Sarah", "gender": "female" },
+    { "voiceId": "cjVigY5qzO86Huf0OWal", "label": "Eric", "gender": "male" },
+    { "voiceId": "hpp4J3VqNfWAUOO0d1Us", "label": "Bella", "gender": "female" },
+    { "voiceId": "iP95p4xoKVk53GoZ742B", "label": "Chris", "gender": "male" },
+    { "voiceId": "kdmDKE6EkgrWrrykO9Qt", "label": "Alexandra", "gender": "female" },
+    { "voiceId": "CwhRBWXzGAHq8TQ4Fs17", "label": "Roger", "gender": "male" },
+    { "voiceId": "g6xIsTj2HwM6VR4iXFCw", "label": "Jessica Anne Bogart", "gender": "female" },
+    { "voiceId": "bIHbv24MWmeRgasZH58o", "label": "Will", "gender": "male" },
+    { "voiceId": "SAz9YHcvj6GT2YYXdXww", "label": "River", "gender": "neutral" },
+    { "voiceId": "1SM7GgM6IMuvQlz2BwM3", "label": "Mark", "gender": "male" }
+  ]
+}

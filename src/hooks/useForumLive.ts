@@ -14,6 +14,7 @@ export type ForumMeta = {
   joinCode?: string;
   status: "lobby" | "live" | "closed";
   durationMin: number;
+  positionSetVersion?: string;
 };
 
 export type Membership = { countryCode: string; role: string } | null;

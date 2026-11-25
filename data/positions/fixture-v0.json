@@ -1,0 +1,55 @@
+{
+  "version": "fixture-v0",
+  "kind": "fixture",
+  "note": "TEST FIXTURE ONLY. Invented positions for automated tests and local demos. NOT student research and NOT real government policy.",
+  "agendas": [
+    { "key": "WHO-vaccine-equity", "keywords": ["vaccine", "pandemic", "immunization"] },
+    { "key": "DISEC-autonomous-weapons", "keywords": ["autonomous", "weapons", "lethal"] }
+  ],
+  "chunks": [
+    {
+      "id": "fx-fr-vax-1",
+      "country": "fr",
+      "agenda": "WHO-vaccine-equity",
+      "subtopic": "technology transfer",
+      "title": "[FIXTURE] France on vaccine technology transfer",
+      "date": "2026-10-01",
+      "source": "fixture",
+      "location": "p1 ¶1",
+      "text": "FIXTURE: France supports voluntary technology transfer for vaccines through regional manufacturing hubs and opposes mandatory waivers of intellectual property. France will vote for texts that fund regional production and against texts that impose compulsory licensing."
+    },
+    {
+      "id": "fx-fr-vax-2",
+      "country": "fr",
+      "agenda": "WHO-vaccine-equity",
+      "subtopic": "financing",
+      "title": "[FIXTURE] France on financing",
+      "date": "2026-10-01",
+      "source": "fixture",
+      "location": "p2 ¶3",
+      "text": "FIXTURE: France backs a pooled procurement fund administered by WHO with transparent reporting."
+    },
+    {
+      "id": "fx-de-vax-1",
+      "country": "de",
+      "agenda": "WHO-vaccine-equity",
+      "subtopic": "intellectual property",
+      "title": "[FIXTURE] Germany on intellectual property",
+      "date": "2026-10-02",
+      "source": "fixture",
+      "location": "p1 ¶2",
+      "text": "FIXTURE: Germany considers patent protection essential for innovation and rejects compulsory licensing; it prefers donations and licensing agreements negotiated with manufacturers."
+    },
+    {
+      "id": "fx-jp-aws-1",
+      "country": "jp",
+      "agenda": "DISEC-autonomous-weapons",
+      "subtopic": "human control",
+      "title": "[FIXTURE] Japan on meaningful human control",
+      "date": "2026-09-15",
+      "source": "fixture",
+      "location": "p3 ¶1",
+      "text": "FIXTURE: Japan supports a political declaration requiring meaningful human control over lethal autonomous weapons and opposes a total ban on research."
+    }
+  ]
+}
