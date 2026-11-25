@@ -20,9 +20,9 @@ import {
   recordBlock,
   situation,
   SPEECH_SCHEMA,
-  SPONSOR_SCHEMA,
   SYSTEM_PROMPT,
-  VOTES_SCHEMA,
+  sponsorSchemaFor,
+  votesSchemaFor,
   type ForumContext,
 } from "@/server/ai/prompts";
 
@@ -217,12 +217,12 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
           : `SUBSTANTIVE VOTE (2/3) on amendment ${b.subject.amendmentId}: ${JSON.stringify(L.state.amendments[b.subject.amendmentId]?.op)}`;
     const blocks = seats.map((seat) => {
       const ev = retr(L, seat, subject);
-      return { seat, ev, text: `--- ${L.pub.seats[seat]?.countryName} (${seat}); allowed: ${allowedChoices(b, seat).join("/")}\n${evidenceBlock(ev)}` };
+      return { seat, ev, text: `--- seat "${seat}" = ${L.pub.seats[seat]?.countryName}; allowed: ${allowedChoices(b, seat).join("/")}\n${evidenceBlock(ev)}` };
     });
     const r = await callLlm(forumId, {
       model: cfg.models.decision,
       schemaName: "ballot_votes",
-      schema: VOTES_SCHEMA,
+      schema: votesSchemaFor(seats),
       maxOutputTokens: 300 + 120 * seats.length,
       validate: parseWith(VotesZ),
       messages: [
@@ -317,7 +317,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
     const r = await callLlm(forumId, {
       model: cfg.models.decision,
       schemaName: "sponsor_responses",
-      schema: SPONSOR_SCHEMA,
+      schema: sponsorSchemaFor(seats),
       maxOutputTokens: 120 + 100 * seats.length,
       validate: parseWith(SponsorZ),
       messages: [

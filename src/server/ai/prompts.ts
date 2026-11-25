@@ -133,3 +133,15 @@ export const SPONSOR_SCHEMA = {
     },
   },
 } as const;
+
+/** Strict schema whose `seat` field can only be one of the seat codes being decided (no free-text names). */
+export function votesSchemaFor(seats: string[]) {
+  const s = JSON.parse(JSON.stringify(VOTES_SCHEMA));
+  s.properties.votes.items.properties.seat = { type: "string", enum: seats };
+  return s as Record<string, unknown>;
+}
+export function sponsorSchemaFor(seats: string[]) {
+  const s = JSON.parse(JSON.stringify(SPONSOR_SCHEMA));
+  s.properties.responses.items.properties.seat = { type: "string", enum: seats };
+  return s as Record<string, unknown>;
+}
