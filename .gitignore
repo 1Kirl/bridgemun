@@ -43,6 +43,7 @@ next-env.d.ts
 # any other .env variant is treated as secret unless explicitly allowed below
 .env.*
 !.env.example
+!.env.project.example
 !.env.development
 
 .claude/

@@ -25,6 +25,11 @@ describe("public Firebase config guard (no fallback)", () => {
     expect(() => parseFirebasePublicConfig({ ...base, mode: "emulator", projectId: "my-proj" })).toThrow(/demo-/);
     expect(parseFirebasePublicConfig({ ...base, mode: "emulator", projectId: "demo-x" }).emulatorHost).toBe("127.0.0.1");
   });
+  it("project mode refuses emulator placeholder values (half-filled real config)", () => {
+    expect(() =>
+      parseFirebasePublicConfig({ mode: "project", projectId: "bridgemun", apiKey: "demo-api-key", authDomain: "x.firebaseapp.com", storageBucket: "b", appId: "demo-app-id" }),
+    ).toThrow(/placeholder/);
+  });
   it("project mode refuses demo- ids", () => {
     expect(() => parseFirebasePublicConfig({ ...base, mode: "project", projectId: "demo-x" })).toThrow();
   });

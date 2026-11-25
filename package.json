@@ -11,7 +11,10 @@
     "test:emu": "firebase emulators:exec --only firestore,auth,storage --project demo-bridgemun \"vitest run\"",
     "emulators": "firebase emulators:start --project demo-bridgemun",
     "typecheck": "tsc --noEmit",
-    "check:integrations": "tsx scripts/check-integrations.ts"
+    "check:integrations": "tsx scripts/check-integrations.ts",
+    "dev:project": "node scripts/with-env.mjs .env.project.local -- next dev",
+    "check:project": "node scripts/with-env.mjs .env.project.local -- tsx scripts/check-integrations.ts",
+    "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes --project bridgemun"
   },
   "dependencies": {
     "@types/jsrsasign": "^10.5.15",

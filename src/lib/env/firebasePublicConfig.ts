@@ -80,6 +80,13 @@ export function parseFirebasePublicConfig(raw: RawPublicEnv): FirebasePublicConf
   if (mode === "project" && projectId.startsWith("demo-")) {
     throw new FirebaseConfigError(`Project mode cannot use the emulator-only project id "${projectId}".`);
   }
+  if (mode === "project") {
+    // Guards against half-filled real config silently inheriting emulator placeholders from .env.development.
+    const leaked = (["apiKey", "authDomain", "storageBucket", "appId"] as const).filter((k) => String(raw[k]).includes("demo-"));
+    if (leaked.length) {
+      throw new FirebaseConfigError(`Project mode still has emulator placeholder values for: ${leaked.join(", ")}. Fill in the real web-app config.`);
+    }
+  }
   return {
     mode,
     projectId,
