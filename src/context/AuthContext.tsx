@@ -73,7 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
       displayName: name,
-      email: email,
+      // store the address as Firebase Auth normalised it (lower case), not as typed
+      email: user.email ?? email,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
