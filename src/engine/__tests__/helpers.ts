@@ -1,6 +1,6 @@
 import { expect } from "vitest";
 import { apply, createForumState, defaultSettingsBase } from "@/engine/machine";
-import type { OpenPolicies } from "@/engine/policies";
+import { APP_DEFAULT_POLICIES, type OpenPolicies } from "@/engine/policies";
 import type { Actor, Command, Effect, Expectation, ForumEngineState, Seat } from "@/engine/types";
 
 export const T0 = Date.UTC(2026, 10, 25, 9, 0, 0);
@@ -12,7 +12,7 @@ export const POLICIES_A: OpenPolicies = {
   enterVotingThreshold: "simple_majority",
   amendmentSponsorSilence: "treated_as_not_agreeing",
   sessionEnd: "close_forum",
-  noVotingQuorum: "motion_not_adopted",
+  noVotingQuorum: "record_not_held",
 };
 
 export function seats(spec: Array<[string, "human" | "ai", string?]>): Seat[] {
@@ -34,9 +34,11 @@ export function makeState(seatList: Seat[], policies: Partial<OpenPolicies> = {}
     seats: seatList,
     settings: {
       ...defaultSettingsBase(),
+      sessionDurationSec: sessionMin * 60,
       sessionStartMs: T0,
       sessionEndsAtMs: T0 + sessionMin * 60_000,
-      policies: { ...POLICIES_A, ...policies },
+      // Default = the product owner's decided app policies (D1–D7). Variant tests override explicitly.
+      policies: { ...APP_DEFAULT_POLICIES, ...policies },
     },
   });
 }

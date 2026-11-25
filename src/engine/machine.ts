@@ -27,6 +27,7 @@ import {
   tally,
 } from "@/engine/voting";
 import {
+  MIN_SEATS,
   applyAmendmentOp,
   docTextHash,
   evaluateApproval,
@@ -54,7 +55,7 @@ import type {
 
 // ── construction ─────────────────────────────────────────────────
 
-export function defaultSettingsBase(): Omit<Settings, "sessionStartMs" | "sessionEndsAtMs" | "policies"> {
+export function defaultSettingsBase(): Omit<Settings, "sessionDurationSec" | "sessionStartMs" | "sessionEndsAtMs" | "policies"> {
   return {
     speakingTimeSec: DEFAULT_SPEAKING_TIME_SEC, // rule 17 (official)
     timers: {
@@ -113,6 +114,7 @@ export function createForumState(args: {
   settings: Settings;
 }): ForumEngineState {
   assertPoliciesComplete(args.settings.policies);
+  if (args.seats.length < MIN_SEATS) throw new Error(`A forum needs at least ${MIN_SEATS} delegations (app policy)`);
   const seats: Record<SeatId, Seat> = {};
   for (const s of args.seats) {
     if (seats[s.id]) throw new Error(`Duplicate seat ${s.id}`);
@@ -305,7 +307,10 @@ function openFloor(ctx: Ctx, origin: Extract<Phase, { type: "FLOOR_OPEN" }>["ori
   // Carried motions (open decision "carry_over_to_next_window") join this window and are voted first by precedence.
   for (const id of ctx.s.carriedMotionIds) {
     const m = ctx.s.motions[id];
-    if (m && m.status === "pending") m.windowId = p.windowId;
+    if (m && m.status === "pending") {
+      m.carriedFromWindowId = m.windowId;
+      m.windowId = p.windowId; // re-validated when this window closes (D3)
+    }
   }
   ctx.s.carriedMotionIds = [];
   ctx.effects.push({ type: "ai_floor_decision_needed", windowId: p.windowId, contextSeq: ctx.s.contextSeq });
@@ -329,19 +334,44 @@ function endSpeechSlot(ctx: Ctx, id: SeatId, context: SpeechContext) {
   afterSpeech(ctx, context);
 }
 
+/**
+ * D6 (app policy, time-based simulation — NOT a motion to close debate). Only called at phase
+ * boundaries, so a running vote, its reading time or a speech in progress is never cut short.
+ */
 function sessionEnd(ctx: Ctx) {
   const pol = ctx.s.settings.policies.sessionEnd;
   if (pol === "enter_voting_if_resolutions_introduced" && ctx.s.introducedResolutionIds.length > 0 && !ctx.s.debateClosed) {
-    announce(ctx, "Session time is over. The committee moves into voting procedure.");
+    record(ctx, {
+      source: "chair",
+      substantive: true,
+      text: "Session time is over. Under the forum's time-based simulation rule (app policy, not a motion), the committee moves to final voting on the introduced resolutions.",
+    });
     return enterVotingProcedure(ctx);
   }
+  record(ctx, {
+    source: "chair",
+    substantive: true,
+    text:
+      ctx.s.introducedResolutionIds.length === 0
+        ? "Session time is over. No resolution was introduced, so no resolution was adopted."
+        : "Session time is over.",
+  });
   close(ctx, "session_time_over");
 }
 
 function close(ctx: Ctx, reason: string) {
   ctx.s.activeCaucus = null;
-  for (const m of Object.values(ctx.s.motions)) if (m.status === "pending") m.status = "obsolete";
+  for (const m of Object.values(ctx.s.motions)) {
+    if (m.status === "pending" || m.status === "voting") {
+      m.status = "obsolete";
+      m.disposition = { reason: `forum closed (${reason})`, source: "official" };
+    }
+  }
+  ctx.s.carriedMotionIds = [];
+  for (const b of Object.values(ctx.s.ballots)) if (b.status === "reading" || b.status === "open") b.status = "not_held";
+  ctx.s.speakersList = [];
   transition(ctx, { type: "CLOSED", reason });
+  ctx.effects.push({ type: "forum_closed", reason });
 }
 
 // ── motions & procedural ballots ─────────────────────────────────
@@ -388,13 +418,17 @@ function startMotionBallot(ctx: Ctx, windowId: string, queue: string[]) {
     ctx.s.ballots[ballot.id] = ballot;
     m.ballotId = ballot.id;
     if (!ballot.quorumMet) {
-      announce(ctx, `No voting quorum (${ballot.presentAtOpen}/${ballot.quorumRequired} required). Motion not voted.`);
+      record(ctx, {
+        source: "chair",
+        substantive: false,
+        text: `Vote NOT HELD on motion (${m.params.type}) by ${m.mover}: no voting quorum (${ballot.presentAtOpen} present, ${ballot.quorumRequired} required, rule 32). This is not a rejection; the motion may be moved again.`,
+      });
       if (ctx.s.settings.policies.noVotingQuorum === "motion_carried_to_next_window") {
         ctx.s.carriedMotionIds.push(motionId);
-        m.disposition = { reason: "no voting quorum; carried", source: "open_decision" };
+        m.disposition = { reason: "no voting quorum; carried", source: "app_policy" };
       } else {
         m.status = "not_held";
-        m.disposition = { reason: "no voting quorum", source: "open_decision" };
+        m.disposition = { reason: "no voting quorum — vote not held (D7)", source: "app_policy" };
       }
       queue.shift();
       continue;
@@ -554,6 +588,8 @@ function startCaucus(ctx: Ctx, c: CaucusState) {
 
 function openVolunteerWindow(ctx: Ctx) {
   transition(ctx, { type: "MOD_CAUCUS", deadlineMs: ctx.now + ctx.s.settings.timers.volunteerWindowSec * 1000, volunteers: [] });
+  const ai = aiSeats(ctx.s);
+  if (ai.length) ctx.effects.push({ type: "ai_volunteer_needed", phaseId: ctx.s.phaseId, seats: ai });
 }
 
 function continueModCaucus(ctx: Ctx) {
@@ -630,9 +666,13 @@ function nextVotingItem(ctx: Ctx) {
   const b = openBallot({ id: newId(ctx, "b"), kind: "substantive", threshold, subject, seats: ctx.s.seats, nowMs: ctx.now });
   ctx.s.ballots[b.id] = b;
   if (!b.quorumMet) {
-    announce(ctx, `No voting quorum (${b.presentAtOpen}/${b.quorumRequired}). ${item.kind} ${item.id} not voted.`);
-    if (item.kind === "resolution") ctx.s.documents[item.id].status = "failed";
-    else ctx.s.amendments[item.id].status = "failed";
+    record(ctx, {
+      source: "chair",
+      substantive: true,
+      text: `Vote NOT HELD on ${item.kind} ${item.id}: no voting quorum (${b.presentAtOpen} present, ${b.quorumRequired} required, rule 32). Not a rejection.`,
+    });
+    if (item.kind === "resolution") ctx.s.documents[item.id].status = "not_voted";
+    else ctx.s.amendments[item.id].status = "not_held";
     return nextVotingItem(ctx);
   }
   transition(ctx, {
@@ -797,7 +837,7 @@ function handleTick(ctx: Ctx) {
         schedule(ctx, p.deadlineMs);
         return;
       }
-      return resolveAmendmentResponse(ctx, false);
+      return resolveAmendmentResponse(ctx, "consent_not_obtained");
     }
     default:
       throw new Duplicate();
@@ -825,11 +865,12 @@ function toConfirm(ctx: Ctx, id: SeatId, context: SpeechContext) {
   });
 }
 
-function resolveAmendmentResponse(ctx: Ctx, allAgreed: boolean) {
+function resolveAmendmentResponse(ctx: Ctx, outcome: "all_agreed" | "objected" | "consent_not_obtained") {
   const p = ctx.s.phase as Extract<Phase, { type: "AMENDMENT_SPONSOR_RESPONSE" }>;
   const a = ctx.s.amendments[p.amendmentId];
   const doc = ctx.s.documents[a.targetDocId];
-  if (allAgreed) {
+  a.friendlyOutcome = outcome;
+  if (outcome === "all_agreed") {
     doc.operative = applyAmendmentOp(doc, a.op);
     doc.version += 1;
     doc.textHash = docTextHash(doc);
@@ -837,7 +878,11 @@ function resolveAmendmentResponse(ctx: Ctx, allAgreed: boolean) {
     record(ctx, { source: "chair", substantive: true, text: `Friendly amendment ${a.id} adopted into "${doc.title}" (now v${doc.version}).` });
   } else {
     a.status = "unfriendly_pending";
-    record(ctx, { source: "chair", substantive: true, text: `Amendment ${a.id} is unfriendly; it will be voted (2/3) in voting procedure.` });
+    const why =
+      outcome === "objected"
+        ? "a sponsor objected"
+        : "not every sponsor consented in time (no objection was recorded; app policy D5)";
+    record(ctx, { source: "chair", substantive: true, text: `Amendment ${a.id} is unfriendly because ${why}; it will be voted (2/3, rule 29) in voting procedure.` });
   }
   openFloor(ctx, "after_motions");
 }
@@ -902,11 +947,35 @@ function dispatch(ctx: Ctx, c: Command) {
   if (s.paused && !["app_resume", "connection", "tick"].includes(c.type)) reject("paused", "The app is paused");
 
   switch (c.type) {
+    case "claim_seat": {
+      // Lobby only. A human replaces the AI holding this country; one seat per user; no duplicates.
+      if (ctx.actor.kind !== "human") reject("humans_only", "Only signed-in users claim seats");
+      const uid = (ctx.actor as { uid: string }).uid;
+      if (s.joinLocked || s.phase.type !== "LOBBY") reject("join_locked", "The forum has started; new participants cannot join");
+      const st = seat(ctx, c.seat);
+      if (st.kind === "human" && st.uid === uid) throw new Duplicate();
+      if (st.kind === "human") reject("seat_taken", "Another delegate already represents this country");
+      if (Object.values(s.seats).some((x) => x.uid === uid)) reject("already_seated", "You already represent a country in this forum");
+      st.kind = "human";
+      st.uid = uid;
+      st.connection = "online";
+      return;
+    }
+    case "release_seat": {
+      const st = requireSeatActor(ctx, c.seat);
+      if (s.joinLocked || s.phase.type !== "LOBBY") reject("join_locked", "Seats are fixed once the forum has started");
+      if (st.uid === s.ownerUid) reject("owner_seat", "The room owner keeps a delegation");
+      st.kind = "ai";
+      delete st.uid;
+      return;
+    }
     case "start": {
       requireOwner(ctx);
       if (s.phase.type !== "LOBBY") throw new Duplicate();
       if (Object.keys(s.seats).length === 0) reject("no_seats", "No seats");
-      s.joinLocked = true;
+      s.joinLocked = true; // roster fixed atomically with the transition (rule: no new joiners after start)
+      s.settings.sessionStartMs = ctx.now;
+      s.settings.sessionEndsAtMs = ctx.now + s.settings.sessionDurationSec * 1000;
       transition(ctx, { type: "ROLL_CALL", deadlineMs: ctx.now + s.settings.timers.rollCallSec * 1000 });
       const ai = aiSeats(s, false);
       if (ai.length) ctx.effects.push({ type: "ai_attendance_needed", seats: ai });
@@ -1165,8 +1234,8 @@ function dispatch(ctx: Ctx, c: Command) {
       if (!doc.sponsors.includes(c.seat)) reject("sponsors_only", "Only sponsors of the resolution respond");
       if (pp.responses[c.seat]) throw new Duplicate();
       pp.responses[c.seat] = c.agree ? "agree" : "disagree";
-      if (!c.agree) return resolveAmendmentResponse(ctx, false); // rule 29: any sponsor disagreeing → unfriendly
-      if (doc.sponsors.every((sp) => pp.responses[sp] === "agree")) return resolveAmendmentResponse(ctx, true);
+      if (!c.agree) return resolveAmendmentResponse(ctx, "objected"); // rule 29: any sponsor disagreeing → unfriendly
+      if (doc.sponsors.every((sp) => pp.responses[sp] === "agree")) return resolveAmendmentResponse(ctx, "all_agreed");
       return;
     }
     case "app_pause":

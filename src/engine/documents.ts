@@ -17,6 +17,22 @@ export function docTextHash(d: Pick<DocumentState, "title" | "preambular" | "ope
   return stableHash({ t: d.title, p: d.preambular, o: d.operative });
 }
 
+/** Smallest forum size the app allows (app policy) so that sponsor/signatory rules stay satisfiable. */
+export const MIN_SEATS = 3;
+
+/**
+ * D9: thresholds are capped so they are always satisfiable with distinct delegations:
+ *   sponsors ≤ members − 1, sponsors + signatories ≤ members, amendment proposer + signatories ≤ members.
+ * With the defaults (2 sponsors, 20% signatories, 2 amendment signatories) no cap triggers from 3 seats up
+ * except where the formula itself would exceed the room (tested for 3–60 seats).
+ */
+export function effectiveDocThresholds(members: number, s: ForumEngineState["settings"]["documents"]) {
+  const sponsors = Math.max(1, Math.min(s.minSponsors, members - 1));
+  const signatories = Math.max(0, Math.min(Math.ceil(s.minSignatoryRatio * members), members - sponsors));
+  const amendmentSignatories = Math.max(0, Math.min(s.minAmendmentSignatories, members - 1));
+  return { sponsors, signatories, amendmentSignatories };
+}
+
 /**
  * Stand-in for "approval of the Director" (rule 26) — APP POLICY:
  * minimum sponsors/signatories (rule 24 numbers are Director-set → forum settings),
@@ -27,8 +43,9 @@ export function evaluateApproval(state: ForumEngineState, doc: DocumentState): {
   const reasons: string[] = [];
   if (doc.kind !== "draft_resolution") return { approved: false, reasons: ["working papers are not introduced"] };
   const members = Object.keys(state.seats).length;
-  const minSignatories = Math.ceil(s.minSignatoryRatio * members);
-  if (doc.sponsors.length < s.minSponsors) reasons.push(`needs ${s.minSponsors} sponsors`);
+  const eff = effectiveDocThresholds(members, s);
+  const minSignatories = eff.signatories;
+  if (doc.sponsors.length < eff.sponsors) reasons.push(`needs ${eff.sponsors} sponsors`);
   if (doc.signatories.length < minSignatories) reasons.push(`needs ${minSignatories} signatories`);
   if (doc.preambular.filter((x) => x.trim()).length < s.minPreambular) reasons.push(`needs ${s.minPreambular} preambular clause(s)`);
   if (doc.operative.filter((x) => x.trim()).length < s.minOperative) reasons.push(`needs ${s.minOperative} operative clauses`);

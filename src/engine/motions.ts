@@ -1,4 +1,5 @@
 import type { RuleSource } from "@/engine/ruleset/hmun-ga-2026";
+import { effectiveDocThresholds } from "@/engine/documents";
 import type { ForumEngineState, Motion, MotionParams, MotionType, Threshold } from "@/engine/types";
 
 export type MotionSpec = {
@@ -129,7 +130,7 @@ export function validateMotion(state: ForumEngineState, seat: string, p: MotionP
         return bad("target_not_introduced", "Amendments apply only to introduced resolutions", "official", "29");
       }
       if (a.targetVersion !== doc.version) return bad("stale_amendment", "Resolution text changed since drafting", "app_policy", "29");
-      if (a.signatories.length < state.settings.documents.minAmendmentSignatories) {
+      if (a.signatories.length < effectiveDocThresholds(Object.keys(state.seats).length, state.settings.documents).amendmentSignatories) {
         return bad("signatories", "Not enough signatories for this amendment", "official", "29");
       }
       return { ok: true };

@@ -1,5 +1,5 @@
 import "server-only";
-import type { Firestore } from "firebase-admin/firestore";
+import type { Firestore, Transaction } from "firebase-admin/firestore";
 import { apply } from "@/engine/machine";
 import { toPublicState } from "@/engine/publicView";
 import type { ApplyResult, CommandEnvelope, Effect, ForumEngineState } from "@/engine/types";
@@ -38,11 +38,25 @@ export async function loadState(db: Firestore, forumId: string): Promise<ForumEn
 
 export type EffectSink = (forumId: string, effects: Effect[]) => Promise<void>;
 
+export type RunOptions = {
+  now?: () => number;
+  onEffects?: EffectSink;
+  /** Extra reads/guards inside the same transaction (all reads must happen before writes). */
+  beforeApply?: (tx: Transaction, state: ForumEngineState) => Promise<void>;
+  /** Extra writes committed atomically with the new state (e.g. membership docs, forum status). */
+  afterApply?: (tx: Transaction, prev: ForumEngineState, next: ForumEngineState) => void;
+};
+
+/** Mirror of the engine phase kept on the forum document for listings ("lobby" | "live" | "closed"). */
+export function forumStatusOf(s: ForumEngineState): "lobby" | "live" | "closed" {
+  return s.phase.type === "LOBBY" ? "lobby" : s.phase.type === "CLOSED" ? "closed" : "live";
+}
+
 export async function runCommand(
   db: Firestore,
   forumId: string,
   env: CommandEnvelope,
-  opts: { now?: () => number; onEffects?: EffectSink } = {},
+  opts: RunOptions = {},
 ): Promise<ApplyResult> {
   const now = opts.now ?? Date.now;
   const result = await db.runTransaction(async (tx) => {
@@ -50,10 +64,15 @@ export async function runCommand(
     const snap = await tx.get(ref);
     if (!snap.exists) return { ok: false as const, code: "no_engine_state", message: "Forum has no engine state" };
     const state = snap.data()!.state as ForumEngineState;
+    if (opts.beforeApply) await opts.beforeApply(tx, state);
     const t = now(); // server time, taken inside the attempt so retries use a fresh clock
     const r = apply(state, env, t);
     if (!r.ok || r.duplicate) return r;
     tx.set(ref, { state: plain(r.state) });
+    if (forumStatusOf(state) !== forumStatusOf(r.state)) {
+      tx.set(db.doc(`forums/${forumId}`), { status: forumStatusOf(r.state), statusChangedAtMs: t }, { merge: true });
+    }
+    opts.afterApply?.(tx, state, r.state);
     tx.set(db.doc(publicPath(forumId)), { state: plain(toPublicState(r.state)), updatedAtMs: t });
     for (const ev of r.events) tx.set(db.doc(`forums/${forumId}/events/${pad(ev.seq)}`), plain(ev));
     for (const ef of r.effects) {

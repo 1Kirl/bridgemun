@@ -289,7 +289,8 @@ describe("ballots: versioning, idempotency, early close, disconnects", () => {
     const r = sim.s.ballots[ballotId].result!;
     expect(r.eligibleCount).toBe(5);
     expect(r.notVotedOffline).toEqual(["gb"]);
-    expect(r).toMatchObject({ yes: 1, no: 0, passed: true }); // rule-35 formula under policy record_not_voting
+    // D1: procedural vote needs Yes from more than half of the 5 fixed eligible seats → 1 Yes fails.
+    expect(r).toMatchObject({ yes: 1, no: 0, passed: false });
   });
 
   it("policy extend_once: one extension for non-voters, then close", () => {

@@ -61,6 +61,8 @@ export type Settings = {
     maxResolutions: number;
     minAmendmentSignatories: number;
   };
+  /** Planned meeting length; the clock starts when the room owner starts the forum. */
+  sessionDurationSec: number;
   sessionStartMs: number;
   sessionEndsAtMs: number;
   policies: OpenPolicies;
@@ -103,6 +105,8 @@ export type Motion = {
   contentKey: string;
   status: "pending" | "voting" | "adopted" | "rejected" | "lapsed" | "obsolete" | "not_held";
   disposition?: { reason: string; source: string };
+  /** Set when the motion was carried over from an earlier floor window (D3). */
+  carriedFromWindowId?: string;
   ballotId?: string;
 };
 
@@ -159,7 +163,8 @@ export type DocumentState = {
   operative: string[];
   version: number;
   textHash: string;
-  status: "draft" | "approved" | "introduced" | "adopted" | "failed";
+  /** not_voted = voting quorum missing (D7); never displayed as rejected. */
+  status: "draft" | "approved" | "introduced" | "adopted" | "failed" | "not_voted";
   submittedBy: SeatId;
   submittedAtMs: number;
 };
@@ -177,7 +182,9 @@ export type Amendment = {
   proposer: SeatId;
   signatories: SeatId[];
   textHash: string;
-  status: "draft" | "awaiting_sponsors" | "friendly_adopted" | "unfriendly_pending" | "adopted" | "failed";
+  status: "draft" | "awaiting_sponsors" | "friendly_adopted" | "unfriendly_pending" | "adopted" | "failed" | "not_held";
+  /** D5: distinguishes an explicit objection from silence. */
+  friendlyOutcome?: "all_agreed" | "objected" | "consent_not_obtained";
 };
 
 // ── Record (context for AI) ───────────────────────────────────────
@@ -316,6 +323,8 @@ export type ForumEngineState = {
 export type Actor = { kind: "human"; uid: string } | { kind: "ai"; seat: SeatId } | { kind: "system" };
 
 export type Command =
+  | { type: "claim_seat"; seat: SeatId }
+  | { type: "release_seat"; seat: SeatId }
   | { type: "start" }
   | { type: "declare_attendance"; seat: SeatId; value: "present" | "present_and_voting" }
   | { type: "add_to_speakers_list"; seat: SeatId }
@@ -373,8 +382,10 @@ export type Effect =
   | { type: "ai_vote_needed"; ballotId: string; seats: SeatId[] }
   | { type: "ai_attendance_needed"; seats: SeatId[] }
   | { type: "ai_sponsor_response_needed"; amendmentId: string; seats: SeatId[] }
+  | { type: "ai_volunteer_needed"; phaseId: string; seats: SeatId[] }
   | { type: "transcription_expected"; seat: SeatId; phaseId: string }
-  | { type: "announce"; text: string };
+  | { type: "announce"; text: string }
+  | { type: "forum_closed"; reason: string };
 
 export type EngineEvent = { seq: number; atMs: number; actor: Actor; command: Command["type"]; summary: string };
 
