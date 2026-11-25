@@ -161,7 +161,7 @@ function TextSpeech({ text, setText, label, onSubmit, busy }: { text: string; se
   );
 }
 
-const MOTION_CHOICES: MotionType[] = ["mod_caucus", "unmod_caucus", "extend_caucus", "set_speaking_time", "suspend", "adjourn", "introduce_resolution", "enter_voting"];
+const MOTION_CHOICES: MotionType[] = ["mod_caucus", "unmod_caucus", "extend_caucus", "set_speaking_time", "suspend", "adjourn", "introduce_resolution", "introduce_amendment", "enter_voting"];
 
 function FloorControls({ state, mySeat, actions }: Props) {
   const p = state.phase as Extract<Phase, { type: "FLOOR_OPEN" }>;
@@ -171,6 +171,8 @@ function FloorControls({ state, mySeat, actions }: Props) {
   const [speakingSec, setSpeakingSec] = useState(60);
   const [totalMin, setTotalMin] = useState(5);
   const [durMin, setDurMin] = useState(2);
+  const draftAmendments = Object.values(state.amendments).filter((a) => a.status === "draft");
+  const [amendmentId, setAmendmentId] = useState("");
   const ready = p.readySeats.includes(mySeat);
 
   const params = (): MotionParams => {
@@ -184,6 +186,8 @@ function FloorControls({ state, mySeat, actions }: Props) {
         return { type, durationSec: durMin * 60 };
       case "set_speaking_time":
         return { type, speakingSec };
+      case "introduce_amendment":
+        return { type, amendmentId: amendmentId || draftAmendments[0]?.id || "" };
       case "adjourn":
       case "introduce_resolution":
       case "enter_voting":
@@ -203,6 +207,16 @@ function FloorControls({ state, mySeat, actions }: Props) {
           </option>
         ))}
       </select>
+      {type === "introduce_amendment" && (
+        <select value={amendmentId} onChange={(e) => setAmendmentId(e.target.value)} className="w-full rounded-lg border border-gray-200 p-2 text-sm">
+          {draftAmendments.length === 0 && <option value="">No amendment drafted yet (see Documents)</option>}
+          {draftAmendments.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.id} → {state.documents[a.targetDocId]?.title} ({a.op.kind} clause {a.op.clauseIndex + 1}, {a.signatories.length} signatories)
+            </option>
+          ))}
+        </select>
+      )}
       {type === "mod_caucus" && <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic" className="w-full rounded-lg border border-gray-200 p-2 text-sm" />}
       {(type === "mod_caucus" || type === "set_speaking_time") && (
         <label className="flex items-center gap-2 text-xs text-gray-600">

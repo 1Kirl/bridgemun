@@ -19,6 +19,7 @@ import {
   motionText,
   recordBlock,
   situation,
+  CAUCUS_WORK_SCHEMA,
   SPEECH_SCHEMA,
   SYSTEM_PROMPT,
   sponsorSchemaFor,
@@ -57,7 +58,12 @@ export type OrchestratorConfig = {
 const FloorZ = z.object({
   action: z.enum(["pass", "request_floor", "move_motion"]),
   motion: z
-    .object({ type: z.enum(["mod_caucus", "unmod_caucus", "set_speaking_time"]), topic: z.string(), speakingSec: z.number().int(), totalSec: z.number().int() })
+    .object({
+      type: z.enum(["mod_caucus", "unmod_caucus", "set_speaking_time", "introduce_resolution", "enter_voting"]),
+      topic: z.string(),
+      speakingSec: z.number().int(),
+      totalSec: z.number().int(),
+    })
     .nullable(),
   rationale: z.string().max(2000),
   evidenceIds: z.array(z.string()).max(10),
@@ -66,6 +72,13 @@ const VotesZ = z.object({
   votes: z.array(z.object({ seat: z.string(), choice: z.enum(["yes", "no", "abstain"]), rationale: z.string().max(2000), evidenceIds: z.array(z.string()).max(10) })),
 });
 const SpeechZ = z.object({ text: z.string().min(1).max(4000), rationale: z.string().max(2000), evidenceIds: z.array(z.string()).max(10) });
+const CaucusZ = z.object({
+  action: z.enum(["nothing", "sponsor", "sign", "submit_draft"]),
+  docId: z.string().nullable(),
+  draft: z.object({ title: z.string(), preambular: z.array(z.string()), operative: z.array(z.string()) }).nullable(),
+  rationale: z.string().max(2000),
+  evidenceIds: z.array(z.string()).max(10),
+});
 const SponsorZ = z.object({ responses: z.array(z.object({ seat: z.string(), agree: z.boolean(), rationale: z.string().max(2000) })) });
 
 const parseWith = <T,>(schema: z.ZodType<T>) => (x: unknown) => {
@@ -183,7 +196,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
               situation(L.ctx, L.pub, seat),
               evidenceBlock(ev),
               recordBlock(L.record, L.pub),
-              `THE FLOOR IS OPEN. Choose ONE: "pass"; "request_floor" (join the speakers' list to make a statement); or "move_motion" with a moderated caucus (topic, speakingSec 30-90, totalSec 180-600), unmoderated caucus (totalSec 180-600) or set_speaking_time (speakingSec 30-120). Prefer pass unless it clearly serves your country's goals. Motions are procedural.`,
+              `THE FLOOR IS OPEN. Choose ONE: "pass"; "request_floor" (join the speakers' list to make a statement); or "move_motion" with a moderated caucus (topic, speakingSec 30-90, totalSec 180-600), unmoderated caucus (totalSec 180-600; lets delegations draft and sign resolutions), set_speaking_time (speakingSec 30-120), introduce_resolution (only if an APPROVED draft exists) or enter_voting (only if resolutions were introduced and debate has been sufficient). Prefer pass unless it clearly serves your country's goals. Motions are procedural; unused numeric fields may be 0.`,
             ].join("\n\n"),
           },
         ],
@@ -195,12 +208,15 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       const d = r.data;
       if (d.action === "request_floor") await act(forumId, seat, { type: "add_to_speakers_list", seat });
       if (d.action === "move_motion" && d.motion) {
+        const m = d.motion;
         const p: MotionParams =
-          d.motion.type === "mod_caucus"
-            ? { type: "mod_caucus", topic: d.motion.topic.slice(0, 120) || "Key concerns", speakingSec: d.motion.speakingSec, totalSec: d.motion.totalSec }
-            : d.motion.type === "unmod_caucus"
-              ? { type: "unmod_caucus", totalSec: d.motion.totalSec }
-              : { type: "set_speaking_time", speakingSec: d.motion.speakingSec };
+          m.type === "mod_caucus"
+            ? { type: "mod_caucus", topic: m.topic.slice(0, 120) || "Key concerns", speakingSec: m.speakingSec, totalSec: m.totalSec }
+            : m.type === "unmod_caucus"
+              ? { type: "unmod_caucus", totalSec: m.totalSec }
+              : m.type === "set_speaking_time"
+                ? { type: "set_speaking_time", speakingSec: m.speakingSec }
+                : { type: m.type };
         const res = await act(forumId, seat, { type: "submit_motion", seat, params: p }, { phaseId: windowId });
         if (!res.ok) await logAction(forumId, { seat, kind: "floor", windowId, ok: false, error: `engine_rejected:${res.code}` });
       }
@@ -317,6 +333,62 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
     if (!res.ok && res.code === "stale_context" && attempt === 0) return onSpeech(forumId, seat, contextSeq, maxWords, 1); // regenerate once on new context
   }
 
+  // ── unmoderated caucus: sponsor/sign/draft documents ─────────────
+  async function onCaucusWork(forumId: string, phaseId: string, seats: string[]) {
+    const L = await load(forumId);
+    if (!L || !shouldAct(L.state) || L.state.phaseId !== phaseId) return;
+    const start = parseInt(stableHash(phaseId).slice(0, 8), 16);
+    const consult = seats.map((_, i) => seats[(start + i) % seats.length]).slice(0, cfg.floorConsultPerWindow + 1);
+    for (const seat of consult) {
+      const fresh = await loadState(db, forumId);
+      if (!fresh || fresh.phaseId !== phaseId) return;
+      const pub = toPublicState(fresh);
+      const docs = Object.values(fresh.documents).filter((d) => d.status === "draft" || d.status === "approved");
+      const ev = retr(L, seat, `${L.ctx.agenda} resolution draft`);
+      const docList = docs.length
+        ? docs.map((d) => `- ${d.id} "${d.title}" (${d.status}; sponsors ${d.sponsors.join(",")}; signatories ${d.signatories.join(",")})\n${docText(fresh, d.id)}`).join("\n")
+        : "(no drafts yet)";
+      const r = await callLlm(forumId, {
+        model: cfg.models.speech,
+        schemaName: "caucus_work",
+        schema: CAUCUS_WORK_SCHEMA,
+        maxOutputTokens: 900,
+        validate: parseWith(CaucusZ),
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
+              situation(L.ctx, pub, seat),
+              evidenceBlock(ev),
+              `UNMODERATED CAUCUS. Draft resolutions on the floor:\n${docList}`,
+              `Choose ONE: "nothing"; "sponsor" or "sign" an existing draft (docId) only if it fits your position (signing means it deserves debate, not support); or "submit_draft" with a short draft (title, 1-3 preambular clauses, 2-4 operative clauses beginning with a verb) if no existing draft reflects your country's priorities.`,
+            ].join("\n\n"),
+          },
+        ],
+      });
+      if (!r.ok) {
+        await logAction(forumId, { seat, kind: "caucus", ok: false, error: r.error });
+        continue;
+      }
+      const d = r.data;
+      let res: Awaited<ReturnType<typeof act>> | null = null;
+      if ((d.action === "sponsor" || d.action === "sign") && d.docId && fresh.documents[d.docId]) {
+        res = await act(forumId, seat, { type: "sign_document", seat, docId: d.docId, role: d.action === "sponsor" ? "sponsor" : "signatory" });
+      } else if (d.action === "submit_draft" && d.draft && d.draft.operative.length) {
+        res = await act(forumId, seat, {
+          type: "submit_document",
+          seat,
+          kind: "draft_resolution",
+          title: d.draft.title.slice(0, 120),
+          preambular: d.draft.preambular.slice(0, 5).map((x) => x.slice(0, 600)),
+          operative: d.draft.operative.slice(0, 8).map((x) => x.slice(0, 800)),
+        });
+      }
+      await logAction(forumId, { seat, kind: "caucus", ok: res ? res.ok : true, action: d.action, docId: d.docId ?? null, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds.filter((id) => ev.chunks.some((c) => c.id === id)), matchLevel: ev.matchLevel, model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
+    }
+  }
+
   async function onSponsor(forumId: string, amendmentId: string, seats: string[]) {
     const L = await load(forumId);
     if (!L || !shouldAct(L.state)) return;
@@ -371,6 +443,9 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
               await act(forumId, pick, { type: "volunteer", seat: pick }, { phaseId: e.phaseId });
             }
           });
+          break;
+        case "ai_caucus_work_needed":
+          enqueue(forumId, `caucus:${forumId}:${e.phaseId}`, () => onCaucusWork(forumId, e.phaseId, e.seats));
           break;
         case "ai_sponsor_response_needed":
           enqueue(forumId, `sponsor:${forumId}:${e.amendmentId}`, () => onSponsor(forumId, e.amendmentId, e.seats));

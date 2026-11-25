@@ -581,6 +581,8 @@ function startCaucus(ctx: Ctx, c: CaucusState) {
   ctx.s.activeCaucus = c;
   if (c.kind === "unmod") {
     transition(ctx, { type: "UNMOD_CAUCUS", deadlineMs: ctx.now + c.totalSec * 1000, readySeats: [] });
+    const ai = aiSeats(ctx.s);
+    if (ai.length) ctx.effects.push({ type: "ai_caucus_work_needed", phaseId: ctx.s.phaseId, seats: ai });
   } else {
     openVolunteerWindow(ctx);
   }

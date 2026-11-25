@@ -127,9 +127,25 @@ function BallotSubject({ state, b }: { state: PublicForumState; b: PublicBallot 
   }
   if (b.subject.type === "resolution") {
     const d = state.documents[b.subject.docId];
-    return <p className="text-sm font-bold text-gray-800">Resolution “{d?.title}” v{b.subject.version} (text locked)</p>;
+    return (
+      <div>
+        <p className="text-sm font-bold text-gray-800">Resolution “{d?.title}” v{b.subject.version} (text locked for this vote)</p>
+        {b.status !== "closed" && d && (
+          <div className="mt-1 space-y-0.5 rounded-lg bg-gray-50 p-2 text-xs text-gray-700">
+            {d.preambular.map((x, i) => <p key={`p${i}`} className="italic">{x}</p>)}
+            {d.operative.map((x, i) => <p key={`o${i}`}><b>{i + 1}.</b> {x}</p>)}
+          </div>
+        )}
+      </div>
+    );
   }
-  return <p className="text-sm font-bold text-gray-800">Amendment {b.subject.amendmentId} (2/3 required)</p>;
+  const a = state.amendments[b.subject.amendmentId];
+  return (
+    <p className="text-sm font-bold text-gray-800">
+      Amendment {b.subject.amendmentId} to “{a ? state.documents[a.targetDocId]?.title : ""}” — {a?.op.kind} clause {a ? a.op.clauseIndex + 1 : ""}
+      {a && "text" in a.op ? `: “${a.op.text}”` : ""} (2/3 required, rule 29)
+    </p>
+  );
 }
 
 export function BallotResults({ state }: { state: PublicForumState }) {
@@ -155,6 +171,20 @@ export function BallotResults({ state }: { state: PublicForumState }) {
                 <span className="block text-[10px] text-gray-400">{b.result.formula}</span>
               </p>
             ) : null}
+            {b.votes && (
+              <details className="mt-1">
+                <summary className="cursor-pointer text-[10px] font-bold text-gray-500">Votes by country</summary>
+                <div className="mt-1 grid grid-cols-2 gap-x-3 text-[11px]">
+                  {Object.keys(b.eligible)
+                    .sort((x, y) => (state.seats[x]?.countryName ?? x).localeCompare(state.seats[y]?.countryName ?? y))
+                    .map((s) => (
+                      <span key={s}>
+                        {state.seats[s]?.countryName}: <b>{b.votes?.[s] ?? (b.connectionAtClose?.[s] === "offline" ? "did not vote (offline)" : "did not vote")}</b>
+                      </span>
+                    ))}
+                </div>
+              </details>
+            )}
           </li>
         ))}
       </ul>

@@ -71,7 +71,7 @@ export const FLOOR_SCHEMA = {
           additionalProperties: false,
           required: ["type", "topic", "speakingSec", "totalSec"],
           properties: {
-            type: { type: "string", enum: ["mod_caucus", "unmod_caucus", "set_speaking_time"] },
+            type: { type: "string", enum: ["mod_caucus", "unmod_caucus", "set_speaking_time", "introduce_resolution", "enter_voting"] },
             topic: { type: "string" },
             speakingSec: { type: "integer" },
             totalSec: { type: "integer" },
@@ -145,3 +145,30 @@ export function sponsorSchemaFor(seats: string[]) {
   s.properties.responses.items.properties.seat = { type: "string", enum: seats };
   return s as Record<string, unknown>;
 }
+
+export const CAUCUS_WORK_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["action", "docId", "draft", "rationale", "evidenceIds"],
+  properties: {
+    action: { type: "string", enum: ["nothing", "sponsor", "sign", "submit_draft"] },
+    docId: { type: ["string", "null"] },
+    draft: {
+      anyOf: [
+        { type: "null" },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "preambular", "operative"],
+          properties: {
+            title: { type: "string" },
+            preambular: { type: "array", items: { type: "string" } },
+            operative: { type: "array", items: { type: "string" } },
+          },
+        },
+      ],
+    },
+    rationale: { type: "string" },
+    evidenceIds: { type: "array", items: { type: "string" } },
+  },
+} as const;

@@ -222,4 +222,36 @@ describe.skipIf(!onEmulator)("Phase 4–5 server pieces on the emulator (mock pr
     await new Promise((r) => setTimeout(r, 500));
     expect(llm.calls.length).toBe(n);
   });
+
+  it("unmoderated caucus: AI delegations draft and sign a resolution through the engine until it is approved", async () => {
+    const { rt, forumId } = await setup({
+      script: (name, m) => {
+        if (name === "floor_decision") return { action: "pass", motion: null, rationale: "", evidenceIds: [] };
+        if (name === "ballot_votes") return { votes: [{ seat: "fr", choice: "yes", rationale: "", evidenceIds: [] }, { seat: "de", choice: "yes", rationale: "", evidenceIds: [] }, { seat: "jp", choice: "yes", rationale: "", evidenceIds: [] }] };
+        if (name === "caucus_work") {
+          const t = allText(m);
+          const you = /YOU ARE: [^(]+\((\w\w)\)/.exec(t)?.[1];
+          const draftId = /- (d\d+) "/.exec(t)?.[1] ?? null;
+          if (!draftId) return { action: "submit_draft", docId: null, draft: { title: "Regional Vaccine Hubs", preambular: ["Recognizing unequal access,"], operative: ["Establishes regional hubs;", "Requests annual reports."] }, rationale: `${you} drafts`, evidenceIds: ["fx-fr-vax-1"] };
+          return { action: you === "de" ? "sponsor" : "sign", docId: draftId, draft: null, rationale: "fits", evidenceIds: [] };
+        }
+        return new Error("unexpected");
+      },
+    });
+    await userCommand(db, U("u2"), forumId, { command: { type: "submit_motion", seat: "gb", params: { type: "unmod_caucus", totalSec: 300 } } }, rt.sink);
+    await userCommand(db, U("owner"), forumId, { command: { type: "floor_pass", seat: "us" } }, rt.sink);
+    await userCommand(db, U("u2"), forumId, { command: { type: "floor_pass", seat: "gb" } }, rt.sink);
+    let s = await until(db, forumId, (x) => x.phase.type === "MOTION_VOTE");
+    await advanceIfDue(db, forumId, rt.sink, () => (s.phase as { deadlineMs: number }).deadlineMs + 1);
+    const bid = ((await loadState(db, forumId))!.phase as { ballotId: string }).ballotId;
+    await userCommand(db, U("owner"), forumId, { command: { type: "cast_vote", seat: "us", ballotId: bid, choice: "yes" } }, rt.sink);
+    await userCommand(db, U("u2"), forumId, { command: { type: "cast_vote", seat: "gb", ballotId: bid, choice: "yes" } }, rt.sink);
+    s = await until(db, forumId, (x) => x.phase.type === "UNMOD_CAUCUS", 10000);
+    s = await until(db, forumId, (x) => Object.values(x.documents).some((d) => d.status === "approved"), 12000);
+    const d = Object.values(s.documents)[0];
+    expect(d.sponsors.length).toBeGreaterThanOrEqual(2);
+    expect(d.title).toBe("Regional Vaccine Hubs");
+    const log = await db.collection(`forums/${forumId}/aiActions`).where("kind", "==", "caucus").get();
+    expect(log.size).toBeGreaterThanOrEqual(2);
+  });
 });

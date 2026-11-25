@@ -383,6 +383,7 @@ export type Effect =
   | { type: "ai_attendance_needed"; seats: SeatId[] }
   | { type: "ai_sponsor_response_needed"; amendmentId: string; seats: SeatId[] }
   | { type: "ai_volunteer_needed"; phaseId: string; seats: SeatId[] }
+  | { type: "ai_caucus_work_needed"; phaseId: string; seats: SeatId[] }
   | { type: "transcription_expected"; seat: SeatId; phaseId: string }
   | { type: "announce"; text: string }
   | { type: "forum_closed"; reason: string };

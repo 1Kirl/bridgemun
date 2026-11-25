@@ -9,6 +9,7 @@ import type { RecordEntry } from "@/engine/types";
 import { closedReason, fmtClock } from "@/lib/phaseText";
 import { ActionPanel } from "./ActionPanel";
 import { AiRationale } from "./AiRationale";
+import { DocumentsPanel } from "./DocumentsPanel";
 import { AiSpeechAudio } from "./AiSpeechAudio";
 import { useSpeechRecorder } from "@/hooks/useSpeechRecorder";
 import { PhaseBar } from "./PhaseBar";
@@ -65,6 +66,7 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
                 ))}
             </ul>
           </div>
+          <DocumentsPanel state={state} mySeat={mySeat} actions={actions} />
           <BallotResults state={state} />
           <RecordFeed state={state} record={record} />
         </main>
@@ -135,6 +137,7 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
               <SpeakersList state={state} />
               <SeatGrid state={state} mySeat={mySeat} />
             </div>
+            <DocumentsPanel state={state} mySeat={mySeat} actions={actions} />
             <BallotResults state={state} />
             <AiRationale forumId={forumId} state={state} positionSetVersion={meta.positionSetVersion} />
             <RecordFeed state={state} record={record} />

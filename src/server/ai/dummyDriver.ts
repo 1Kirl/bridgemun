@@ -92,6 +92,21 @@ export function createDummyAiDriver(db: Firestore, getSink: () => EffectSink, de
             await act(forumId, pick, { type: "volunteer", seat: pick }, { phaseId: e.phaseId });
           });
           break;
+        case "ai_caucus_work_needed":
+          // Dummy: every AI signs (as signatory) each open draft it is not already on.
+          later(async () => {
+            const s = await loadState(db, forumId);
+            if (!s || s.phaseId !== e.phaseId) return;
+            for (const d of Object.values(s.documents)) {
+              if (d.status !== "draft" && d.status !== "approved") continue;
+              for (const seat of e.seats) {
+                if (!d.sponsors.includes(seat) && !d.signatories.includes(seat)) {
+                  await act(forumId, seat, { type: "sign_document", seat, docId: d.id, role: "signatory" });
+                }
+              }
+            }
+          }, 3000);
+          break;
         case "ai_sponsor_response_needed":
           for (const seat of e.seats) later(() => act(forumId, seat, { type: "sponsor_response", seat, amendmentId: e.amendmentId, agree: true }));
           break;
