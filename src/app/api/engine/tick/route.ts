@@ -1,11 +1,30 @@
+import { NextResponse, type NextRequest } from "next/server";
 import { HttpError, withErrors } from "@/server/auth";
+import { advanceIfDue } from "@/server/forums/service";
+import { getRuntime } from "@/server/runtime";
+import { verifyQstashSignature } from "@/server/scheduler/qstashVerify";
 
 /**
- * Scheduler callback for the QStash driver — DELIBERATELY DISABLED.
- * It will be enabled together with QStash request-signature verification and a real QStash
- * connection (deployment step). Until then it refuses every call so nobody can drive forums from
- * outside. Local development uses the in-process scheduler plus the member "nudge" fallback.
+ * QStash scheduler callback. Enabled only with SCHEDULER_DRIVER=qstash, APP_BASE_URL and both signing
+ * keys; every request must carry a valid Upstash signature for exactly this URL and body. It can only
+ * apply a deadline that has already passed by server time (same idempotent path as everything else).
  */
-export const POST = withErrors(async () => {
-  throw new HttpError(404, "not_enabled");
+export const POST = withErrors(async (req: NextRequest) => {
+  const env = process.env;
+  if (env.SCHEDULER_DRIVER !== "qstash" || !env.APP_BASE_URL || !env.QSTASH_CURRENT_SIGNING_KEY || !env.QSTASH_NEXT_SIGNING_KEY) {
+    throw new HttpError(404, "not_enabled");
+  }
+  const body = await req.text();
+  const url = `${env.APP_BASE_URL.replace(/\/$/, "")}/api/engine/tick`;
+  const v = verifyQstashSignature({
+    signature: req.headers.get("upstash-signature"),
+    body,
+    url,
+    keys: [env.QSTASH_CURRENT_SIGNING_KEY, env.QSTASH_NEXT_SIGNING_KEY],
+  });
+  if (!v.ok) throw new HttpError(401, "bad_signature", v.reason);
+  const job = JSON.parse(body || "{}") as { forumId?: string };
+  if (!job.forumId || !/^[A-Za-z0-9_-]{1,64}$/.test(job.forumId)) throw new HttpError(400, "bad_job");
+  const rt = getRuntime();
+  return NextResponse.json(await advanceIfDue(rt.db, job.forumId, rt.sink));
 });
