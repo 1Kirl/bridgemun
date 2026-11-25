@@ -1,12 +1,16 @@
 import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { Firestore } from "firebase-admin/firestore";
 
 /**
  * Where generated AI speech audio lives. Clients fetch it through an authenticated, membership-checked
  * route, never directly.
  *  - LocalFsAudioStore: development/testing (files under .data/audio, git-ignored)
- *  - Firebase Storage: production option, NOT implemented yet (needs the Blaze plan decision, D8)
+ *  - FirestoreChunkAudioStore: opt-in production option without a new plan (AUDIO_STORE=firestore);
+ *    bytes are split into ≤ 700 KB base64-free Blob chunks under forums/{id}/audio/{audioId}/chunks.
+ *    Uses the project's existing Firestore quota; NOT enabled by default (owner decision).
+ *  - Firebase Storage: alternative, NOT implemented (default buckets require the Blaze plan)
  */
 export interface AudioStore {
   readonly name: string;
@@ -46,5 +50,37 @@ export class MemoryAudioStore implements AudioStore {
   }
   async get(forumId: string, audioId: string) {
     return this.items.get(`${forumId}/${audioId}`) ?? null;
+  }
+}
+
+/** Firestore documents are limited to 1 MiB; chunks stay well below. */
+export const AUDIO_CHUNK_BYTES = 700 * 1024;
+export const MAX_AUDIO_STORE_BYTES = 8 * 1024 * 1024;
+
+export class FirestoreChunkAudioStore implements AudioStore {
+  readonly name = "firestore-chunks";
+  constructor(private db: Firestore) {}
+  async put(forumId: string, audioId: string, bytes: Uint8Array, mime: string) {
+    if (!safe(forumId) || !safe(audioId)) throw new Error("bad id");
+    if (bytes.byteLength > MAX_AUDIO_STORE_BYTES) throw new Error("audio too large");
+    const base = this.db.doc(`forums/${forumId}/audio/${audioId}`);
+    const n = Math.max(1, Math.ceil(bytes.byteLength / AUDIO_CHUNK_BYTES));
+    const batch = this.db.batch();
+    for (let i = 0; i < n; i++) {
+      batch.set(base.collection("chunks").doc(String(i).padStart(3, "0")), { i, data: Buffer.from(bytes.subarray(i * AUDIO_CHUNK_BYTES, (i + 1) * AUDIO_CHUNK_BYTES)) });
+    }
+    batch.set(base, { mime, bytes: bytes.byteLength, chunks: n, createdAtMs: Date.now() }); // written last in the same batch
+    await batch.commit();
+  }
+  async get(forumId: string, audioId: string) {
+    if (!safe(forumId) || !safe(audioId)) return null;
+    const base = this.db.doc(`forums/${forumId}/audio/${audioId}`);
+    const meta = await base.get();
+    if (!meta.exists) return null;
+    const m = meta.data() as { mime: string; chunks: number; bytes: number };
+    const snap = await base.collection("chunks").orderBy("i").get();
+    if (snap.size !== m.chunks) return null;
+    const out = Buffer.concat(snap.docs.map((d) => Buffer.from(d.data().data as Uint8Array)));
+    return out.byteLength === m.bytes ? { bytes: new Uint8Array(out), mime: m.mime } : null;
   }
 }

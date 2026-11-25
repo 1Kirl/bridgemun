@@ -8,7 +8,7 @@ import type { EffectSink } from "@/server/engine/store";
 import { adminDb } from "@/server/firebaseAdmin";
 import { advanceIfDue } from "@/server/forums/service";
 import { createScheduler, type Scheduler } from "@/server/scheduler";
-import { LocalFsAudioStore, type AudioStore } from "@/server/speech/audioStore";
+import { FirestoreChunkAudioStore, LocalFsAudioStore, type AudioStore } from "@/server/speech/audioStore";
 import { ElevenLabsTts, MockStt, MockTts, OpenAIStt, type SttProvider, type TtsProvider } from "@/server/speech/providers";
 import { readCaps, type Caps } from "@/server/usage/budget";
 
@@ -54,7 +54,15 @@ export function buildRuntime(db: Firestore, env: Record<string, string | undefin
   });
   const caps = readCaps(env);
 
-  const audioStore: AudioStore | null = over.audioStore !== undefined ? over.audioStore : prod ? null : new LocalFsAudioStore();
+  // AUDIO_STORE: "local" (dev default) | "firestore" (opt-in, existing Firestore quota) | unset in production = none (captions only).
+  const audioStore: AudioStore | null =
+    over.audioStore !== undefined
+      ? over.audioStore
+      : env.AUDIO_STORE === "firestore"
+        ? new FirestoreChunkAudioStore(db)
+        : prod
+          ? null
+          : new LocalFsAudioStore();
   const ttsName = env.TTS_PROVIDER ?? "none";
   let tts: TtsProvider | null = null;
   if (over.tts !== undefined) tts = over.tts;

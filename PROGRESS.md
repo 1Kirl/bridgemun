@@ -1,6 +1,8 @@
 # BridgeMUN — progress record
 
-Last updated: 2026-11-25. Repository: github.com/1Kirl/bridgemun (private). Production: https://bridgemun.vercel.app (Firebase project `bridgemun`, Firestore asia-northeast3, Vercel region icn1).
+Last updated: 2026-11-25 (second autonomous session). Repository: github.com/1Kirl/bridgemun (private, branch `main`).
+Production: https://bridgemun.vercel.app — Vercel project `1kirl/bridgemun` (Git-connected, production branch `main`,
+auto-deploy on push, region icn1) · Firebase project `bridgemun` (Firestore asia-northeast3).
 
 Status legend — **real**: verified against the real external service · **mock**: verified with test doubles / emulator only · **unverified**: not yet verified.
 
@@ -8,44 +10,78 @@ Status legend — **real**: verified against the real external service · **mock
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Separation from the previous developer's environment, server auth, rules | done — local/emulator; rules deployed to `bridgemun` (real) |
-| 1 | HMUN GA rules engine + automatic-chair state machine, store, scheduler interface | done — automated tests |
-| 2 | Create / join by code / waiting room, atomic seats, start lock, reconnect | done — emulator + 2-browser checks |
-| 3 | Meeting loop UI, timers, pause/extend, deadline recovery | done — emulator + browser; QStash deadlines on production (real) |
-| 4 | Speaker recording → OpenAI transcription → confirmation → record → AI context | server path real (OpenAI); in-browser microphone capture unverified |
-| 5 | OpenAI autonomous AI (floor/votes/speeches/caucus documents/sponsor), ElevenLabs TTS, position materials interface | real locally (OpenAI + ElevenLabs); production TTS storage not configured (captions only in production) |
-| 6 | Documents (draft/edit/sponsor/sign), amendments, sponsor responses, final voting, results | done — engine + UI; real-AI run in progress record below |
-| 7 | Real position materials | waiting for the materials file (fixture only) |
+| 0 | Separation from the previous developer's environment, server auth, rules | done; rules/indexes deployed to `bridgemun` (real) |
+| 1 | HMUN GA rules engine + automatic-chair state machine | done — automated tests |
+| 2 | Create / join by code / waiting room, atomic seats, start lock, reconnect | done — production API (real) + emulator browser |
+| 3 | Meeting loop, timers, pause/extend, deadlines via QStash, recovery | done — production (real): QStash-only deadlines, duplicates, pause, idle hold |
+| 4 | Speaker recording → OpenAI transcription → confirmation → record → AI context | server path real; in-browser microphone capture unverified (needs a real browser + mic) |
+| 5 | OpenAI autonomous AI, ElevenLabs TTS, position materials interface | production AI real; TTS real locally only (production = captions, see docs/production-audio.md) |
+| 6 | Documents, amendments (incl. AI), sponsor responses, voting procedure (reorder, division), final voting, results | done — engine + UI; production E2E (real) |
+| 7 | Real position materials | waiting for the materials file (fixture only; see docs/position-materials.md) |
 | 8 | UNSC module | planned, not available |
 
-## App policies in force (decided 2026-11-25)
-D1 procedural = majority of the electorate fixed at ballot open · D2 substantive = rule 35 with one extension · D3 carry-over with re-validation · D4 enter-voting = simple majority (rule 13 interpretation) · D5 sponsor silence → one extension → "consent not obtained" · D6 time-based end → final voting if resolutions introduced · D7 no quorum → "not held" · D9 defaults configurable, document thresholds satisfiable from 3 seats · D10 no automatic attendance; late attendance not retroactive · D11 firebase-tools 13 / Java 17.
-Additional app policy (2026-11-25): after a failed transcription the speaker gets one extension to type the statement.
+## App policies in force
+D1 procedural = majority of the electorate fixed at ballot open · D2 substantive = rule 35 with one extension · D3 carry-over with re-validation · D4 enter-voting = simple majority (rule 13 interpretation) · D5 sponsor silence → one extension → "consent not obtained" (distinct from "objected") · D6 time-based end → final voting if resolutions introduced · D7 no quorum → "not held" · D9 defaults configurable, document thresholds satisfiable from 3 seats · D10 no automatic attendance · D11 firebase-tools 13 / Java 17.
+Added: one extension after a failed transcription · **H1** (stop work when every human has left): a deadline passing with no human online puts the forum on hold (no AI calls, one scheduled check); a reconnect resumes it (5 s grace); after `idleHoldMaxSec` (600 s) it closes ("all_humans_left").
+Rule interpretations added: rule 33 proposals ordered "more parts = more disruptive", ties by submission; division applies to resolutions; reorder is taken before the first resolution is voted; a stale amendment (resolution text changed since drafting) cannot be introduced (app policy).
+
+## Procedure coverage (engine vs. usable UI)
+
+| Feature | Engine | UI end-to-end | Production verified |
+|---|---|---|---|
+| Speakers' list, speeches, text speech, transcript confirmation | yes | yes | yes (text speech) |
+| Yield to another delegate (rule 18); receiver cannot yield again | yes | yes (end-speech selector) | local UI + engine tests |
+| Yield to questions (rule 18) | no (moderator selection of questioners) | not shown | — |
+| Point of personal privilege (rule 20) → recorded notice | yes | yes (Points panel) | engine tests, UI rendered |
+| Points of order / parliamentary inquiry (rules 21–22) | answered by engine validation messages + phase description | Points panel (information) | — |
+| Motions: caucuses, extension, speaking time, suspend, adjourn, introduce resolution/amendment, enter voting | yes | yes | yes |
+| AI amendments: propose / sign / introduce / sponsor responses | yes | — (AI) | yes |
+| Friendly vs "objected" vs "consent not obtained" | yes | yes (labels) | objected + all_agreed real; silence path engine/emulator |
+| Unfriendly amendment 2/3 vote and application to text | yes | yes | yes (a21 adopted 4-0-1 → d10 v2) |
+| Reorder resolutions (rule 34) | yes | yes | yes |
+| Division of the question (rule 33): motion, proposals, part votes, recombination, "rejected as a whole" | yes | yes | yes (recombined v2 adopted) |
+| Text version locking (ballot carries version + textHash) | yes | yes ("text locked") | yes |
+| Results screen (per-item tallies, votes by country) | yes | yes | local UI |
+| Roll-call votes, right of reply, suspension of rules, crisis rules 37–40 | excluded | — | — |
 
 ## How to run
 - Emulator dev: `npm run emulators` + `npm run dev` (AI = dummy, speech = mock; no paid calls)
-- Emulator + real AI: `AI_DRIVER=openai STT_PROVIDER=openai TTS_PROVIDER=elevenlabs npm run dev` (keys from `.env.local`)
+- Emulator + real AI: `AI_DRIVER=openai STT_PROVIDER=openai TTS_PROVIDER=elevenlabs POSITION_SET_VERSION=fixture-v0 npm run dev`
 - Real Firebase project locally: `npm run dev:project` (loads `.env.project.local`; git-ignored)
-- Tests: `npm run test:emu` · Connectivity: `npm run check:project`
-- Real-API verification: `node scripts/with-env.mjs .env.project.local -- npx tsx --conditions=react-server scripts/verify-real.ts <outDir>`
-- QStash production smoke test: `node scripts/with-env.mjs .env.project.local -- npx tsx --conditions=react-server scripts/qstash-smoke.ts`
+- Tests: `npm run test:emu` (205) · Connectivity: `npm run check:project`
+- Production E2E driver (admin-created test users, public API routes, no passwords):
+  `node scripts/with-env.mjs .env.project.local -- node scripts/e2e/prod-drive.mjs <users|create|lookup|join|cmd|presence|heartbeat|state|wait|vote|record|ai|usage|forumdoc|use>`
+  (state in `.data/prod-e2e*.json`, git-ignored). Duplicate QStash deliveries: `scripts/e2e/dup-ticks.mjs`.
+- QStash smoke test: `node scripts/with-env.mjs .env.project.local -- npx tsx --conditions=react-server scripts/qstash-smoke.ts`
 
 ## Verification log
-- Automated: 187 tests (engine, rules, unit, emulator store/service/Phase 4–5 with scripted LLM and mock speech).
-- Real OpenAI: structured decisions (gpt-6.1-terra), speeches (gpt-6.2-sol); evidence sensitivity confirmed (France fixture flipped → vote no → yes).
-- Real ElevenLabs: eleven_multilingual_v2 (~3 s for a 22 s clip) and eleven_v4 (~7 s); voice "Brian". Not yet listened to by a person.
-- Real OpenAI transcription (gpt-transcribe): 100% word overlap on generated speech; route bug (".mpeg" filename) found and fixed.
-- Real QStash: production tick advanced a test forum ≤7 s after its deadline (signature verified); test data deleted.
-- Real-AI local meeting (emulator Firebase + real OpenAI/ElevenLabs/transcription), 2 humans (A in browser, B via API) + 3 AI:
-  roll call → AI floor decisions → AI speeches with ElevenLabs audio (synced playback started without error; not listened to) →
-  human speech transcribed by OpenAI (route) and auto-confirmed into AI context → unmoderated caucus where AI drafted/signed
-  resolutions → introduction → AI rejected "enter voting" twice (wanted more debate) → AI moderated/unmoderated caucus motions →
-  session end → D6 moved to final voting → resolution adopted Yes 3 / No 0 / Abstain 2 (AI voted clause-by-clause from materials).
-  Two dev-server restarts mid-meeting recovered via client nudge (lost AI job recorded as "AI speech unavailable").
-  Usage for that meeting (partial count mid-run): 36 LLM calls / 43k tokens, 3,007 TTS chars, 44 s transcription, 0 AI failures.
+### Production (real; https://bridgemun.vercel.app)
+- Auto-deploy: pushes to `main` deploy via the Vercel GitHub integration (commit status "Vercel: success"), e.g. e97e4c6, d0b8d2c, ecfd544.
+  Env change `POSITION_SET_VERSION=fixture-v0` needed a redeploy (forum created before it pinned "none").
+- Test users `audit-test-a` / `audit-test-b` (Admin SDK, no password; custom-token sign-in). Forums titled "AUDIT TEST — production E2E 1–4", all CLOSED.
+- E2E 3 (KcctAC4b8OuMRouQCkp2, commits d386c2c→d0b8d2c): create (country us) → code lookup/join (gb) → start → join of a non-member blocked (E2E 2: forum_started / join_locked) → reconnect returns own seat →
+  human text speech → France AI speech responding to it → human motion voted by AI (each on own materials) → caucuses (AI drafts/signs; **defect found & fixed**: AI ignored drafts shared mid-caucus) →
+  AI amendment proposals and signatures; Japan (AI) moved to introduce a human amendment → friendly (all AI sponsors agreed) and unfriendly ("a sponsor objected") →
+  owner pause/resume with a QStash tick inside the pause (ignored) → 5 duplicate QStash deliveries → exactly one transition →
+  enter voting → reorder (**defect found & fixed**: motion text lacked the order) → divide → proposal failed → resolution adopted; unfriendly amendment adopted 2/3; final vote hit OpenAI 503 (**fixed**: one retry for transient errors) → AI recorded as not voting, meeting completed.
+- E2E 4 (7gRDo1a1jhIQorv6YvH0, commit ecfd544): three resolutions; both humans offline → idle hold (no AI calls) → reconnect resumed; reorder adopted with AI support (France/Japan proposed the same order);
+  AI-proposed division of the compulsory-licensing clause → part 1 included, part 2 excluded → recombined v2 adopted 4-0-1; forced AI failure (forum AI budget filled) → AI did not vote, humans decided, forum closed.
+- E2E 1 / E2E 2: no heartbeats at all → idle hold at the QStash deadline → closed after 10 min ("all_humans_left") without any client.
+- After close: stale QStash ticks change nothing; AI action counts stay constant.
+- All deadlines in E2E 3–4 came from QStash (scripts sent presence heartbeats only, never nudges).
+- Production usage (2026-11-25 UTC day counter): 95 LLM calls, ~116k tokens (E2E 3: 62 calls / 79k; E2E 4: 33 calls / 36k). TTS/STT: none in production.
+### Local real APIs (emulator Firebase)
+- Earlier full real-AI meeting (see git history of this file): adopted 3-0-2; restarts recovered; 36 LLM calls / 43k tokens, 3,007 TTS chars, 44 s STT.
+- This session: browser UI as user A (emulator account) + API user B with real OpenAI/ElevenLabs: yield to Japan (AI) → ElevenLabs speech played in sync (joined at +11.96 s, playing, 22 s clip); reorder, division proposals (checkbox UI), part votes, locked-text final vote and results screen rendered.
+- Voice samples for listening: `/Users/kirl/BridgeMUN/audio-samples/` (13 pool voices, eleven_multilingual_v2, same sentence; plus the earlier Brian samples for eleven_multilingual_v2 and eleven_v4; index in `samples.json`). **Not listened to by a person.**
+### Automated
+- 205 tests (engine incl. reorder/division/yield/points/H1/stale ticks; rules; unit incl. transient-retry classification; emulator store/service/Phase 4–6 with scripted LLM incl. AI amendments, AI division, 503 retry, Firestore audio store).
 
-## Known gaps
-- Zoom Video SDK keys not available → live audio/video untested; meetings work without video (text speech, uploads).
-- Production TTS audio storage not configured (Firebase Storage needs a plan decision) → production shows captions only.
-- AI delegations do not draft or sign amendments; division of the question / reordering not implemented.
-- Vercel ↔ GitHub auto-deploy not connected (CLI deploys used); GitHub App access for the private repo is needed.
+## Known gaps / decisions waiting
+- Zoom Video SDK keys not available → live audio/video untested; "Zoom keys missing" notice and token tests exist.
+- Production TTS storage: options and costs in docs/production-audio.md; opt-in Firestore store implemented but **off**.
+- Browser sign-up/login on the production site not exercised by the agent (no password entry into non-local sites); API-level production test used admin-created users.
+- Microphone capture in a real browser, two physical devices, listening to voices: user checks.
+- Yield to questions, roll-call votes, right of reply: not implemented (excluded or need moderator discretion).
+- Audio cleanup after forum end (Firestore store) not automated; AI job interruption by a killed function verified locally only (production recovery relies on the same engine deadlines).
+- UNSC: not started.
