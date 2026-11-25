@@ -244,3 +244,18 @@ describe("presence changes re-check early close", () => {
     expectPhase(sim, "FLOOR_OPEN");
   });
 });
+
+describe("transcript failure gets one extension to type", () => {
+  it("failed transcript → one extension → then no transcript", () => {
+    const sim = started();
+    sim.do(human("owner"), { type: "add_to_speakers_list", seat: "us" });
+    passFloor(sim);
+    sim.expire();
+    sim.do(human("owner"), { type: "end_speech", seat: "us" });
+    sim.do(system, { type: "transcript_result", seat: "us", ok: false });
+    sim.expire();
+    expectPhase(sim, "SPEECH_CONFIRM");
+    sim.do(human("owner"), { type: "submit_text_speech", seat: "us", text: "Typed after failure" });
+    expect(sim.records().at(-1)).toMatchObject({ source: "human_text", text: "Typed after failure" });
+  });
+});

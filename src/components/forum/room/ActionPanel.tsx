@@ -107,7 +107,7 @@ function SpeakerControls({ state, mySeat, actions, recorder }: Props) {
           <p className="text-xs text-red-800">
             {recorder?.status === "recording"
               ? "Recording your microphone for the transcript (your live audio reaches others via the video session)."
-              : recorder?.status === "unavailable"
+              : recorder?.status === "unavailable" || recorder?.detail
                 ? recorder.detail
                 : "Preparing microphone…"}
           </p>

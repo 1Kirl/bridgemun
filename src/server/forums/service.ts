@@ -32,6 +32,8 @@ export const CreateForumInput = z.object({
       readingSec: z.number().int().min(5).max(60),
       votingSec: z.number().int().min(20).max(180),
       humanPrepSec: z.number().int().min(5).max(60),
+      drPresentationSec: z.number().int().min(30).max(300),
+      drQaSec: z.number().int().min(30).max(300),
     })
     .partial()
     .default({}),

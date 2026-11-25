@@ -777,7 +777,8 @@ function handleTick(ctx: Ctx) {
         record(ctx, { source: "human_voice_auto", seat: p.seat, substantive: true, text: p.transcript.text });
         return endSpeechSlot(ctx, p.seat, p.context);
       }
-      if (p.transcript.status === "pending" && !p.waitExtended) {
+      // App policy: one extension while the transcript is pending OR after it failed (time to type instead).
+      if ((p.transcript.status === "pending" || p.transcript.status === "failed") && !p.waitExtended) {
         p.waitExtended = true;
         p.deadlineMs = ctx.now + s.settings.timers.transcriptConfirmSec * 1000;
         schedule(ctx, p.deadlineMs);

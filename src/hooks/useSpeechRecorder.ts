@@ -26,6 +26,11 @@ export function useSpeechRecorder(forumId: string, state: PublicForumState, mySe
   useEffect(() => {
     if (!speakingNow || rec.current) return;
     let cancelled = false;
+    setStatus("idle");
+    setDetail("");
+    const slow = setTimeout(() => {
+      if (!rec.current && !cancelled) setDetail("Waiting for microphone permission — allow it in the browser, or use the text option below.");
+    }, 5000);
     (async () => {
       try {
         if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) throw new Error("unsupported");
@@ -63,6 +68,7 @@ export function useSpeechRecorder(forumId: string, state: PublicForumState, mySe
     })();
     return () => {
       cancelled = true;
+      clearTimeout(slow);
     };
   }, [speakingNow, forumId]);
 

@@ -47,6 +47,11 @@ export function situation(ctx: ForumContext, s: PublicForumState, seat: string):
         .map((d) => `${d.id} "${d.title}" v${d.version} ${d.status}`)
         .join("; ") || "none"
     }`,
+    // Texts of documents under formal consideration, so procedural judgements can weigh the actual text.
+    ...Object.values(s.documents)
+      .filter((d) => d.status === "introduced" || d.status === "approved")
+      .slice(0, 3)
+      .map((d) => `TEXT of ${d.id} (${d.status}):\n${[...d.preambular, ...d.operative.map((o, i) => `${i + 1}. ${o}`)].join("\n").slice(0, 1500)}`),
   ].join("\n");
 }
 

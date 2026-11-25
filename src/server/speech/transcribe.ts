@@ -8,6 +8,8 @@ import { BudgetExceeded, reserve, type Caps } from "@/server/usage/budget";
 
 export const MAX_AUDIO_BYTES = 8 * 1024 * 1024;
 const ALLOWED = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"];
+/** OpenAI infers the format from the file extension (found in a real run: ".mpeg" was rejected, ".mp3" works). */
+const EXT: Record<string, string> = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/wav": "wav", "audio/x-wav": "wav" };
 
 /**
  * Speaker's own recording → transcript draft → engine `transcript_result` (system command).
@@ -38,7 +40,7 @@ export async function transcribeSpeech(
     result = await deps.stt.transcribe({
       audio: input.audio,
       mime,
-      filename: `speech.${mime.split("/")[1].replace("x-", "")}`,
+      filename: `speech.${EXT[mime] ?? "webm"}`,
       prompt: `Model UN committee speech by the delegation of ${s.seats[m.countryCode].countryName}.`,
     });
   } catch (e) {

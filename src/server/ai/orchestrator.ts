@@ -235,7 +235,11 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
     if (!b || b.status !== "open" || !shouldAct(L.state)) return;
     const subject =
       b.subject.type === "motion"
-        ? `PROCEDURAL VOTE on motion: ${motionText(L.pub, b.subject.motionId)}. Choices: yes/no. Consider which issues you want debated, remaining time and negotiation strategy.`
+        ? `PROCEDURAL VOTE on motion: ${motionText(L.pub, b.subject.motionId)}. Choices: yes/no. Consider which issues you want debated, remaining time and negotiation strategy.\n${Object.values(L.state.documents)
+            .filter((d) => d.status === "introduced" || d.status === "approved")
+            .slice(0, 3)
+            .map((d) => `Document under consideration ${d.id} (${d.status}):\n${docText(L.state, d.id)}`)
+            .join("\n")}`
         : b.subject.type === "resolution"
           ? `SUBSTANTIVE VOTE on resolution ${b.subject.docId} v${b.subject.version}:\n${docText(L.state, b.subject.docId)}\nJudge each operative clause against your position materials.`
           : `SUBSTANTIVE VOTE (2/3) on amendment ${b.subject.amendmentId}: ${JSON.stringify(L.state.amendments[b.subject.amendmentId]?.op)}`;
