@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /forums/{forumId} {
+      // 포럼 문서: 비로그인 랜딩(Upcoming Forums) 목록 조회 허용. 하위 컬렉션은 별도 규칙으로 보호.
+      allow read: if true;
+      // 로그인한 사용자라면 포럼 생성 가능
+      allow create: if request.auth != null;
+      // 포럼 수정/삭제는 생성자 혹은 어드민 패널 (현재 개발 및 테스트 편의를 위해 로그인 유저 전면 허용)
+      allow update, delete: if request.auth != null;
+
+      match /speakRequests/{requestId} {
+        // 로그인한 사용자 누구나 읽기 (실시간 리스너용)
+        allow read: if request.auth != null;
+        // 자기 자신의 요청만 생성 가능
+        allow create: if request.auth != null
+          && request.resource.data.userId == request.auth.uid;
+        // 방장(moderator)이 승인/거절하거나, 본인이 'done' 처리
+        allow update: if request.auth != null && (
+          get(/databases/$(database)/documents/forums/$(forumId)).data.createdBy == request.auth.uid
+          || resource.data.userId == request.auth.uid
+        );
+      }
+
+      match /speeches/{speechId} {
+        // 로그인한 사용자 누구나 읽기 (피드 표시용)
+        allow read: if request.auth != null;
+        // 로그인한 사용자라면 발언 저장 가능
+        allow create: if request.auth != null;
+        // 방장은 전체 수정, 본인은 자신의 발언만 수정 (AI 발언은 userId가 ai:코드 형태)
+        allow update: if request.auth != null && (
+          get(/databases/$(database)/documents/forums/$(forumId)).data.createdBy == request.auth.uid
+          || resource.data.userId == request.auth.uid
+        );
+      }
+
+      match /aiSuggestions/{suggestionId} {
+        // 로그인한 사용자 누구나 읽기
+        allow read: if request.auth != null;
+        // 로그인한 사용자라면 생성 가능 (진행자 UI에서 생성)
+        allow create: if request.auth != null;
+        // 상태 변경(approve/reject/publish)
+        allow update: if request.auth != null;
+      }
+
+      // 모더레이터가 만드는 범용 투표(안건). 생성/개폐/삭제는 포럼 생성자만. (QA2 #1)
+      match /motions/{motionId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if request.auth != null
+          && get(/databases/$(database)/documents/forums/$(forumId)).data.createdBy == request.auth.uid;
+
+        // 안건별 투표: 본인 표만 작성, 안건이 'open'일 때만 허용.
+        match /ballots/{userId} {
+          allow read: if request.auth != null;
+          allow create, update: if request.auth != null
+            && request.auth.uid == userId
+            && request.resource.data.userId == request.auth.uid
+            && get(/databases/$(database)/documents/forums/$(forumId)/motions/$(motionId)).data.get('status', 'open') == 'open';
+        }
+      }
+
+      match /votes/{userId} {
+        allow read: if request.auth != null;
+        // 앱 로직과 맞춤: 라이브 중 votingOpen 이거나, 종료 후(closed) 투표.
+        // ballotsFinalized 이후에는 변경 불가(클라이언트와 동일).
+        allow create, update: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.choice in ['yes', 'no', 'abstain']
+          && get(/databases/$(database)/documents/forums/$(forumId)).data.get('ballotsFinalized', false) != true
+          && (
+            (
+              get(/databases/$(database)/documents/forums/$(forumId)).data.status == 'active'
+              && get(/databases/$(database)/documents/forums/$(forumId)).data.get('votingOpen', false) == true
+            )
+            || get(/databases/$(database)/documents/forums/$(forumId)).data.status == 'closed'
+          );
+      }
+    }
+
+    // participants: forums 블록 밖에 두어 collectionGroup 쿼리와의 규칙 매칭을 명확히 함
+    match /forums/{forumId}/participants/{participantId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid
+        && get(/databases/$(database)/documents/forums/$(forumId)).data.status != 'closed';
+      allow update, delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // collectionGroup("participants") — 모든 경로의 participants 읽기 허용 (로그인 사용자)
+    match /{path=**}/participants/{participantId} {
+      allow read: if request.auth != null;
+    }
+
+    // collectionGroup("speeches") — 프로필의 내 debate 내역 조회용 (로그인 사용자)
+    match /{path=**}/speeches/{speechId} {
+      allow read: if request.auth != null;
+    }
+
+    // collectionGroup("votes") — 프로필의 내 투표 기록 조회용 (로그인 사용자)
+    match /{path=**}/votes/{voteId} {
+      allow read: if request.auth != null;
+    }
+
+    match /admin_countries/{countryId} {
+      // 어드민 전용 국가 모델: 개발 편의상 로그인 유저에 한해 읽기/쓰기 권한 부여
+      allow read, write: if request.auth != null;
+    }
+
+    match /users/{userId} {
+      // 로그인한 사용자라면 유저 정보 읽기 가능 (모더레이터 선택 등을 위해)
+      allow read: if request.auth != null;
+      // 자기 자신의 정보만 생성/수정 가능
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+  }
+}

@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #0088cc;
+  --color-brand-hover: #0076b1;
+  --color-brand-light: #f0f7ff;
+  --color-text-main: #1e293b;
+  --color-text-sub: #64748b;
+  --font-sans: "Inter", "Geist Sans", sans-serif;
+
+  /* QA2 #4: 전역 타이포 스케일을 약 1px씩 키워 더 또렷하고 꽉 차 보이게.
+     줄 높이는 기본값을 유지해 밀도(density)를 높인다. */
+  --text-xs: 0.8125rem;   /* 12 → 13px */
+  --text-sm: 0.9375rem;   /* 14 → 15px */
+  --text-base: 1.0625rem; /* 16 → 17px */
+  --text-lg: 1.1875rem;   /* 18 → 19px */
+  --text-xl: 1.3125rem;   /* 20 → 21px */
+  --text-2xl: 1.5625rem;  /* 24 → 25px */
+}
+
+:root {
+  --background: #f8fafc;
+  --foreground: #1e293b;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #e2e8f0;
+    border-radius: 20px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #cbd5e1;
+  }
+}
