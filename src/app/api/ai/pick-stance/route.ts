@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrors } from "@/server/auth";
+import { guardLegacyAi } from "@/server/legacyAiGuard";
 
 type Body = {
   topic?: string;
@@ -11,17 +13,12 @@ type Body = {
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
 
-export async function POST(req: NextRequest) {
+async function handle(req: NextRequest, apiKey: string) {
   try {
     const body = (await req.json()) as Body;
     const { topic, subtopic, countryName, pro, con } = body;
     if (!topic?.trim() || !countryName?.trim() || !pro?.text?.trim() || !con?.text?.trim()) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "GEMINI_API_KEY is not configured" }, { status: 500 });
     }
 
     const prompt = `You are assisting a Model UN moderator. For delegate "${countryName}" on topic "${topic}"${
@@ -68,3 +65,10 @@ ${con.text.slice(0, 8000)}`;
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+/** Legacy Gemini route (previous developer). Auth + owner + quota guarded; replaced in Phase 5. */
+export const POST = withErrors(async (req: NextRequest) => {
+  const peek = (await req.clone().json().catch(() => ({}))) as { forumId?: unknown };
+  const { apiKey } = await guardLegacyAi(req, peek.forumId);
+  return handle(req, apiKey);
+});

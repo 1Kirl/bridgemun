@@ -4,6 +4,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { doc, updateDoc, onSnapshot, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { authedFetch } from "@/lib/authedFetch";
 import { Users2, MessageSquare, LogOut, Clock, Mic, Eye, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import dynamic from "next/dynamic";
@@ -436,10 +437,10 @@ export default function MeetingRoom() {
     }
     setAiPickLoadingId(suggestion.id);
     try {
-      const res = await fetch("/api/ai/pick-stance", {
+      const res = await authedFetch("/api/ai/pick-stance", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          forumId,
           topic: forum.topic,
           subtopic: forum.subtopic,
           countryName: suggestion.countryName,

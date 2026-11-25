@@ -1,120 +1,168 @@
 rules_version = '2';
+
+// BridgeMUN rules for the NEW Firebase environment (emulator / your own project).
+// Never deployed to the previous developer's project.
+//
+// Two layers coexist during migration:
+//  (A) Legacy collections still written directly by the inherited UI (participants, speeches,
+//      speakRequests, motions/ballots, votes, aiSuggestions). Kept writable so the existing
+//      screens keep working, but holes from the audit are closed (ownership, identity, no deletes).
+//      Phase 2–3 move these writes to server APIs; each rule is removed when its API ships.
+//  (B) Server-owned collections for the new engine (members, seats, engine, record, ballotsV2,
+//      documents, events, joinCodes, usage). Clients may READ (members only) and NEVER write;
+//      only the Admin SDK (which bypasses rules) writes them.
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function forumDoc(forumId) { return get(/databases/$(database)/documents/forums/$(forumId)); }
+    function isForumOwner(forumId) {
+      let f = forumDoc(forumId).data;
+      return signedIn() && (f.get('createdBy', null) == uid() || f.get('ownerUid', null) == uid());
+    }
+    function isMember(forumId) {
+      return signedIn() && exists(/databases/$(database)/documents/forums/$(forumId)/members/$(uid()));
+    }
+    function forumOpen(forumId) { return forumDoc(forumId).data.get('status', 'active') != 'closed'; }
+
+    // ── forum document ──────────────────────────────────────────────
     match /forums/{forumId} {
-      // 포럼 문서: 비로그인 랜딩(Upcoming Forums) 목록 조회 허용. 하위 컬렉션은 별도 규칙으로 보호.
+      // Legacy landing page lists forums without login. Contains no secrets (join codes live elsewhere).
       allow read: if true;
-      // 로그인한 사용자라면 포럼 생성 가능
-      allow create: if request.auth != null;
-      // 포럼 수정/삭제는 생성자 혹은 어드민 패널 (현재 개발 및 테스트 편의를 위해 로그인 유저 전면 허용)
-      allow update, delete: if request.auth != null;
+      // Legacy create flow. Engine-managed fields can only be written by the server.
+      allow create: if signedIn()
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.status == 'active'
+        && !request.resource.data.keys().hasAny(['ownerUid', 'engine', 'rulesetId', 'joinLocked', 'roster']);
+      // Only the creator may edit; identity and engine fields are immutable from the client.
+      allow update: if isForumOwner(forumId)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['ownerUid', 'engine', 'rulesetId', 'joinLocked', 'roster', 'createdBy']);
+      allow delete: if false;
+
+      // ── (A) legacy, client-written ──
+      match /participants/{participantId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.userId == uid()
+          && forumOpen(forumId);
+        allow update: if signedIn() && resource.data.userId == uid()
+          && request.resource.data.userId == uid()
+          && request.resource.data.country == resource.data.country;
+        allow delete: if false;
+      }
 
       match /speakRequests/{requestId} {
-        // 로그인한 사용자 누구나 읽기 (실시간 리스너용)
-        allow read: if request.auth != null;
-        // 자기 자신의 요청만 생성 가능
-        allow create: if request.auth != null
-          && request.resource.data.userId == request.auth.uid;
-        // 방장(moderator)이 승인/거절하거나, 본인이 'done' 처리
-        allow update: if request.auth != null && (
-          get(/databases/$(database)/documents/forums/$(forumId)).data.createdBy == request.auth.uid
-          || resource.data.userId == request.auth.uid
-        );
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.userId == uid()
+          && request.resource.data.status == 'pending';
+        allow update: if isForumOwner(forumId)
+          || (signedIn() && resource.data.userId == uid() && request.resource.data.status == 'done');
+        allow delete: if false;
       }
 
       match /speeches/{speechId} {
-        // 로그인한 사용자 누구나 읽기 (피드 표시용)
-        allow read: if request.auth != null;
-        // 로그인한 사용자라면 발언 저장 가능
-        allow create: if request.auth != null;
-        // 방장은 전체 수정, 본인은 자신의 발언만 수정 (AI 발언은 userId가 ai:코드 형태)
-        allow update: if request.auth != null && (
-          get(/databases/$(database)/documents/forums/$(forumId)).data.createdBy == request.auth.uid
-          || resource.data.userId == request.auth.uid
+        allow read: if signedIn();
+        // Humans post only as themselves; "ai:<code>" speeches only by the forum owner (legacy publish flow).
+        allow create: if signedIn() && (
+          (request.resource.data.userId == uid() && request.resource.data.get('sourceType', 'human') != 'ai')
+          || (isForumOwner(forumId) && request.resource.data.userId.matches('^ai:[a-z]{2}$')
+              && request.resource.data.sourceType == 'ai')
         );
+        allow update: if signedIn()
+          && request.resource.data.userId == resource.data.userId
+          && (isForumOwner(forumId) || resource.data.userId == uid());
+        allow delete: if false;
       }
 
       match /aiSuggestions/{suggestionId} {
-        // 로그인한 사용자 누구나 읽기
-        allow read: if request.auth != null;
-        // 로그인한 사용자라면 생성 가능 (진행자 UI에서 생성)
-        allow create: if request.auth != null;
-        // 상태 변경(approve/reject/publish)
-        allow update: if request.auth != null;
+        allow read: if signedIn();
+        allow create, update: if isForumOwner(forumId);
+        allow delete: if false;
       }
 
-      // 모더레이터가 만드는 범용 투표(안건). 생성/개폐/삭제는 포럼 생성자만. (QA2 #1)
       match /motions/{motionId} {
-        allow read: if request.auth != null;
-        allow create, update, delete: if request.auth != null
-          && get(/databases/$(database)/documents/forums/$(forumId)).data.createdBy == request.auth.uid;
-
-        // 안건별 투표: 본인 표만 작성, 안건이 'open'일 때만 허용.
+        allow read: if signedIn();
+        allow create, update, delete: if isForumOwner(forumId);
         match /ballots/{userId} {
-          allow read: if request.auth != null;
-          allow create, update: if request.auth != null
-            && request.auth.uid == userId
-            && request.resource.data.userId == request.auth.uid
+          allow read: if signedIn();
+          allow create, update: if signedIn()
+            && uid() == userId
+            && request.resource.data.userId == uid()
             && get(/databases/$(database)/documents/forums/$(forumId)/motions/$(motionId)).data.get('status', 'open') == 'open';
+          allow delete: if false;
         }
       }
 
       match /votes/{userId} {
-        allow read: if request.auth != null;
-        // 앱 로직과 맞춤: 라이브 중 votingOpen 이거나, 종료 후(closed) 투표.
-        // ballotsFinalized 이후에는 변경 불가(클라이언트와 동일).
-        allow create, update: if request.auth != null
-          && request.auth.uid == userId
-          && request.resource.data.userId == request.auth.uid
+        allow read: if signedIn();
+        allow create, update: if signedIn()
+          && uid() == userId
+          && request.resource.data.userId == uid()
           && request.resource.data.choice in ['yes', 'no', 'abstain']
-          && get(/databases/$(database)/documents/forums/$(forumId)).data.get('ballotsFinalized', false) != true
+          && forumDoc(forumId).data.get('ballotsFinalized', false) != true
           && (
-            (
-              get(/databases/$(database)/documents/forums/$(forumId)).data.status == 'active'
-              && get(/databases/$(database)/documents/forums/$(forumId)).data.get('votingOpen', false) == true
-            )
-            || get(/databases/$(database)/documents/forums/$(forumId)).data.status == 'closed'
+            (forumDoc(forumId).data.status == 'active' && forumDoc(forumId).data.get('votingOpen', false) == true)
+            || forumDoc(forumId).data.status == 'closed'
           );
+        allow delete: if false;
+      }
+
+      // ── (B) server-owned (Admin SDK only) ──
+      match /members/{memberUid} {
+        allow read: if signedIn() && (memberUid == uid() || isMember(forumId));
+        allow write: if false;
+      }
+      match /seats/{seatId} {
+        allow read: if isMember(forumId);
+        allow write: if false;
+      }
+      match /engine/{docId=**} {
+        allow read: if isMember(forumId);
+        allow write: if false;
+      }
+      match /record/{entryId} {
+        allow read: if isMember(forumId);
+        allow write: if false;
+      }
+      match /ballotsV2/{ballotPath=**} {
+        allow read: if isMember(forumId);
+        allow write: if false;
+      }
+      match /documents/{docPath=**} {
+        allow read: if isMember(forumId);
+        allow write: if false;
+      }
+      match /events/{eventId} {
+        allow read: if isMember(forumId);
+        allow write: if false;
+      }
+      match /usage/{docId} {
+        allow read, write: if false;
       }
     }
 
-    // participants: forums 블록 밖에 두어 collectionGroup 쿼리와의 규칙 매칭을 명확히 함
-    match /forums/{forumId}/participants/{participantId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid
-        && get(/databases/$(database)/documents/forums/$(forumId)).data.status != 'closed';
-      allow update, delete: if request.auth != null
-        && resource.data.userId == request.auth.uid;
+    match /joinCodes/{code} {
+      allow read, write: if false;
     }
 
-    // collectionGroup("participants") — 모든 경로의 participants 읽기 허용 (로그인 사용자)
-    match /{path=**}/participants/{participantId} {
-      allow read: if request.auth != null;
-    }
+    // collectionGroup reads used by the profile pages (legacy)
+    match /{path=**}/participants/{participantId} { allow read: if signedIn(); }
+    match /{path=**}/speeches/{speechId} { allow read: if signedIn(); }
+    match /{path=**}/votes/{voteId} { allow read: if signedIn(); }
 
-    // collectionGroup("speeches") — 프로필의 내 debate 내역 조회용 (로그인 사용자)
-    match /{path=**}/speeches/{speechId} {
-      allow read: if request.auth != null;
-    }
-
-    // collectionGroup("votes") — 프로필의 내 투표 기록 조회용 (로그인 사용자)
-    match /{path=**}/votes/{voteId} {
-      allow read: if request.auth != null;
-    }
-
+    // Country reference data: read-only for clients (admin UI was removed; seeded by script).
     match /admin_countries/{countryId} {
-      // 어드민 전용 국가 모델: 개발 편의상 로그인 유저에 한해 읽기/쓰기 권한 부여
-      allow read, write: if request.auth != null;
+      allow read: if signedIn();
+      allow write: if false;
     }
 
     match /users/{userId} {
-      // 로그인한 사용자라면 유저 정보 읽기 가능 (모더레이터 선택 등을 위해)
-      allow read: if request.auth != null;
-      // 자기 자신의 정보만 생성/수정 가능
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if signedIn();
+      allow write: if signedIn() && uid() == userId;
     }
-
   }
 }

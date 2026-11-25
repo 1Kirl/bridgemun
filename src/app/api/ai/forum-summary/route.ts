@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrors } from "@/server/auth";
+import { guardLegacyAi } from "@/server/legacyAiGuard";
 
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent";
@@ -10,19 +12,11 @@ type Body = {
   lines?: Line[];
 };
 
-export async function POST(req: NextRequest) {
+async function handle(req: NextRequest, apiKey: string) {
   try {
     const body = (await req.json()) as Body;
     const topic = body.topic?.trim() || "the agenda";
     const lines = Array.isArray(body.lines) ? body.lines : [];
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "GEMINI_API_KEY is not configured" },
-        { status: 500 },
-      );
-    }
 
     const transcript =
       lines.length > 0
@@ -65,3 +59,10 @@ ${transcript}`;
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }
+
+/** Legacy Gemini route (previous developer). Auth + owner + quota guarded; replaced in Phase 5. */
+export const POST = withErrors(async (req: NextRequest) => {
+  const peek = (await req.clone().json().catch(() => ({}))) as { forumId?: unknown };
+  const { apiKey } = await guardLegacyAi(req, peek.forumId);
+  return handle(req, apiKey);
+});

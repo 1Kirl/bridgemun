@@ -1,0 +1,15 @@
+rules_version = '2';
+// BridgeMUN: all Storage objects (TTS audio, uploads) are written by the server (Admin SDK).
+// Clients may only read audio that belongs to a forum they are a member of.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /forums/{forumId}/audio/{file} {
+      allow read: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/forums/$(forumId)/members/$(request.auth.uid));
+      allow write: if false;
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, createElement } from 'react';
 import { VideoQuality } from '@zoom/videosdk';
 import { Mic, MicOff, Video, VideoOff, Home, Loader2, Lock, Volume2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { authedFetch } from '@/lib/authedFetch';
 
 type Participant = {
   userId: number;
@@ -135,17 +136,13 @@ export default function ZoomVideo({
     const connect = async () => {
       try {
         // 1. 서버에서 JWT 발급
-        const res = await fetch('/api/zoom/token', {
+        // Server verifies membership and decides role + session name (client values are not trusted).
+        const res = await authedFetch('/api/zoom/token', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sessionName: forumId,
-            role: videoSdkRole,
-            userIdentity: user.uid,
-          }),
+          body: JSON.stringify({ forumId }),
         });
         if (!res.ok) throw new Error('Failed to get session token');
-        const { token } = await res.json();
+        const { token, sessionName } = (await res.json()) as { token: string; sessionName: string };
 
         // 2. SDK 동적 로드 (브라우저 전용)
         const ZoomVideo = (await import('@zoom/videosdk')).default;
@@ -157,7 +154,7 @@ export default function ZoomVideo({
 
         // 4. 세션 입장
         const displayName = user.displayName || user.email || 'Anonymous';
-        await client.join(forumId, token, displayName);
+        await client.join(sessionName, token, displayName);
 
         if (!mounted) return;
 

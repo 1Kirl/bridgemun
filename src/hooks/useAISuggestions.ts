@@ -10,6 +10,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { authedFetch } from "@/lib/authedFetch";
 
 export type AISuggestionCandidate = {
   stance: "pro" | "con";
@@ -78,9 +79,8 @@ export function useAISuggestions(forumId: string) {
     setLoading(true);
     setLoadingCountryCode(payload.countryCode);
     try {
-      const res = await fetch("/api/ai/suggestions", {
+      const res = await authedFetch("/api/ai/suggestions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 

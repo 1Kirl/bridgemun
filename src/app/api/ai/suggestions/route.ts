@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withErrors } from "@/server/auth";
+import { guardLegacyAi } from "@/server/legacyAiGuard";
 
 type FeedEntry = {
   userName?: string;
@@ -180,7 +182,7 @@ function buildGenericFallback(
   ];
 }
 
-export async function POST(req: NextRequest) {
+async function handle(req: NextRequest, apiKey: string) {
   try {
     const body = (await req.json()) as GenerateSuggestionBody;
     const {
@@ -197,14 +199,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 },
-      );
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "GEMINI_API_KEY is not configured" },
-        { status: 500 },
       );
     }
 
@@ -380,3 +374,10 @@ Content rules:
     );
   }
 }
+
+/** Legacy Gemini route (previous developer). Auth + owner + quota guarded; replaced in Phase 5. */
+export const POST = withErrors(async (req: NextRequest) => {
+  const peek = (await req.clone().json().catch(() => ({}))) as { forumId?: unknown };
+  const { apiKey } = await guardLegacyAi(req, peek.forumId);
+  return handle(req, apiKey);
+});

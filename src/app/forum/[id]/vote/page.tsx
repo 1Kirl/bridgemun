@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { authedFetch } from "@/lib/authedFetch";
 import { useAuth } from "@/context/AuthContext";
 import { useForumVotes, type VoteChoice } from "@/hooks/useForumVotes";
 import { useForumSpeeches } from "@/hooks/useForumSpeeches";
@@ -164,10 +165,10 @@ export default function ForumVotePage() {
     if (!forum) return;
     setAiResBusy(true);
     try {
-      const res = await fetch("/api/ai/resolution-draft", {
+      const res = await authedFetch("/api/ai/resolution-draft", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          forumId,
           topic: forum.topic,
           subtopic: forum.subtopic,
         }),
@@ -195,10 +196,9 @@ export default function ForumVotePage() {
         speaker: [s.countryName, s.userName].filter(Boolean).join(" · ") || s.userName,
         text: s.text,
       }));
-      const res = await fetch("/api/ai/forum-summary", {
+      const res = await authedFetch("/api/ai/forum-summary", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: forum.topic, lines }),
+        body: JSON.stringify({ forumId, topic: forum.topic, lines }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Summary failed");
