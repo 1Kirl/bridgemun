@@ -26,6 +26,12 @@ export function describeMotion(p: MotionParams): string {
       return `${MOTION_LABEL[p.type]} — ${Math.round(p.durationSec / 60 * 10) / 10} min`;
     case "set_speaking_time":
       return `${MOTION_LABEL[p.type]} — ${p.speakingSec}s`;
+    case "reorder_resolutions":
+      return `${MOTION_LABEL[p.type]} — proposed order: ${p.order.join(" → ")}`;
+    case "divide_question":
+      return `${MOTION_LABEL[p.type]} — resolution ${p.docId}`;
+    case "introduce_amendment":
+      return `${MOTION_LABEL[p.type]} — ${p.amendmentId}`;
     default:
       return MOTION_LABEL[p.type];
   }

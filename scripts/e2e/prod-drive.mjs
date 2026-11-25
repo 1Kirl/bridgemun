@@ -166,14 +166,14 @@ if (cmd === "users") {
     await new Promise((r) => setTimeout(r, 1500));
   }
 } else if (cmd === "vote") {
-  // vote <choiceA> <choiceB>: waits for an open ballot (voting stage) not yet voted by A/B, casts once each ("-" = skip)
+  // vote <choiceA> <choiceB> [maxSec] [subjectType]: waits for an open ballot (voting stage) not yet voted by A/B, casts once each ("-" = skip)
   const max = Number(rest[2] ?? 120) * 1000;
   const t0 = Date.now();
   for (;;) {
     const s = await pub();
     const p = s.phase;
     const b = p.ballotId ? s.ballots[p.ballotId] : null;
-    if (b && p.stage === "voting" && !b.voted.includes("us") && !b.voted.includes("gb")) {
+    if (b && p.stage === "voting" && !b.voted.includes("us") && !b.voted.includes("gb") && (!rest[3] || b.subject.type === rest[3])) {
       for (const [who, seat, choice] of [["A", "us", rest[0]], ["B", "gb", rest[1]]]) {
         if (choice === "-") continue;
         const textHash = b.subject.textHash;

@@ -359,4 +359,22 @@ describe.skipIf(!onEmulator)("Phase 4–5 server pieces on the emulator (mock pr
     const log = await db.collection(`forums/${forumId}/aiActions`).where("kind", "==", "voting_motion").get();
     expect(log.size).toBeGreaterThanOrEqual(2);
   });
+
+  it("a transient provider failure (HTTP 503) is retried once; the AI vote still happens", async () => {
+    let failed = 0;
+    const { rt, forumId } = await setup({
+      script: (name) => {
+        if (name === "floor_decision") return { action: "pass", motion: null, rationale: "", evidenceIds: [] };
+        if (name === "ballot_votes") {
+          if (failed++ === 0) return new Error("openai_http_503:server_is_overloaded");
+          return { votes: ["fr", "de", "jp"].map((seat) => ({ seat, choice: "no", rationale: "", evidenceIds: [] })) };
+        }
+        return new Error(`unexpected ${name}`);
+      },
+    });
+    const bid = await humanMotionToVote(rt, forumId);
+    const s = await until(db, forumId, (x) => ["fr", "de", "jp"].every((id) => x.ballots[bid].votes[id]), 10000);
+    expect(s.ballots[bid].votes.fr).toBe("no");
+    expect(failed).toBe(2);
+  });
 });

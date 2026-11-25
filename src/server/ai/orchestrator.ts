@@ -54,6 +54,8 @@ export type OrchestratorConfig = {
   /** Seconds after which an AI seat may speak again via the floor (app limit). */
   aiCooldownSec: number;
   delayMs: number;
+  /** Backoff before the single retry of a transient provider error (default 2000 ms). */
+  retryDelayMs?: number;
   /** Registers background work so the request can await it after responding (serverless). */
   track?: (p: Promise<unknown>) => void;
 };
@@ -98,6 +100,9 @@ const VotingMotionZ = z.object({
   rationale: z.string().max(2000),
 });
 const SponsorZ = z.object({ responses: z.array(z.object({ seat: z.string(), agree: z.boolean(), rationale: z.string().max(2000) })) });
+
+/** Provider errors worth one retry: overload/5xx, rate limit (429), timeouts and network failures. */
+export const isTransient = (error: string) => /^openai_http_(5\d\d|429)|^openai_(timeout|network)/.test(error);
 
 const parseWith = <T,>(schema: z.ZodType<T>) => (x: unknown) => {
   const r = schema.safeParse(x);
@@ -164,6 +169,17 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       throw e;
     }
     let r = await cfg.llm.generate(req);
+    if (!r.ok && isTransient(r.error)) {
+      // One delayed retry for provider-side transient failures (seen in production: HTTP 503 "server_is_overloaded").
+      // Budgeted like any call; still bounded by the engine deadline, after which the seat simply did not act.
+      await new Promise((res) => setTimeout(res, cfg.retryDelayMs ?? 2000));
+      try {
+        await reserve(db, forumId, { llm_calls: 1, llm_tokens: estimate }, cfg.caps);
+        r = await cfg.llm.generate(req);
+      } catch (e) {
+        if (!(e instanceof BudgetExceeded)) throw e;
+      }
+    }
     if (!r.ok && r.error === "validation_failed") {
       // one limited retry, also budgeted
       try {
@@ -255,7 +271,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
     if (!b || b.status !== "open" || !shouldAct(L.state)) return;
     const subject =
       b.subject.type === "motion"
-        ? `PROCEDURAL VOTE on motion: ${motionText(L.pub, b.subject.motionId)}. Choices: yes/no. Consider which issues you want debated, remaining time and negotiation strategy.\n${Object.values(L.state.documents)
+        ? `PROCEDURAL VOTE on motion: ${motionText(L.pub, b.subject.motionId)}.${L.state.motions[b.subject.motionId]?.params.type === "reorder_resolutions" ? ` Current voting order: ${(L.state.votingOrder ?? []).join(" → ")} (rule 34).` : ""} Choices: yes/no. Consider which issues you want debated, remaining time and negotiation strategy.\n${Object.values(L.state.documents)
             .filter((d) => d.status === "introduced" || d.status === "approved")
             .slice(0, 3)
             .map((d) => `Document under consideration ${d.id} (${d.status}):\n${docText(L.state, d.id)}`)

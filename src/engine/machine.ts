@@ -909,7 +909,7 @@ function finishSubstantiveVote(ctx: Ctx) {
   const b = ctx.s.ballots[p.ballotId!];
   closeBallot(ctx, b);
   const r = b.result!;
-  const tallyText = `Yes ${r.yes}, No ${r.no}, Abstain ${r.abstain}${r.notVoted.length ? `, did not vote ${r.notVoted.length}` : ""} [${r.formula}]`;
+  const tallyText = `Yes ${r.yes}, No ${r.no}${b.kind === "substantive" ? `, Abstain ${r.abstain}` : ""}${r.notVoted.length ? `, did not vote ${r.notVoted.length}` : ""} [${r.formula}]`;
   let queue = [...p.queue];
   const { divisions, proposals } = divisionsOf(ctx.s);
   const sub = b.subject;
