@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { HttpError, requireUser, withErrors } from "@/server/auth";
 import { getRuntime } from "@/server/runtime";
 import { MAX_AUDIO_BYTES, transcribeSpeech } from "@/server/speech/transcribe";
@@ -13,6 +13,7 @@ export const POST = withErrors(async (req: NextRequest, ctx: { params: Promise<{
   const file = form.get("audio");
   if (!(file instanceof Blob)) throw new HttpError(400, "audio_missing");
   const rt = getRuntime();
+  after(() => rt.drain()); // finish AI follow-up work before the serverless function is frozen
   const out = await transcribeSpeech(
     rt.db,
     user,

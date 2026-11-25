@@ -58,3 +58,8 @@ emulator-data/
 
 # generated audio and local runtime data (dev)
 .data/
+
+# credentials must never be committed
+*firebase-adminsdk*.json
+*service-account*.json
+*serviceAccount*.json

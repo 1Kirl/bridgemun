@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { requireUser, withErrors } from "@/server/auth";
 import { advanceIfDue, requireMember } from "@/server/forums/service";
 import { getRuntime } from "@/server/runtime";
@@ -11,6 +11,7 @@ export const POST = withErrors(async (req: NextRequest, ctx: { params: Promise<{
   const user = await requireUser(req);
   const { id } = await ctx.params;
   const rt = getRuntime();
+  after(() => rt.drain()); // finish AI follow-up work before the serverless function is frozen
   await requireMember(rt.db, user, id);
   return NextResponse.json(await advanceIfDue(rt.db, id, rt.sink));
 });

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { HttpError, withErrors } from "@/server/auth";
 import { advanceIfDue } from "@/server/forums/service";
 import { getRuntime } from "@/server/runtime";
@@ -11,11 +11,12 @@ import { verifyQstashSignature } from "@/server/scheduler/qstashVerify";
  */
 export const POST = withErrors(async (req: NextRequest) => {
   const env = process.env;
-  if (env.SCHEDULER_DRIVER !== "qstash" || !env.APP_BASE_URL || !env.QSTASH_CURRENT_SIGNING_KEY || !env.QSTASH_NEXT_SIGNING_KEY) {
+  const base = env.APP_BASE_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
+  if (env.SCHEDULER_DRIVER !== "qstash" || !base || !env.QSTASH_CURRENT_SIGNING_KEY || !env.QSTASH_NEXT_SIGNING_KEY) {
     throw new HttpError(404, "not_enabled");
   }
   const body = await req.text();
-  const url = `${env.APP_BASE_URL.replace(/\/$/, "")}/api/engine/tick`;
+  const url = `${base.replace(/\/$/, "")}/api/engine/tick`;
   const v = verifyQstashSignature({
     signature: req.headers.get("upstash-signature"),
     body,
@@ -26,5 +27,6 @@ export const POST = withErrors(async (req: NextRequest) => {
   const job = JSON.parse(body || "{}") as { forumId?: string };
   if (!job.forumId || !/^[A-Za-z0-9_-]{1,64}$/.test(job.forumId)) throw new HttpError(400, "bad_job");
   const rt = getRuntime();
+  after(() => rt.drain()); // finish AI follow-up work before the serverless function is frozen
   return NextResponse.json(await advanceIfDue(rt.db, job.forumId, rt.sink));
 });

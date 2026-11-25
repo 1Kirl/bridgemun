@@ -78,8 +78,10 @@ export function createScheduler(
     return new LocalScheduler(handler);
   }
   if (driver === "qstash") {
-    if (!env.QSTASH_TOKEN || !env.APP_BASE_URL) throw new Error("QStash scheduler requires QSTASH_TOKEN and APP_BASE_URL.");
-    return new QStashScheduler({ token: env.QSTASH_TOKEN, baseUrl: env.APP_BASE_URL });
+    // APP_BASE_URL should be set explicitly; Vercel's production domain is a safe fallback.
+    const baseUrl = env.APP_BASE_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : "");
+    if (!env.QSTASH_TOKEN || !baseUrl) throw new Error("QStash scheduler requires QSTASH_TOKEN and APP_BASE_URL.");
+    return new QStashScheduler({ token: env.QSTASH_TOKEN, baseUrl });
   }
   throw new Error(`SCHEDULER_DRIVER must be "local" or "qstash" (got ${JSON.stringify(driver)}).`);
 }

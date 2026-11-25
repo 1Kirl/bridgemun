@@ -20,6 +20,8 @@ import { readCaps, type Caps } from "@/server/usage/budget";
  * Paid providers are never selected implicitly. Caps: see server/usage/budget.ts (CAP_* env overrides).
  */
 export type Runtime = {
+  /** Resolves when all background work started so far (and work it triggers) has finished. */
+  drain: () => Promise<void>;
   db: Firestore;
   scheduler: Scheduler;
   sink: EffectSink;
@@ -38,6 +40,15 @@ export type RuntimeOverrides = { llm?: LlmProvider; tts?: TtsProvider | null; st
 export function buildRuntime(db: Firestore, env: Record<string, string | undefined>, over: RuntimeOverrides = {}): Runtime {
   const prod = !!(env.VERCEL || env.NODE_ENV === "production");
   let sink: EffectSink = async () => {};
+  const pending = new Set<Promise<unknown>>();
+  const track = (p: Promise<unknown>) => {
+    pending.add(p);
+    void p.finally(() => pending.delete(p));
+  };
+  const drain = async () => {
+    // Work may enqueue more work (AI action → engine effect → next AI action), so loop until quiet.
+    for (let i = 0; i < 50 && pending.size; i++) await Promise.allSettled([...pending]);
+  };
   const scheduler = createScheduler(env, async (job) => {
     await advanceIfDue(db, job.forumId, sink);
   });
@@ -76,7 +87,8 @@ export function buildRuntime(db: Firestore, env: Record<string, string | undefin
         ttsModelId: env.ELEVENLABS_MODEL_ID ?? "eleven_multilingual_v2",
         floorConsultPerWindow: Number(env.AI_FLOOR_CONSULT_PER_WINDOW ?? 2),
         aiCooldownSec: Number(env.AI_COOLDOWN_SEC ?? 90),
-        delayMs: over.delayMs ?? 300,
+        delayMs: over.delayMs ?? (prod ? 0 : 300),
+        track,
       },
       () => sink,
     );
@@ -88,7 +100,7 @@ export function buildRuntime(db: Firestore, env: Record<string, string | undefin
     }
     if (ai) await ai(forumId, effects);
   };
-  return { db, scheduler, sink, aiDriver: over.llm ? `override:${over.llm.name}` : aiDriverName, stt, audioStore, caps };
+  return { drain, db, scheduler, sink, aiDriver: over.llm ? `override:${over.llm.name}` : aiDriverName, stt, audioStore, caps };
 }
 
 function req(env: Record<string, string | undefined>, k: string) {

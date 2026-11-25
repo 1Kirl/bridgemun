@@ -50,6 +50,8 @@ export type OrchestratorConfig = {
   /** Seconds after which an AI seat may speak again via the floor (app limit). */
   aiCooldownSec: number;
   delayMs: number;
+  /** Registers background work so the request can await it after responding (serverless). */
+  track?: (p: Promise<unknown>) => void;
 };
 
 const FloorZ = z.object({
@@ -81,10 +83,16 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       fn()
         .catch((e) => console.error("[ai]", key, e))
         .finally(() => setTimeout(() => jobs.delete(key), 10 * 60_000));
-    setTimeout(() => {
-      const prev = queues.get(forumId) ?? Promise.resolve();
-      queues.set(forumId, prev.then(run));
-    }, cfg.delayMs);
+    const done = new Promise<void>((resolve) =>
+      setTimeout(() => {
+        const prev = queues.get(forumId) ?? Promise.resolve();
+        const next = prev.then(run);
+        queues.set(forumId, next);
+        void next.then(() => resolve());
+      }, cfg.delayMs),
+    );
+    // Tracked so serverless handlers can keep the function alive until the work finishes (after()).
+    cfg.track?.(done);
   };
 
   const act = (forumId: string, seat: string, command: Parameters<typeof runCommand>[2]["command"], expect?: Parameters<typeof runCommand>[2]["expect"]) =>
