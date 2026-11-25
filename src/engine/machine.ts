@@ -1,0 +1,1255 @@
+/**
+ * BridgeMUN automatic chair — a pure, deterministic state machine.
+ *
+ *   apply(state, { actor, command, expect }, nowMs) → { state, effects, events } | rejection
+ *
+ * - No I/O, no clocks: the caller passes server time. The same input always yields the same output.
+ * - Legality, precedence, quorum, tallies and transitions are decided here; LLMs never decide outcomes.
+ * - The room owner has only room powers (start, app pause/resume). Chair powers belong to this code.
+ */
+import { assertPoliciesComplete } from "@/engine/policies";
+import { DEFAULT_SPEAKING_TIME_SEC, RULESET_ID } from "@/engine/ruleset/hmun-ga-2026";
+import type { CommitteeId } from "@/engine/committees";
+import {
+  compareMotions,
+  dispositionAfterAdoption,
+  motionContentKey,
+  motionThreshold,
+  validateMotion,
+} from "@/engine/motions";
+import {
+  allEligibleVoted,
+  checkVote,
+  debateQuorumRequired,
+  isPresent,
+  openBallot,
+  pendingVoters,
+  tally,
+} from "@/engine/voting";
+import {
+  applyAmendmentOp,
+  docTextHash,
+  evaluateApproval,
+  stableHash,
+  validateAmendmentOp,
+} from "@/engine/documents";
+import type {
+  Actor,
+  ApplyResult,
+  Ballot,
+  CaucusState,
+  Command,
+  CommandEnvelope,
+  Effect,
+  EngineEvent,
+  ForumEngineState,
+  Motion,
+  Phase,
+  RecordEntry,
+  Seat,
+  SeatId,
+  Settings,
+  SpeechContext,
+} from "@/engine/types";
+
+// ── construction ─────────────────────────────────────────────────
+
+export function defaultSettingsBase(): Omit<Settings, "sessionStartMs" | "sessionEndsAtMs" | "policies"> {
+  return {
+    speakingTimeSec: DEFAULT_SPEAKING_TIME_SEC, // rule 17 (official)
+    timers: {
+      // App UX defaults (product owner request) — NOT MUN rules.
+      rollCallSec: 60,
+      motionWindowSec: 45,
+      readingSec: 10,
+      votingSec: 45,
+      humanPrepSec: 10,
+      transcriptConfirmSec: 20,
+      aiSpeechReadyTimeoutSec: 25,
+      aiPlaybackLeadMs: 1500,
+      volunteerWindowSec: 15,
+      sponsorResponseSec: 30,
+      drPresentationSec: 90,
+      drQaSec: 120,
+    },
+    limits: {
+      extensionSec: 30,
+      maxExtensionPerWindowSec: 60,
+      maxExtensionsPerSeat: 5,
+      nonResponseExtensionSec: 15,
+      pauseMaxSec: 300,
+      pauseTotalMaxSec: 900,
+      maxMotionsPerSeatPerWindow: 2,
+    },
+    dilatory: {
+      modSpeakingMinSec: 15,
+      modSpeakingMaxSec: 120,
+      modTotalMinSec: 60,
+      modTotalMaxSec: 1200,
+      unmodMinSec: 60,
+      unmodMaxSec: 600,
+      speakingTimeMinSec: 15,
+      speakingTimeMaxSec: 180,
+      suspendMinSec: 60,
+      suspendMaxSec: 600,
+      adjournMaxRemainingRatio: 0.2,
+    },
+    documents: {
+      minSponsors: 2,
+      minSignatoryRatio: 0.2,
+      minPreambular: 1,
+      minOperative: 2,
+      maxResolutions: 3,
+      minAmendmentSignatories: 2,
+    },
+  };
+}
+
+export function createForumState(args: {
+  forumId: string;
+  committeeId: CommitteeId;
+  ownerUid: string;
+  seats: Seat[];
+  settings: Settings;
+}): ForumEngineState {
+  assertPoliciesComplete(args.settings.policies);
+  const seats: Record<SeatId, Seat> = {};
+  for (const s of args.seats) {
+    if (seats[s.id]) throw new Error(`Duplicate seat ${s.id}`);
+    seats[s.id] = { ...s, attendance: "not_recorded" };
+  }
+  return {
+    forumId: args.forumId,
+    rulesetId: RULESET_ID,
+    committeeId: args.committeeId,
+    ownerUid: args.ownerUid,
+    settings: args.settings,
+    seats,
+    joinLocked: false,
+    phase: { type: "LOBBY" },
+    phaseId: "p0",
+    phaseSeq: 0,
+    eventSeq: 0,
+    contextSeq: 0,
+    recordSeq: 0,
+    speakingTimeSec: args.settings.speakingTimeSec,
+    speakersList: [],
+    motions: {},
+    carriedMotionIds: [],
+    activeCaucus: null,
+    lastEndedCaucus: null,
+    ballots: {},
+    documents: {},
+    amendments: {},
+    introducedResolutionIds: [],
+    debateClosed: false,
+    paused: null,
+    usage: { extensionsBySeat: {}, pauseUsedSec: 0 },
+    idCounter: 0,
+  };
+}
+
+// ── context ──────────────────────────────────────────────────────
+
+type Ctx = {
+  s: ForumEngineState;
+  now: number;
+  actor: Actor;
+  effects: Effect[];
+  notes: string[];
+  /** Seat whose speaking slot just ended (moderated caucus accounting). */
+  actorSeatLast?: SeatId;
+};
+
+class Reject extends Error {
+  constructor(
+    public code: string,
+    message: string,
+    public stale = false,
+  ) {
+    super(message);
+  }
+}
+const reject = (code: string, message: string, stale = false): never => {
+  throw new Reject(code, message, stale);
+};
+class Duplicate extends Error {}
+
+function newId(ctx: Ctx, prefix: string) {
+  ctx.s.idCounter += 1;
+  return `${prefix}${ctx.s.idCounter}`;
+}
+
+export function phaseDeadline(p: Phase): number | null {
+  if ("deadlineMs" in p) return p.deadlineMs;
+  if (p.type === "SUSPENDED") return p.resumeAtMs;
+  return null;
+}
+
+function setPhaseDeadline(p: Phase, ms: number) {
+  if ("deadlineMs" in p) (p as { deadlineMs: number }).deadlineMs = ms;
+  else if (p.type === "SUSPENDED") p.resumeAtMs = ms;
+}
+
+function schedule(ctx: Ctx, atMs: number) {
+  ctx.effects.push({ type: "schedule", atMs, phaseId: ctx.s.phaseId });
+}
+
+function transition(ctx: Ctx, phase: Phase) {
+  ctx.s.phaseSeq += 1;
+  ctx.s.phaseId = `p${ctx.s.phaseSeq}`;
+  ctx.s.phase = phase;
+  const d = phaseDeadline(phase);
+  if (d !== null) schedule(ctx, d);
+  ctx.notes.push(`→ ${phase.type}`);
+}
+
+function record(ctx: Ctx, e: Omit<RecordEntry, "seq" | "atMs" | "phaseId">) {
+  ctx.s.recordSeq += 1;
+  if (e.substantive) ctx.s.contextSeq += 1;
+  const entry: RecordEntry = { ...e, seq: ctx.s.recordSeq, atMs: ctx.now, phaseId: ctx.s.phaseId };
+  ctx.effects.push({ type: "record", entry });
+}
+
+function announce(ctx: Ctx, text: string) {
+  ctx.effects.push({ type: "announce", text });
+}
+
+function seat(ctx: Ctx, id: SeatId): Seat {
+  const st = ctx.s.seats[id];
+  if (!st) reject("unknown_seat", `Unknown seat ${id}`);
+  return st as Seat;
+}
+
+/** The actor must control this seat: humans by uid, AI by its own seat id. System never acts as a seat. */
+function requireSeatActor(ctx: Ctx, id: SeatId): Seat {
+  const st = seat(ctx, id);
+  const a = ctx.actor;
+  if (a.kind === "human" && st.kind === "human" && st.uid === a.uid) return st;
+  if (a.kind === "ai" && st.kind === "ai" && a.seat === id) return st;
+  return reject("forbidden_seat", "Actor does not control this seat");
+}
+
+function requireOwner(ctx: Ctx) {
+  if (!(ctx.actor.kind === "human" && ctx.actor.uid === ctx.s.ownerUid)) reject("owner_only", "Room owner only");
+}
+
+function requireSystem(ctx: Ctx) {
+  if (ctx.actor.kind !== "system") reject("system_only", "Server-only command");
+}
+
+function presentSeats(s: ForumEngineState): Seat[] {
+  return Object.values(s.seats).filter(isPresent);
+}
+
+function aiSeats(s: ForumEngineState, presentOnly = true): SeatId[] {
+  return Object.values(s.seats)
+    .filter((x) => x.kind === "ai" && (!presentOnly || isPresent(x)))
+    .map((x) => x.id);
+}
+
+function sessionOver(ctx: Ctx) {
+  return ctx.now >= ctx.s.settings.sessionEndsAtMs;
+}
+
+// ── debate flow ──────────────────────────────────────────────────
+
+function slotSeconds(ctx: Ctx, context: SpeechContext): number {
+  if (context.kind === "mod_caucus") return ctx.s.activeCaucus?.speakingSec ?? ctx.s.speakingTimeSec;
+  return ctx.s.speakingTimeSec;
+}
+
+function startSpeakerSlot(ctx: Ctx, id: SeatId, context: SpeechContext) {
+  const st = seat(ctx, id);
+  const t = ctx.s.settings.timers;
+  if (st.kind === "human") {
+    transition(ctx, { type: "SPEECH_PREP", seat: id, deadlineMs: ctx.now + t.humanPrepSec * 1000, context });
+  } else {
+    transition(ctx, {
+      type: "AI_SPEECH_PENDING",
+      seat: id,
+      requiredContextSeq: ctx.s.contextSeq,
+      deadlineMs: ctx.now + t.aiSpeechReadyTimeoutSec * 1000,
+      context,
+    });
+    ctx.effects.push({
+      type: "ai_speech_needed",
+      seat: id,
+      contextSeq: ctx.s.contextSeq,
+      maxWords: Math.floor(slotSeconds(ctx, context) * 2.3),
+      context,
+    });
+  }
+}
+
+function nextSpeakerOrFloor(ctx: Ctx, origin: "after_motions" | "after_resume" | "empty_list") {
+  if (sessionOver(ctx)) return sessionEnd(ctx);
+  const next = ctx.s.speakersList.shift();
+  if (next) return startSpeakerSlot(ctx, next, { kind: "speakers_list" });
+  openFloor(ctx, origin === "after_resume" ? "after_resume" : "empty_list");
+}
+
+function openFloor(ctx: Ctx, origin: Extract<Phase, { type: "FLOOR_OPEN" }>["origin"]) {
+  if (sessionOver(ctx)) return sessionEnd(ctx);
+  transition(ctx, {
+    type: "FLOOR_OPEN",
+    windowId: "",
+    deadlineMs: ctx.now + ctx.s.settings.timers.motionWindowSec * 1000,
+    origin,
+    readySeats: [],
+    aiDoneSeats: [],
+    extensionUsedSec: 0,
+  });
+  const p = ctx.s.phase as Extract<Phase, { type: "FLOOR_OPEN" }>;
+  p.windowId = ctx.s.phaseId;
+  // Carried motions (open decision "carry_over_to_next_window") join this window and are voted first by precedence.
+  for (const id of ctx.s.carriedMotionIds) {
+    const m = ctx.s.motions[id];
+    if (m && m.status === "pending") m.windowId = p.windowId;
+  }
+  ctx.s.carriedMotionIds = [];
+  ctx.effects.push({ type: "ai_floor_decision_needed", windowId: p.windowId, contextSeq: ctx.s.contextSeq });
+}
+
+function afterSpeech(ctx: Ctx, context: SpeechContext) {
+  if (context.kind === "mod_caucus") {
+    const c = ctx.s.activeCaucus;
+    if (c) {
+      c.usedSec += c.speakingSec ?? ctx.s.speakingTimeSec; // rule 10: each speech counts its full speaking time
+      if (ctx.actorSeatLast) c.spokenSeats.push(ctx.actorSeatLast);
+    }
+    return continueModCaucus(ctx);
+  }
+  if (context.kind === "dr_panel") return openFloor(ctx, "after_motions");
+  openFloor(ctx, "after_speech");
+}
+
+function endSpeechSlot(ctx: Ctx, id: SeatId, context: SpeechContext) {
+  ctx.actorSeatLast = id;
+  afterSpeech(ctx, context);
+}
+
+function sessionEnd(ctx: Ctx) {
+  const pol = ctx.s.settings.policies.sessionEnd;
+  if (pol === "enter_voting_if_resolutions_introduced" && ctx.s.introducedResolutionIds.length > 0 && !ctx.s.debateClosed) {
+    announce(ctx, "Session time is over. The committee moves into voting procedure.");
+    return enterVotingProcedure(ctx);
+  }
+  close(ctx, "session_time_over");
+}
+
+function close(ctx: Ctx, reason: string) {
+  ctx.s.activeCaucus = null;
+  for (const m of Object.values(ctx.s.motions)) if (m.status === "pending") m.status = "obsolete";
+  transition(ctx, { type: "CLOSED", reason });
+}
+
+// ── motions & procedural ballots ─────────────────────────────────
+
+function windowMotions(ctx: Ctx, windowId: string): Motion[] {
+  return Object.values(ctx.s.motions).filter((m) => m.windowId === windowId && m.status === "pending");
+}
+
+function closeFloor(ctx: Ctx) {
+  const p = ctx.s.phase as Extract<Phase, { type: "FLOOR_OPEN" }>;
+  const pending = windowMotions(ctx, p.windowId);
+  const valid: Motion[] = [];
+  for (const m of pending) {
+    // Re-validated at close: conditions can change while the window is open (e.g. session time).
+    const v = validateMotion(ctx.s, m.mover, m.params, ctx.now);
+    if (v.ok) valid.push(m);
+    else {
+      m.status = "obsolete";
+      m.disposition = { reason: v.message, source: v.source };
+    }
+  }
+  if (valid.length === 0) {
+    if (p.origin === "after_caucus" || p.origin === "after_speech" || p.origin === "after_motions") {
+      return nextSpeakerOrFloor(ctx, "after_motions");
+    }
+    return nextSpeakerOrFloor(ctx, "empty_list");
+  }
+  valid.sort(compareMotions);
+  startMotionBallot(ctx, p.windowId, valid.map((m) => m.id));
+}
+
+function startMotionBallot(ctx: Ctx, windowId: string, queue: string[]) {
+  while (queue.length > 0) {
+    const motionId = queue[0];
+    const m = ctx.s.motions[motionId];
+    const ballot = openBallot({
+      id: newId(ctx, "b"),
+      kind: "procedural",
+      threshold: motionThreshold(m.params.type, ctx.s),
+      subject: { type: "motion", motionId },
+      seats: ctx.s.seats,
+      nowMs: ctx.now,
+    });
+    ctx.s.ballots[ballot.id] = ballot;
+    m.ballotId = ballot.id;
+    if (!ballot.quorumMet) {
+      announce(ctx, `No voting quorum (${ballot.presentAtOpen}/${ballot.quorumRequired} required). Motion not voted.`);
+      if (ctx.s.settings.policies.noVotingQuorum === "motion_carried_to_next_window") {
+        ctx.s.carriedMotionIds.push(motionId);
+        m.disposition = { reason: "no voting quorum; carried", source: "open_decision" };
+      } else {
+        m.status = "not_held";
+        m.disposition = { reason: "no voting quorum", source: "open_decision" };
+      }
+      queue.shift();
+      continue;
+    }
+    m.status = "voting";
+    transition(ctx, {
+      type: "MOTION_VOTE",
+      windowId,
+      queue: queue.slice(1),
+      currentMotionId: motionId,
+      ballotId: ballot.id,
+      stage: "reading",
+      deadlineMs: ctx.now + ctx.s.settings.timers.readingSec * 1000,
+    });
+    return;
+  }
+  nextSpeakerOrFloor(ctx, "after_motions"); // rule 15: all motions failed / none held
+}
+
+function connectionMap(s: ForumEngineState) {
+  const c: Record<SeatId, "online" | "offline"> = {};
+  for (const st of Object.values(s.seats)) c[st.id] = st.kind === "ai" ? "online" : st.connection;
+  return c;
+}
+
+function closeBallot(ctx: Ctx, b: Ballot) {
+  const pol = b.kind === "procedural" ? ctx.s.settings.policies.proceduralNonResponse : ctx.s.settings.policies.substantiveNonResponse;
+  b.connectionAtClose = connectionMap(ctx.s);
+  b.result = tally(b, pol, b.connectionAtClose);
+  b.status = "closed";
+}
+
+function finishMotionVote(ctx: Ctx) {
+  const p = ctx.s.phase as Extract<Phase, { type: "MOTION_VOTE" }>;
+  const b = ctx.s.ballots[p.ballotId];
+  closeBallot(ctx, b);
+  const m = ctx.s.motions[p.currentMotionId];
+  const r = b.result!;
+  const passed = r.passed;
+  m.status = passed ? "adopted" : "rejected";
+  record(ctx, {
+    source: "chair",
+    substantive: true,
+    text: `Motion (${m.params.type}) by ${m.mover} ${passed ? "ADOPTED" : "FAILED"}: Yes ${r.yes}, No ${r.no}` +
+      (r.notVoted.length ? `, did not vote ${r.notVoted.length}` : "") + ` [${r.formula}]`,
+  });
+  if (!passed) return startMotionBallot(ctx, p.windowId, [...p.queue]);
+  adoptMotion(ctx, m, [...p.queue]);
+}
+
+function adoptMotion(ctx: Ctx, m: Motion, remaining: string[]) {
+  const policy = ctx.s.settings.policies.remainingMotionsAfterModeChange;
+  const keep: string[] = [];
+  for (const id of remaining) {
+    const o = ctx.s.motions[id];
+    const row = dispositionAfterAdoption(m.params.type, o.params.type);
+    if (row.disposition === "continue_voting") {
+      keep.push(id);
+      continue;
+    }
+    if (row.disposition === "deferred") {
+      if (policy === "carry_over_to_next_window") {
+        ctx.s.carriedMotionIds.push(id);
+        o.disposition = { reason: `carried after ${m.params.type}`, source: "open_decision" };
+      } else {
+        o.status = "lapsed";
+        o.disposition = { reason: `lapsed after ${m.params.type}`, source: "open_decision" };
+      }
+      continue;
+    }
+    o.status = row.disposition === "obsolete" ? "obsolete" : "lapsed";
+    o.disposition = { reason: row.rationale, source: row.source };
+  }
+
+  const p = m.params;
+  switch (p.type) {
+    case "adjourn":
+      return close(ctx, "adjourned");
+    case "suspend":
+      return transition(ctx, { type: "SUSPENDED", resumeAtMs: ctx.now + p.durationSec * 1000 });
+    case "extend_caucus": {
+      const last = ctx.s.lastEndedCaucus!;
+      return startCaucus(ctx, {
+        kind: last.kind,
+        motionId: m.id,
+        topic: last.topic,
+        speakingSec: last.speakingSec,
+        totalSec: p.durationSec,
+        usedSec: 0,
+        spokenSeats: [],
+        isExtension: true,
+      });
+    }
+    case "unmod_caucus":
+      return startCaucus(ctx, { kind: "unmod", motionId: m.id, totalSec: p.totalSec, usedSec: 0, spokenSeats: [], isExtension: false });
+    case "mod_caucus":
+      return startCaucus(ctx, {
+        kind: "mod",
+        motionId: m.id,
+        topic: p.topic,
+        speakingSec: p.speakingSec,
+        totalSec: p.totalSec,
+        usedSec: 0,
+        spokenSeats: [],
+        isExtension: false,
+      });
+    case "set_speaking_time":
+      ctx.s.speakingTimeSec = p.speakingSec;
+      if (keep.length) return startMotionBallot(ctx, (ctx.s.phase as { windowId: string }).windowId, keep);
+      return nextSpeakerOrFloor(ctx, "after_motions");
+    case "introduce_resolution": {
+      const approved = Object.values(ctx.s.documents)
+        .filter((d) => d.kind === "draft_resolution" && d.status === "approved")
+        .sort((a, b) => a.submittedAtMs - b.submittedAtMs || a.id.localeCompare(b.id));
+      for (const d of approved) {
+        d.status = "introduced";
+        ctx.s.introducedResolutionIds.push(d.id);
+        record(ctx, { source: "chair", substantive: true, text: `Draft resolution "${d.title}" (${d.id} v${d.version}) introduced.` });
+      }
+      return transition(ctx, {
+        type: "DR_INTRO",
+        queue: approved.slice(1).map((d) => d.id),
+        docId: approved[0].id,
+        stage: "presentation",
+        deadlineMs: ctx.now + ctx.s.settings.timers.drPresentationSec * 1000,
+      });
+    }
+    case "introduce_amendment": {
+      const a = ctx.s.amendments[p.amendmentId];
+      a.status = "awaiting_sponsors";
+      transition(ctx, {
+        type: "AMENDMENT_SPONSOR_RESPONSE",
+        amendmentId: a.id,
+        deadlineMs: ctx.now + ctx.s.settings.timers.sponsorResponseSec * 1000,
+        responses: {},
+        waitExtended: false,
+      });
+      const sponsors = ctx.s.documents[a.targetDocId].sponsors.filter((sid) => ctx.s.seats[sid]?.kind === "ai");
+      if (sponsors.length) ctx.effects.push({ type: "ai_sponsor_response_needed", amendmentId: a.id, seats: sponsors });
+      return;
+    }
+    case "enter_voting":
+      return enterVotingProcedure(ctx);
+    default:
+      return reject("not_supported_yet", "Motion not implemented");
+  }
+}
+
+function startCaucus(ctx: Ctx, c: CaucusState) {
+  ctx.s.activeCaucus = c;
+  if (c.kind === "unmod") {
+    transition(ctx, { type: "UNMOD_CAUCUS", deadlineMs: ctx.now + c.totalSec * 1000, readySeats: [] });
+  } else {
+    openVolunteerWindow(ctx);
+  }
+}
+
+function openVolunteerWindow(ctx: Ctx) {
+  transition(ctx, { type: "MOD_CAUCUS", deadlineMs: ctx.now + ctx.s.settings.timers.volunteerWindowSec * 1000, volunteers: [] });
+}
+
+function continueModCaucus(ctx: Ctx) {
+  const c = ctx.s.activeCaucus!;
+  if (c.usedSec + (c.speakingSec ?? 0) > c.totalSec || sessionOver(ctx)) return endCaucus(ctx);
+  openVolunteerWindow(ctx);
+}
+
+function endCaucus(ctx: Ctx) {
+  const c = ctx.s.activeCaucus;
+  if (c) ctx.s.lastEndedCaucus = { ...c, endedPhaseId: ctx.s.phaseId };
+  ctx.s.activeCaucus = null;
+  openFloor(ctx, "after_caucus");
+}
+
+function pickVolunteer(ctx: Ctx, volunteers: SeatId[]): SeatId {
+  // App policy: delegations that have not yet spoken in this caucus first, humans before AI, then sign-up order.
+  const c = ctx.s.activeCaucus!;
+  const rank = (id: SeatId) => [c.spokenSeats.includes(id) ? 1 : 0, ctx.s.seats[id].kind === "human" ? 0 : 1];
+  return [...volunteers].sort((a, b) => {
+    const ra = rank(a);
+    const rb = rank(b);
+    return ra[0] - rb[0] || ra[1] - rb[1] || volunteers.indexOf(a) - volunteers.indexOf(b);
+  })[0];
+}
+
+// ── voting procedure (substantive) ───────────────────────────────
+
+function enterVotingProcedure(ctx: Ctx) {
+  ctx.s.debateClosed = true;
+  for (const id of ctx.s.carriedMotionIds) {
+    const m = ctx.s.motions[id];
+    if (m) {
+      m.status = "obsolete";
+      m.disposition = { reason: "Rule 13: debate closed", source: "official" };
+    }
+  }
+  ctx.s.carriedMotionIds = [];
+  const queue: Extract<Phase, { type: "VOTING_PROCEDURE" }>["queue"] = [];
+  for (const docId of ctx.s.introducedResolutionIds) {
+    const doc = ctx.s.documents[docId];
+    if (doc.status !== "introduced") continue;
+    for (const a of Object.values(ctx.s.amendments)) {
+      if (a.targetDocId === docId && a.status === "unfriendly_pending") queue.push({ kind: "amendment", id: a.id });
+    }
+    queue.push({ kind: "resolution", id: docId });
+  }
+  transition(ctx, { type: "VOTING_PROCEDURE", queue, ballotId: null, stage: "between", deadlineMs: ctx.now });
+  nextVotingItem(ctx);
+}
+
+function nextVotingItem(ctx: Ctx) {
+  const p = ctx.s.phase as Extract<Phase, { type: "VOTING_PROCEDURE" }>;
+  const item = p.queue.shift();
+  if (!item) return close(ctx, "voting_completed");
+  let subject: Ballot["subject"];
+  let threshold: Ballot["threshold"];
+  if (item.kind === "amendment") {
+    const a = ctx.s.amendments[item.id];
+    const doc = ctx.s.documents[a.targetDocId];
+    const err = validateAmendmentOp(doc, a.op);
+    if (err) {
+      a.status = "failed";
+      announce(ctx, `Amendment ${a.id} cannot be applied to the current text (${err}).`);
+      return nextVotingItem(ctx);
+    }
+    subject = { type: "amendment", amendmentId: a.id, textHash: a.textHash };
+    threshold = "two_thirds"; // rule 29 (official): unfriendly amendment needs 2/3 substantive vote
+  } else {
+    const doc = ctx.s.documents[item.id];
+    subject = { type: "resolution", docId: doc.id, version: doc.version, textHash: doc.textHash };
+    threshold = "simple_majority"; // rule 26 (official)
+  }
+  const b = openBallot({ id: newId(ctx, "b"), kind: "substantive", threshold, subject, seats: ctx.s.seats, nowMs: ctx.now });
+  ctx.s.ballots[b.id] = b;
+  if (!b.quorumMet) {
+    announce(ctx, `No voting quorum (${b.presentAtOpen}/${b.quorumRequired}). ${item.kind} ${item.id} not voted.`);
+    if (item.kind === "resolution") ctx.s.documents[item.id].status = "failed";
+    else ctx.s.amendments[item.id].status = "failed";
+    return nextVotingItem(ctx);
+  }
+  transition(ctx, {
+    type: "VOTING_PROCEDURE",
+    queue: p.queue,
+    ballotId: b.id,
+    stage: "reading",
+    deadlineMs: ctx.now + ctx.s.settings.timers.readingSec * 1000,
+  });
+}
+
+function finishSubstantiveVote(ctx: Ctx) {
+  const p = ctx.s.phase as Extract<Phase, { type: "VOTING_PROCEDURE" }>;
+  const b = ctx.s.ballots[p.ballotId!];
+  closeBallot(ctx, b);
+  const r = b.result!;
+  if (b.subject.type === "amendment") {
+    const a = ctx.s.amendments[b.subject.amendmentId];
+    if (r.passed) {
+      const doc = ctx.s.documents[a.targetDocId];
+      doc.operative = applyAmendmentOp(doc, a.op);
+      doc.version += 1;
+      doc.textHash = docTextHash(doc);
+      a.status = "adopted";
+    } else a.status = "failed";
+    record(ctx, { source: "chair", substantive: true, text: `Amendment ${a.id} ${r.passed ? "ADOPTED" : "FAILED"}: Yes ${r.yes}, No ${r.no}, Abstain ${r.abstain} [${r.formula}]` });
+  } else if (b.subject.type === "resolution") {
+    const doc = ctx.s.documents[b.subject.docId];
+    doc.status = r.passed ? "adopted" : "failed";
+    record(ctx, { source: "chair", substantive: true, text: `Resolution "${doc.title}" v${doc.version} ${r.passed ? "ADOPTED" : "NOT ADOPTED"}: Yes ${r.yes}, No ${r.no}, Abstain ${r.abstain} [${r.formula}]` });
+  }
+  transition(ctx, { type: "VOTING_PROCEDURE", queue: p.queue, ballotId: null, stage: "between", deadlineMs: ctx.now });
+  nextVotingItem(ctx);
+}
+
+// ── commands ─────────────────────────────────────────────────────
+
+function isHumanOnlinePresent(s: Seat) {
+  return s.kind === "human" && isPresent(s) && s.connection === "online";
+}
+
+function maybeCloseFloorEarly(ctx: Ctx) {
+  const p = ctx.s.phase as Extract<Phase, { type: "FLOOR_OPEN" }>;
+  const humans = Object.values(ctx.s.seats).filter(isHumanOnlinePresent).map((x) => x.id);
+  const ais = aiSeats(ctx.s);
+  // App policy: the window closes early only when every online present human said "ready"
+  // AND every present AI delegation reported it has finished deciding. AI speed never shortens human time.
+  if (humans.every((h) => p.readySeats.includes(h)) && ais.every((a) => p.aiDoneSeats.includes(a))) closeFloor(ctx);
+}
+
+function handleTick(ctx: Ctx) {
+  const s = ctx.s;
+  if (s.paused) {
+    if (ctx.now >= s.paused.autoResumeAtMs) return resume(ctx, "auto");
+    throw new Duplicate();
+  }
+  const d = phaseDeadline(s.phase);
+  if (d === null || ctx.now < d) throw new Duplicate(); // early/duplicate scheduler delivery: harmless no-op
+  const p = s.phase;
+  switch (p.type) {
+    case "ROLL_CALL": {
+      const present = presentSeats(s).length;
+      const required = debateQuorumRequired(Object.keys(s.seats).length);
+      if (present >= required) {
+        record(ctx, { source: "chair", substantive: false, text: `Roll call closed: ${present} present (debate quorum ${required}).` });
+        return nextSpeakerOrFloor(ctx, "empty_list");
+      }
+      announce(ctx, `No debate quorum yet (${present}/${required}). Roll call remains open.`);
+      return transition(ctx, { type: "ROLL_CALL", deadlineMs: ctx.now + s.settings.timers.rollCallSec * 1000 });
+    }
+    case "SPEECH_PREP": {
+      const st = s.seats[p.seat];
+      if (st.connection === "offline" || !isPresent(st)) {
+        record(ctx, { source: "human_forfeit", seat: p.seat, substantive: false, text: `${st.countryName} was absent when recognised; time forfeited (rule 16).` });
+        return endSpeechSlot(ctx, p.seat, p.context);
+      }
+      const sec = slotSeconds(ctx, p.context);
+      transition(ctx, { type: "SPEECH", seat: p.seat, speakerKind: "human", startedMs: ctx.now, deadlineMs: ctx.now + sec * 1000, context: p.context });
+      ctx.effects.push({ type: "transcription_expected", seat: p.seat, phaseId: s.phaseId });
+      return;
+    }
+    case "SPEECH":
+      if (p.speakerKind === "ai") {
+        record(ctx, { source: "ai_speech", seat: p.seat, substantive: true, text: p.ai?.text ?? "" });
+        return endSpeechSlot(ctx, p.seat, p.context);
+      }
+      return toConfirm(ctx, p.seat, p.context);
+    case "AI_SPEECH_PENDING":
+      record(ctx, { source: "ai_unavailable", seat: p.seat, substantive: false, text: `${s.seats[p.seat].countryName}: AI speech unavailable; turn skipped.` });
+      return endSpeechSlot(ctx, p.seat, p.context);
+    case "SPEECH_CONFIRM": {
+      if (p.transcript.status === "ready" && p.transcript.text) {
+        record(ctx, { source: "human_voice_auto", seat: p.seat, substantive: true, text: p.transcript.text });
+        return endSpeechSlot(ctx, p.seat, p.context);
+      }
+      if (p.transcript.status === "pending" && !p.waitExtended) {
+        p.waitExtended = true;
+        p.deadlineMs = ctx.now + s.settings.timers.transcriptConfirmSec * 1000;
+        schedule(ctx, p.deadlineMs);
+        return;
+      }
+      record(ctx, { source: "human_no_transcript", seat: p.seat, substantive: false, text: `${s.seats[p.seat].countryName} spoke; no transcript is available.` });
+      return endSpeechSlot(ctx, p.seat, p.context);
+    }
+    case "FLOOR_OPEN":
+      return closeFloor(ctx);
+    case "MOTION_VOTE": {
+      const b = s.ballots[p.ballotId];
+      if (p.stage === "reading") {
+        b.status = "open";
+        p.stage = "voting";
+        p.deadlineMs = ctx.now + s.settings.timers.votingSec * 1000;
+        schedule(ctx, p.deadlineMs);
+        const ai = Object.keys(b.eligible).filter((x) => s.seats[x].kind === "ai");
+        if (ai.length) ctx.effects.push({ type: "ai_vote_needed", ballotId: b.id, seats: ai });
+        return;
+      }
+      if (maybeNonResponseExtension(ctx, b, p)) return;
+      return finishMotionVote(ctx);
+    }
+    case "VOTING_PROCEDURE": {
+      if (p.stage === "between") return nextVotingItem(ctx);
+      const b = s.ballots[p.ballotId!];
+      if (p.stage === "reading") {
+        b.status = "open";
+        p.stage = "voting";
+        p.deadlineMs = ctx.now + s.settings.timers.votingSec * 1000;
+        schedule(ctx, p.deadlineMs);
+        const ai = Object.keys(b.eligible).filter((x) => s.seats[x].kind === "ai");
+        if (ai.length) ctx.effects.push({ type: "ai_vote_needed", ballotId: b.id, seats: ai });
+        return;
+      }
+      if (maybeNonResponseExtension(ctx, b, p)) return;
+      return finishSubstantiveVote(ctx);
+    }
+    case "MOD_CAUCUS": {
+      if (p.volunteers.length === 0) return endCaucus(ctx); // rule 10: nobody wishes to speak → caucus ends
+      const chosen = pickVolunteer(ctx, p.volunteers);
+      return startSpeakerSlot(ctx, chosen, { kind: "mod_caucus" });
+    }
+    case "UNMOD_CAUCUS":
+      return endCaucus(ctx);
+    case "SUSPENDED":
+      record(ctx, { source: "chair", substantive: false, text: "Meeting resumed after suspension." });
+      return nextSpeakerOrFloor(ctx, "after_resume");
+    case "DR_INTRO":
+      if (p.stage === "presentation") {
+        p.stage = "qa";
+        p.deadlineMs = ctx.now + s.settings.timers.drQaSec * 1000;
+        schedule(ctx, p.deadlineMs);
+        return;
+      }
+      if (p.queue.length) {
+        const [next, ...rest] = p.queue;
+        return transition(ctx, { type: "DR_INTRO", queue: rest, docId: next, stage: "presentation", deadlineMs: ctx.now + s.settings.timers.drPresentationSec * 1000 });
+      }
+      return openFloor(ctx, "after_motions");
+    case "AMENDMENT_SPONSOR_RESPONSE": {
+      if (s.settings.policies.amendmentSponsorSilence === "extend_once_then_not_agreeing" && !p.waitExtended) {
+        p.waitExtended = true;
+        p.deadlineMs = ctx.now + s.settings.timers.sponsorResponseSec * 1000;
+        schedule(ctx, p.deadlineMs);
+        return;
+      }
+      return resolveAmendmentResponse(ctx, false);
+    }
+    default:
+      throw new Duplicate();
+  }
+}
+
+function maybeNonResponseExtension(ctx: Ctx, b: Ballot, p: { deadlineMs: number }): boolean {
+  const pol = b.kind === "procedural" ? ctx.s.settings.policies.proceduralNonResponse : ctx.s.settings.policies.substantiveNonResponse;
+  if (pol !== "extend_once_then_record_not_voting" || b.extendedForNonResponse || pendingVoters(b).length === 0) return false;
+  b.extendedForNonResponse = true;
+  p.deadlineMs = ctx.now + ctx.s.settings.limits.nonResponseExtensionSec * 1000;
+  schedule(ctx, p.deadlineMs);
+  announce(ctx, `Voting extended once for delegations that have not voted.`);
+  return true;
+}
+
+function toConfirm(ctx: Ctx, id: SeatId, context: SpeechContext) {
+  transition(ctx, {
+    type: "SPEECH_CONFIRM",
+    seat: id,
+    context,
+    deadlineMs: ctx.now + ctx.s.settings.timers.transcriptConfirmSec * 1000,
+    transcript: { status: "pending" },
+    waitExtended: false,
+  });
+}
+
+function resolveAmendmentResponse(ctx: Ctx, allAgreed: boolean) {
+  const p = ctx.s.phase as Extract<Phase, { type: "AMENDMENT_SPONSOR_RESPONSE" }>;
+  const a = ctx.s.amendments[p.amendmentId];
+  const doc = ctx.s.documents[a.targetDocId];
+  if (allAgreed) {
+    doc.operative = applyAmendmentOp(doc, a.op);
+    doc.version += 1;
+    doc.textHash = docTextHash(doc);
+    a.status = "friendly_adopted";
+    record(ctx, { source: "chair", substantive: true, text: `Friendly amendment ${a.id} adopted into "${doc.title}" (now v${doc.version}).` });
+  } else {
+    a.status = "unfriendly_pending";
+    record(ctx, { source: "chair", substantive: true, text: `Amendment ${a.id} is unfriendly; it will be voted (2/3) in voting procedure.` });
+  }
+  openFloor(ctx, "after_motions");
+}
+
+function pause(ctx: Ctx) {
+  requireOwner(ctx);
+  const s = ctx.s;
+  if (s.paused) throw new Duplicate();
+  const d = phaseDeadline(s.phase);
+  if (d === null) reject("cannot_pause", "Nothing to pause in this phase");
+  const left = s.settings.limits.pauseTotalMaxSec - s.usage.pauseUsedSec;
+  if (left <= 0) reject("pause_limit", "Pause allowance for this forum is used up");
+  const maxSec = Math.min(s.settings.limits.pauseMaxSec, left);
+  s.paused = {
+    pausedAtMs: ctx.now,
+    remainingMs: Math.max(0, (d as number) - ctx.now),
+    autoResumeAtMs: ctx.now + maxSec * 1000,
+    phaseDeadlineKey: s.phaseId,
+  };
+  schedule(ctx, s.paused.autoResumeAtMs);
+  announce(ctx, "App paused by the room owner (not a formal suspension).");
+}
+
+function resume(ctx: Ctx, by: "owner" | "auto") {
+  const s = ctx.s;
+  const pz = s.paused;
+  if (!pz) throw new Duplicate();
+  const elapsedMs = ctx.now - pz.pausedAtMs;
+  s.usage.pauseUsedSec += Math.ceil(elapsedMs / 1000);
+  setPhaseDeadline(s.phase, ctx.now + pz.remainingMs);
+  if (s.phase.type === "SPEECH" && s.phase.ai) s.phase.ai.playStartMs += elapsedMs;
+  if (s.phase.type === "SPEECH") s.phase.startedMs += elapsedMs;
+  s.paused = null;
+  schedule(ctx, phaseDeadline(s.phase)!);
+  announce(ctx, by === "auto" ? "App pause limit reached; resumed automatically." : "App resumed.");
+}
+
+function extend(ctx: Ctx, id: SeatId) {
+  const st = requireSeatActor(ctx, id);
+  if (st.kind !== "human") reject("humans_only", "Extensions exist to protect human participation time");
+  const p = ctx.s.phase;
+  const lim = ctx.s.settings.limits;
+  const used = ctx.s.usage.extensionsBySeat[id] ?? 0;
+  if (used >= lim.maxExtensionsPerSeat) reject("extension_limit", "Extension allowance used up");
+  if (p.type === "FLOOR_OPEN") {
+    if (p.extensionUsedSec + lim.extensionSec > lim.maxExtensionPerWindowSec) reject("window_extension_limit", "This window cannot be extended further");
+    p.extensionUsedSec += lim.extensionSec;
+    p.deadlineMs += lim.extensionSec * 1000;
+  } else if ((p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && p.stage === "voting") {
+    const b = ctx.s.ballots[p.ballotId!];
+    if (b.extensionUsedSec + lim.extensionSec > lim.maxExtensionPerWindowSec) reject("window_extension_limit", "This vote cannot be extended further");
+    b.extensionUsedSec += lim.extensionSec;
+    p.deadlineMs += lim.extensionSec * 1000;
+  } else reject("not_extendable", "Nothing to extend now");
+  ctx.s.usage.extensionsBySeat[id] = used + 1;
+  schedule(ctx, phaseDeadline(ctx.s.phase)!);
+}
+
+function dispatch(ctx: Ctx, c: Command) {
+  const s = ctx.s;
+  if (s.phase.type === "CLOSED" && c.type !== "connection") reject("closed", "Forum is closed");
+  if (s.paused && !["app_resume", "connection", "tick"].includes(c.type)) reject("paused", "The app is paused");
+
+  switch (c.type) {
+    case "start": {
+      requireOwner(ctx);
+      if (s.phase.type !== "LOBBY") throw new Duplicate();
+      if (Object.keys(s.seats).length === 0) reject("no_seats", "No seats");
+      s.joinLocked = true;
+      transition(ctx, { type: "ROLL_CALL", deadlineMs: ctx.now + s.settings.timers.rollCallSec * 1000 });
+      const ai = aiSeats(s, false);
+      if (ai.length) ctx.effects.push({ type: "ai_attendance_needed", seats: ai });
+      return;
+    }
+    case "declare_attendance": {
+      const st = requireSeatActor(ctx, c.seat);
+      if (s.phase.type === "LOBBY") reject("not_started", "Roll call has not started");
+      if (st.attendance === c.value) throw new Duplicate();
+      if (st.attendance === "present_and_voting") reject("irrevocable", "Present and voting cannot be withdrawn (rule 31)");
+      st.attendance = c.value;
+      if (s.phase.type === "ROLL_CALL" && Object.values(s.seats).every(isPresent)) {
+        const present = presentSeats(s).length;
+        record(ctx, { source: "chair", substantive: false, text: `Roll call complete: ${present} present.` });
+        nextSpeakerOrFloor(ctx, "empty_list");
+      }
+      return;
+    }
+    case "add_to_speakers_list": {
+      const st = requireSeatActor(ctx, c.seat);
+      if (!isPresent(st)) reject("not_present", "Only present delegations may be added");
+      if (s.debateClosed) reject("debate_closed", "Debate is closed");
+      if (s.speakersList.includes(c.seat)) throw new Duplicate();
+      s.speakersList.push(c.seat);
+      return;
+    }
+    case "remove_from_speakers_list": {
+      requireSeatActor(ctx, c.seat);
+      const i = s.speakersList.indexOf(c.seat);
+      if (i < 0) throw new Duplicate();
+      s.speakersList.splice(i, 1);
+      return;
+    }
+    case "end_speech": {
+      const p = s.phase;
+      if (p.type !== "SPEECH" || p.seat !== c.seat || p.speakerKind !== "human") reject("not_speaking", "You do not hold the floor");
+      requireSeatActor(ctx, c.seat);
+      return toConfirm(ctx, c.seat, (p as Extract<Phase, { type: "SPEECH" }>).context);
+    }
+    case "submit_text_speech": {
+      requireSeatActor(ctx, c.seat);
+      const p = s.phase;
+      const text = c.text.trim();
+      if (!text) reject("empty", "Text required");
+      if ((p.type === "SPEECH" && p.speakerKind === "human" && p.seat === c.seat) || (p.type === "SPEECH_CONFIRM" && p.seat === c.seat)) {
+        record(ctx, { source: "human_text", seat: c.seat, substantive: true, text });
+        return endSpeechSlot(ctx, c.seat, p.context);
+      }
+      return reject("not_your_turn", "Text speeches replace your own speaking turn only");
+    }
+    case "transcript_result": {
+      requireSystem(ctx);
+      const p = s.phase;
+      if (p.type !== "SPEECH_CONFIRM" || p.seat !== c.seat) reject("stale_transcript", "No confirmation pending for this seat", true);
+      const pc = p as Extract<Phase, { type: "SPEECH_CONFIRM" }>;
+      if (pc.transcript.status !== "pending") throw new Duplicate();
+      pc.transcript = c.ok && c.text?.trim() ? { status: "ready", text: c.text.trim() } : { status: "failed" };
+      return;
+    }
+    case "confirm_transcript": {
+      requireSeatActor(ctx, c.seat);
+      const p = s.phase;
+      if (p.type !== "SPEECH_CONFIRM" || p.seat !== c.seat) reject("nothing_to_confirm", "No transcript awaiting your confirmation");
+      const pc = p as Extract<Phase, { type: "SPEECH_CONFIRM" }>;
+      const text = c.text.trim();
+      if (!text) reject("empty", "Text required (use skip to continue without a transcript)");
+      record(ctx, {
+        source: pc.transcript.status === "ready" ? "human_voice_confirmed" : "human_text",
+        seat: c.seat,
+        substantive: true,
+        text,
+      });
+      return endSpeechSlot(ctx, c.seat, pc.context);
+    }
+    case "skip_transcript": {
+      requireSeatActor(ctx, c.seat);
+      const p = s.phase;
+      if (p.type !== "SPEECH_CONFIRM" || p.seat !== c.seat) reject("nothing_to_skip", "No transcript awaiting your confirmation");
+      record(ctx, { source: "human_no_transcript", seat: c.seat, substantive: false, text: `${s.seats[c.seat].countryName} spoke; transcript skipped by the delegate.` });
+      return endSpeechSlot(ctx, c.seat, (p as Extract<Phase, { type: "SPEECH_CONFIRM" }>).context);
+    }
+    case "ai_speech_ready": {
+      const p = s.phase;
+      if (ctx.actor.kind !== "system") requireSeatActor(ctx, c.seat);
+      if (p.type === "SPEECH" && p.seat === c.seat && p.ai?.contextSeq === c.contextSeq) throw new Duplicate();
+      if (p.type !== "AI_SPEECH_PENDING" || p.seat !== c.seat) reject("stale_phase", "This AI turn is no longer pending", true);
+      const pp = p as Extract<Phase, { type: "AI_SPEECH_PENDING" }>;
+      // A draft is usable only if it saw every confirmed statement so far (incl. the latest human speech).
+      if (c.contextSeq !== s.contextSeq) reject("stale_context", `Draft built on context ${c.contextSeq}, current is ${s.contextSeq}`, true);
+      const slotMs = slotSeconds(ctx, pp.context) * 1000;
+      const estMs = c.durationMs ?? Math.ceil((c.text.split(/\s+/).length / 2.5) * 1000);
+      const playStartMs = ctx.now + s.settings.timers.aiPlaybackLeadMs;
+      transition(ctx, {
+        type: "SPEECH",
+        seat: c.seat,
+        speakerKind: "ai",
+        startedMs: playStartMs,
+        deadlineMs: playStartMs + Math.min(estMs + 1000, slotMs),
+        context: pp.context,
+        ai: { text: c.text, audioId: c.audioId, playStartMs, durationMs: c.durationMs, contextSeq: c.contextSeq },
+      });
+      return;
+    }
+    case "submit_motion": {
+      const st = requireSeatActor(ctx, c.seat);
+      if (!isPresent(st)) reject("not_present", "Only present delegations may move motions");
+      const p = s.phase;
+      const v = validateMotion(s, c.seat, c.params, ctx.now);
+      if (!v.ok) return reject(v.code, `${v.message} [${v.source}${v.ruleRef ? `, rule ${v.ruleRef}` : ""}]`);
+      const fp = p as Extract<Phase, { type: "FLOOR_OPEN" }>;
+      const key = motionContentKey(c.seat, c.params);
+      const mine = windowMotions(ctx, fp.windowId).filter((m) => m.mover === c.seat);
+      if (mine.some((m) => m.contentKey === key)) throw new Duplicate();
+      if (mine.length >= s.settings.limits.maxMotionsPerSeatPerWindow) reject("motion_limit", "Motion limit for this window reached (app policy)");
+      const id = newId(ctx, "m");
+      s.motions[id] = { id, params: c.params, mover: c.seat, submittedAtMs: ctx.now, windowId: fp.windowId, contentKey: key, status: "pending" };
+      return; // submission never closes the window early
+    }
+    case "floor_pass": {
+      const st = requireSeatActor(ctx, c.seat);
+      const p = s.phase;
+      if (p.type !== "FLOOR_OPEN") reject("floor_not_open", "Floor is not open", true);
+      const fp = p as Extract<Phase, { type: "FLOOR_OPEN" }>;
+      const list = st.kind === "ai" ? fp.aiDoneSeats : fp.readySeats;
+      if (list.includes(c.seat)) throw new Duplicate();
+      list.push(c.seat);
+      return maybeCloseFloorEarly(ctx);
+    }
+    case "request_extension":
+      return extend(ctx, c.seat);
+    case "cast_vote": {
+      requireSeatActor(ctx, c.seat);
+      const b = s.ballots[c.ballotId];
+      if (!b) reject("unknown_ballot", "Unknown ballot", true);
+      const chk = checkVote(b, c.seat, c.choice);
+      if (!chk.ok) {
+        if (chk.code === "ballot_not_open" && b.status === "closed") reject(chk.code, chk.message, true);
+        reject(chk.code, chk.message);
+      }
+      if (b.votes[c.seat] === c.choice) throw new Duplicate();
+      b.votes[c.seat] = c.choice;
+      if (allEligibleVoted(b)) {
+        // Early close: every eligible voter (humans AND AI) has a valid vote.
+        if (s.phase.type === "MOTION_VOTE" && s.phase.ballotId === b.id) return finishMotionVote(ctx);
+        if (s.phase.type === "VOTING_PROCEDURE" && s.phase.ballotId === b.id) return finishSubstantiveVote(ctx);
+      }
+      return;
+    }
+    case "volunteer": {
+      const st = requireSeatActor(ctx, c.seat);
+      const p = s.phase;
+      if (p.type !== "MOD_CAUCUS") reject("no_caucus", "No moderated caucus is taking volunteers", true);
+      if (!isPresent(st)) reject("not_present", "Not present");
+      const mp = p as Extract<Phase, { type: "MOD_CAUCUS" }>;
+      if (mp.volunteers.includes(c.seat)) throw new Duplicate();
+      mp.volunteers.push(c.seat);
+      return;
+    }
+    case "caucus_ready": {
+      const st = requireSeatActor(ctx, c.seat);
+      const p = s.phase;
+      if (p.type !== "UNMOD_CAUCUS") reject("no_caucus", "No unmoderated caucus", true);
+      const up = p as Extract<Phase, { type: "UNMOD_CAUCUS" }>;
+      if (up.readySeats.includes(c.seat)) throw new Duplicate();
+      up.readySeats.push(c.seat);
+      const humans = Object.values(s.seats).filter(isHumanOnlinePresent).map((x) => x.id);
+      // App policy replacing the moderator's discretion to end early (rule 11): all online present humans ready.
+      if (st.kind === "human" && humans.length > 0 && humans.every((h) => up.readySeats.includes(h))) endCaucus(ctx);
+      return;
+    }
+    case "submit_document": {
+      requireSeatActor(ctx, c.seat);
+      if (s.phase.type === "LOBBY") reject("not_started", "Not started");
+      if (s.debateClosed) reject("debate_closed", "Debate is closed");
+      const id = newId(ctx, "d");
+      const doc = {
+        id,
+        kind: c.kind,
+        title: c.title.trim() || "Untitled",
+        sponsors: [c.seat],
+        signatories: [],
+        preambular: c.preambular,
+        operative: c.operative,
+        version: 1,
+        textHash: "",
+        status: "draft" as const,
+        submittedBy: c.seat,
+        submittedAtMs: ctx.now,
+      };
+      doc.textHash = docTextHash(doc);
+      s.documents[id] = doc;
+      return reapprove(ctx, id);
+    }
+    case "update_document": {
+      requireSeatActor(ctx, c.seat);
+      const d = s.documents[c.docId];
+      if (!d) reject("unknown_doc", "Unknown document");
+      if (!d.sponsors.includes(c.seat)) reject("sponsors_only", "Only sponsors may edit");
+      if (d.status !== "draft" && d.status !== "approved") reject("locked", "Introduced text changes only through amendments (rule 29)");
+      const hash = docTextHash({ title: d.title, preambular: c.preambular, operative: c.operative });
+      if (hash === d.textHash) throw new Duplicate();
+      d.preambular = c.preambular;
+      d.operative = c.operative;
+      d.version += 1;
+      d.textHash = hash;
+      d.status = "draft";
+      return reapprove(ctx, d.id);
+    }
+    case "sign_document": {
+      requireSeatActor(ctx, c.seat);
+      const d = s.documents[c.docId];
+      if (!d) reject("unknown_doc", "Unknown document");
+      if (d.status !== "draft" && d.status !== "approved") reject("locked", "Document already introduced");
+      const list = c.role === "sponsor" ? d.sponsors : d.signatories;
+      const other = c.role === "sponsor" ? d.signatories : d.sponsors;
+      if (list.includes(c.seat)) throw new Duplicate();
+      const oi = other.indexOf(c.seat);
+      if (oi >= 0) other.splice(oi, 1);
+      list.push(c.seat);
+      return reapprove(ctx, d.id);
+    }
+    case "submit_amendment": {
+      requireSeatActor(ctx, c.seat);
+      if (s.debateClosed) reject("debate_closed", "Debate is closed");
+      const d = s.documents[c.targetDocId];
+      if (!d || d.status !== "introduced") reject("target_not_introduced", "Amendments apply to introduced resolutions (rule 29)");
+      const err = validateAmendmentOp(d, c.op);
+      if (err) reject("bad_amendment", err);
+      const id = newId(ctx, "a");
+      s.amendments[id] = {
+        id,
+        targetDocId: d.id,
+        targetVersion: d.version,
+        op: c.op,
+        proposer: c.seat,
+        signatories: [],
+        textHash: stableHash({ t: d.id, v: d.version, op: c.op }),
+        status: "draft",
+      };
+      return;
+    }
+    case "sign_amendment": {
+      requireSeatActor(ctx, c.seat);
+      const a = s.amendments[c.amendmentId];
+      if (!a || a.status !== "draft") reject("unknown_amendment", "Amendment not open for signatures");
+      if (a.signatories.includes(c.seat) || a.proposer === c.seat) throw new Duplicate();
+      a.signatories.push(c.seat);
+      return;
+    }
+    case "sponsor_response": {
+      requireSeatActor(ctx, c.seat);
+      const p = s.phase;
+      if (p.type !== "AMENDMENT_SPONSOR_RESPONSE" || p.amendmentId !== c.amendmentId) reject("no_request", "No sponsor response pending", true);
+      const pp = p as Extract<Phase, { type: "AMENDMENT_SPONSOR_RESPONSE" }>;
+      const doc = s.documents[s.amendments[pp.amendmentId].targetDocId];
+      if (!doc.sponsors.includes(c.seat)) reject("sponsors_only", "Only sponsors of the resolution respond");
+      if (pp.responses[c.seat]) throw new Duplicate();
+      pp.responses[c.seat] = c.agree ? "agree" : "disagree";
+      if (!c.agree) return resolveAmendmentResponse(ctx, false); // rule 29: any sponsor disagreeing → unfriendly
+      if (doc.sponsors.every((sp) => pp.responses[sp] === "agree")) return resolveAmendmentResponse(ctx, true);
+      return;
+    }
+    case "app_pause":
+      return pause(ctx);
+    case "app_resume":
+      requireOwner(ctx);
+      return resume(ctx, "owner");
+    case "connection": {
+      requireSystem(ctx);
+      const st = seat(ctx, c.seat);
+      const v = c.online ? "online" : "offline";
+      if (st.connection === v) throw new Duplicate();
+      st.connection = v; // never changes an open ballot's electorate
+      return;
+    }
+    case "tick":
+      requireSystem(ctx);
+      return handleTick(ctx);
+  }
+}
+
+function reapprove(ctx: Ctx, docId: string) {
+  const d = ctx.s.documents[docId];
+  if (d.kind !== "draft_resolution" || (d.status !== "draft" && d.status !== "approved")) return;
+  const r = evaluateApproval(ctx.s, d);
+  d.status = r.approved ? "approved" : "draft";
+}
+
+function checkExpectation(s: ForumEngineState, env: CommandEnvelope) {
+  const e = env.expect;
+  if (!e) return;
+  if (e.phaseId !== undefined && e.phaseId !== s.phaseId) reject("stale_phase", `Expected phase ${e.phaseId}, now ${s.phaseId}`, true);
+  if (e.ballotId !== undefined) {
+    const b = s.ballots[e.ballotId];
+    if (!b || (b.status !== "open" && b.status !== "reading")) reject("stale_ballot", "Ballot no longer open", true);
+    if (e.textHash !== undefined && "textHash" in b.subject && b.subject.textHash !== e.textHash) {
+      reject("stale_text", "Text under vote differs from the one evaluated", true);
+    }
+  }
+  if (e.contextSeq !== undefined && e.contextSeq !== s.contextSeq) {
+    reject("stale_context", `Context moved from ${e.contextSeq} to ${s.contextSeq}`, true);
+  }
+}
+
+export function apply(state: ForumEngineState, env: CommandEnvelope, nowMs: number): ApplyResult {
+  const s = structuredClone(state);
+  const ctx: Ctx = { s, now: nowMs, actor: env.actor, effects: [], notes: [] };
+  try {
+    checkExpectation(s, env);
+    dispatch(ctx, env.command);
+  } catch (e) {
+    if (e instanceof Duplicate) return { ok: true, state, effects: [], events: [], duplicate: true };
+    if (e instanceof Reject) return { ok: false, code: e.code, message: e.message, stale: e.stale };
+    throw e;
+  }
+  s.eventSeq += 1;
+  const event: EngineEvent = {
+    seq: s.eventSeq,
+    atMs: nowMs,
+    actor: env.actor,
+    command: env.command.type,
+    summary: ctx.notes.join(" "),
+  };
+  return { ok: true, state: s, effects: ctx.effects, events: [event] };
+}
+
+/** Utility for UIs: what can this seat do right now (names only; validation still happens on submit). */
+export function availableActions(s: ForumEngineState, seatId: SeatId): Command["type"][] {
+  const p = s.phase;
+  const st = s.seats[seatId];
+  if (!st || p.type === "CLOSED" || s.paused) return [];
+  const out: Command["type"][] = [];
+  if (p.type !== "LOBBY" && st.attendance !== "present_and_voting") out.push("declare_attendance");
+  if (!isPresent(st)) return out;
+  if (!s.debateClosed && !s.speakersList.includes(seatId)) out.push("add_to_speakers_list");
+  if (p.type === "FLOOR_OPEN") out.push("submit_motion", "floor_pass", "request_extension");
+  if ((p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && p.stage === "voting" && p.ballotId) {
+    const b = s.ballots[p.ballotId];
+    if (b.eligible[seatId] && !b.votes[seatId]) out.push("cast_vote", "request_extension");
+  }
+  if (p.type === "SPEECH" && p.seat === seatId && p.speakerKind === "human") out.push("end_speech", "submit_text_speech");
+  if (p.type === "SPEECH_CONFIRM" && p.seat === seatId) out.push("confirm_transcript", "submit_text_speech", "skip_transcript");
+  if (p.type === "MOD_CAUCUS") out.push("volunteer");
+  if (p.type === "UNMOD_CAUCUS") out.push("caucus_ready", "submit_document", "sign_document");
+  return out;
+}

@@ -3,7 +3,7 @@ import { KJUR } from "jsrsasign";
 
 export type ZoomServerConfig = { sdkKey: string; sdkSecret: string; sessionSecret: string };
 
-export function readZoomConfig(env: NodeJS.ProcessEnv = process.env): ZoomServerConfig | null {
+export function readZoomConfig(env: Record<string, string | undefined> = process.env): ZoomServerConfig | null {
   const sdkKey = env.ZOOM_VIDEO_SDK_KEY?.trim();
   const sdkSecret = env.ZOOM_VIDEO_SDK_SECRET?.trim();
   const sessionSecret = env.ZOOM_SESSION_SECRET?.trim();

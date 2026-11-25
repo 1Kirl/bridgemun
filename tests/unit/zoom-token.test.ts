@@ -5,9 +5,9 @@ const cfg = { sdkKey: "key", sdkSecret: "secret", sessionSecret: "s".repeat(32) 
 
 describe("zoom token", () => {
   it("is not configured without all three server variables (no legacy NEXT_PUBLIC fallback)", () => {
-    expect(readZoomConfig({ ZOOM_VIDEO_SDK_KEY: "a", ZOOM_VIDEO_SDK_SECRET: "b" } as NodeJS.ProcessEnv)).toBeNull();
+    expect(readZoomConfig({ ZOOM_VIDEO_SDK_KEY: "a", ZOOM_VIDEO_SDK_SECRET: "b" })).toBeNull();
     expect(
-      readZoomConfig({ NEXT_PUBLIC_ZOOM_VIDEO_SDK_KEY: "a", ZOOM_VIDEO_SDK_SECRET: "b", ZOOM_SESSION_SECRET: "c" } as NodeJS.ProcessEnv),
+      readZoomConfig({ NEXT_PUBLIC_ZOOM_VIDEO_SDK_KEY: "a", ZOOM_VIDEO_SDK_SECRET: "b", ZOOM_SESSION_SECRET: "c" }),
     ).toBeNull();
   });
   it("session name is derived from forum id + secret, not equal to the forum id", () => {
