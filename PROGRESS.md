@@ -36,7 +36,13 @@ Additional app policy (2026-11-25): after a failed transcription the speaker get
 - Real ElevenLabs: eleven_multilingual_v2 (~3 s for a 22 s clip) and eleven_v4 (~7 s); voice "Brian". Not yet listened to by a person.
 - Real OpenAI transcription (gpt-transcribe): 100% word overlap on generated speech; route bug (".mpeg" filename) found and fixed.
 - Real QStash: production tick advanced a test forum ≤7 s after its deadline (signature verified); test data deleted.
-- Real-AI local meeting (emulator + OpenAI + ElevenLabs): see final report.
+- Real-AI local meeting (emulator Firebase + real OpenAI/ElevenLabs/transcription), 2 humans (A in browser, B via API) + 3 AI:
+  roll call → AI floor decisions → AI speeches with ElevenLabs audio (synced playback started without error; not listened to) →
+  human speech transcribed by OpenAI (route) and auto-confirmed into AI context → unmoderated caucus where AI drafted/signed
+  resolutions → introduction → AI rejected "enter voting" twice (wanted more debate) → AI moderated/unmoderated caucus motions →
+  session end → D6 moved to final voting → resolution adopted Yes 3 / No 0 / Abstain 2 (AI voted clause-by-clause from materials).
+  Two dev-server restarts mid-meeting recovered via client nudge (lost AI job recorded as "AI speech unavailable").
+  Usage for that meeting (partial count mid-run): 36 LLM calls / 43k tokens, 3,007 TTS chars, 44 s transcription, 0 AI failures.
 
 ## Known gaps
 - Zoom Video SDK keys not available → live audio/video untested; meetings work without video (text speech, uploads).
