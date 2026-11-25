@@ -96,7 +96,15 @@ export function buildRuntime(db: Firestore, env: Record<string, string | undefin
 
   sink = async (forumId: string, effects: Effect[]) => {
     for (const e of effects) {
-      if (e.type === "schedule") await scheduler.schedule({ forumId, phaseId: e.phaseId, atMs: e.atMs });
+      if (e.type !== "schedule") continue;
+      try {
+        await scheduler.schedule({ forumId, phaseId: e.phaseId, atMs: e.atMs });
+      } catch (err) {
+        // The state change is already committed. Without a scheduled tick the deadline is still applied by the
+        // next client nudge / presence heartbeat (advanceIfDue); record the failure for diagnosis.
+        console.error("[scheduler] publish failed", forumId, e.phaseId, err);
+        await db.doc(`forums/${forumId}`).set({ schedulerError: { phaseId: e.phaseId, atMs: Date.now(), message: String(err).slice(0, 200) } }, { merge: true }).catch(() => {});
+      }
     }
     if (ai) await ai(forumId, effects);
   };

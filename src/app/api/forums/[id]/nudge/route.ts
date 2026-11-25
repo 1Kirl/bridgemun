@@ -3,6 +3,9 @@ import { requireUser, withErrors } from "@/server/auth";
 import { advanceIfDue, requireMember } from "@/server/forums/service";
 import { getRuntime } from "@/server/runtime";
 
+/** AI follow-up work runs in after(); bounded so a stuck provider cannot hold the function (engine deadlines recover). */
+export const maxDuration = 120;
+
 /**
  * Fallback when a scheduled tick was lost (e.g. dev server restart): any member's client may ask the
  * server to apply a deadline that has ALREADY passed by server time. Idempotent; never early.

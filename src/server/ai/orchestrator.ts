@@ -20,6 +20,9 @@ import {
   recordBlock,
   situation,
   CAUCUS_WORK_SCHEMA,
+  CAUCUS_AMEND_SCHEMA,
+  VOTING_MOTION_SCHEMA,
+  amendmentsBlock,
   SPEECH_SCHEMA,
   SYSTEM_PROMPT,
   sponsorSchemaFor,
@@ -59,7 +62,7 @@ const FloorZ = z.object({
   action: z.enum(["pass", "request_floor", "move_motion"]),
   motion: z
     .object({
-      type: z.enum(["mod_caucus", "unmod_caucus", "set_speaking_time", "introduce_resolution", "enter_voting"]),
+      type: z.enum(["mod_caucus", "unmod_caucus", "set_speaking_time", "introduce_resolution", "introduce_amendment", "enter_voting"]),
       topic: z.string(),
       speakingSec: z.number().int(),
       totalSec: z.number().int(),
@@ -78,6 +81,21 @@ const CaucusZ = z.object({
   draft: z.object({ title: z.string(), preambular: z.array(z.string()), operative: z.array(z.string()) }).nullable(),
   rationale: z.string().max(2000),
   evidenceIds: z.array(z.string()).max(10),
+});
+const CaucusAmendZ = z.object({
+  action: z.enum(["nothing", "propose_amendment", "sign_amendment"]),
+  amendmentId: z.string().nullable(),
+  amendment: z
+    .object({ docId: z.string(), kind: z.enum(["replace", "insert", "delete"]), clauseNumber: z.number().int(), text: z.string() })
+    .nullable(),
+  rationale: z.string().max(2000),
+  evidenceIds: z.array(z.string()).max(10),
+});
+const VotingMotionZ = z.object({
+  action: z.enum(["pass", "reorder", "divide", "propose_division"]),
+  order: z.array(z.string()).max(10),
+  separateClauses: z.array(z.array(z.number().int())).max(6),
+  rationale: z.string().max(2000),
 });
 const SponsorZ = z.object({ responses: z.array(z.object({ seat: z.string(), agree: z.boolean(), rationale: z.string().max(2000) })) });
 
@@ -196,7 +214,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
               situation(L.ctx, L.pub, seat),
               evidenceBlock(ev),
               recordBlock(L.record, L.pub),
-              `THE FLOOR IS OPEN. Choose ONE: "pass"; "request_floor" (join the speakers' list to make a statement); or "move_motion" with a moderated caucus (topic, speakingSec 30-90, totalSec 180-600), unmoderated caucus (totalSec 180-600; lets delegations draft and sign resolutions), set_speaking_time (speakingSec 30-120), introduce_resolution (only if an APPROVED draft exists) or enter_voting (only if resolutions were introduced and debate has been sufficient). Prefer pass unless it clearly serves your country's goals. Motions are procedural; unused numeric fields may be 0.`,
+              `THE FLOOR IS OPEN. Choose ONE: "pass"; "request_floor" (join the speakers' list to make a statement); or "move_motion" with a moderated caucus (topic, speakingSec 30-90, totalSec 180-600), unmoderated caucus (totalSec 180-600; lets delegations draft and sign resolutions), set_speaking_time (speakingSec 30-120), introduce_resolution (only if an APPROVED draft exists), introduce_amendment (put "topic" = an amendment id listed under AMENDMENTS as ready; only if you proposed or signed it) or enter_voting (only if resolutions were introduced and debate has been sufficient). Prefer pass unless it clearly serves your country's goals. Motions are procedural; unused numeric fields may be 0.`,
             ].join("\n\n"),
           },
         ],
@@ -216,7 +234,9 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
               ? { type: "unmod_caucus", totalSec: m.totalSec }
               : m.type === "set_speaking_time"
                 ? { type: "set_speaking_time", speakingSec: m.speakingSec }
-                : { type: m.type };
+                : m.type === "introduce_amendment"
+                  ? { type: "introduce_amendment", amendmentId: m.topic.trim() }
+                  : { type: m.type };
         const res = await act(forumId, seat, { type: "submit_motion", seat, params: p }, { phaseId: windowId });
         if (!res.ok) await logAction(forumId, { seat, kind: "floor", windowId, ok: false, error: `engine_rejected:${res.code}` });
       }
@@ -242,7 +262,11 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
             .join("\n")}`
         : b.subject.type === "resolution"
           ? `SUBSTANTIVE VOTE on resolution ${b.subject.docId} v${b.subject.version}:\n${docText(L.state, b.subject.docId)}\nJudge each operative clause against your position materials.`
-          : `SUBSTANTIVE VOTE (2/3) on amendment ${b.subject.amendmentId}: ${JSON.stringify(L.state.amendments[b.subject.amendmentId]?.op)}`;
+          : b.subject.type === "amendment"
+            ? `SUBSTANTIVE VOTE (2/3) on amendment ${b.subject.amendmentId} to ${L.state.amendments[b.subject.amendmentId]?.targetDocId}: ${amendmentText(L.state, b.subject.amendmentId)}\nCurrent text:\n${docText(L.state, L.state.amendments[b.subject.amendmentId]?.targetDocId ?? "")}`
+            : b.subject.type === "division_proposal"
+              ? `SUBSTANTIVE VOTE on a proposal to DIVIDE resolution ${b.subject.docId} into separately voted parts: ${divisionText(L.state, b.subject.proposalId)}\n${docText(L.state, b.subject.docId)}\nVote yes if voting these parts separately lets you keep the clauses you support while removing ones you oppose.`
+              : `SUBSTANTIVE VOTE on whether to KEEP part ${b.subject.part + 1} of resolution ${b.subject.docId} in the final text: ${partText(L.state, b.subject.docId, b.subject.part)}\nJudge these clauses against your position materials.`;
     const blocks = seats.map((seat) => {
       const ev = retr(L, seat, subject);
       return { seat, ev, text: `--- seat "${seat}" = ${L.pub.seats[seat]?.countryName}; allowed: ${allowedChoices(b, seat).join("/")}\n${evidenceBlock(ev)}` };
@@ -347,6 +371,12 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       const fresh = await loadState(db, forumId);
       if (!fresh || fresh.phaseId !== phaseId) return;
       const pub = toPublicState(fresh);
+      const introduced = Object.values(fresh.documents).filter((d) => d.status === "introduced");
+      // Once resolutions are on the floor, every other consulted delegation works on amendments (rule 29).
+      if (introduced.length && !fresh.debateClosed && consult.indexOf(seat) % 2 === 0) {
+        await amendmentWork(forumId, L, fresh, pub, seat);
+        continue;
+      }
       const docs = Object.values(fresh.documents).filter((d) => d.status === "draft" || d.status === "approved");
       const ev = retr(L, seat, `${L.ctx.agenda} resolution draft`);
       const docList = docs.length
@@ -391,6 +421,101 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       }
       await logAction(forumId, { seat, kind: "caucus", ok: res ? res.ok : true, action: d.action, docId: d.docId ?? null, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds.filter((id) => ev.chunks.some((c) => c.id === id)), matchLevel: ev.matchLevel, model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
     }
+  }
+
+  async function amendmentWork(forumId: string, L: NonNullable<Awaited<ReturnType<typeof load>>>, fresh: ForumEngineState, pub: PublicForumState, seat: string) {
+    const introduced = Object.values(fresh.documents).filter((d) => d.status === "introduced");
+    const ev = retr(L, seat, `${L.ctx.agenda} ${introduced.map((d) => d.operative.join(" ")).join(" ")}`);
+    const r = await callLlm(forumId, {
+      model: cfg.models.decision,
+      schemaName: "amendment_work",
+      schema: CAUCUS_AMEND_SCHEMA,
+      maxOutputTokens: 600,
+      validate: parseWith(CaucusAmendZ),
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: [
+            situation(L.ctx, pub, seat),
+            evidenceBlock(ev),
+            `INTRODUCED RESOLUTIONS (only these can be amended; rule 29):\n${introduced.map((d) => `${d.id} (sponsors ${d.sponsors.join(",")})\n${docText(fresh, d.id)}`).join("\n")}`,
+            amendmentsBlock(pub),
+            `Choose ONE: "nothing"; "sign_amendment" (amendmentId of an open draft amendment you want debated — signing is not support); or "propose_amendment" (docId, kind replace/insert/delete, clauseNumber = 1-based operative clause number; for insert the new clause goes BEFORE that number, use count+1 to append; text = the full clause, empty for delete). Propose only a precise change your materials clearly support; do not amend resolutions you sponsor unless needed.`,
+          ].join("\n\n"),
+        },
+      ],
+    });
+    if (!r.ok) {
+      await logAction(forumId, { seat, kind: "amendment", ok: false, error: r.error });
+      return;
+    }
+    const d = r.data;
+    let res: Awaited<ReturnType<typeof act>> | null = null;
+    if (d.action === "sign_amendment" && d.amendmentId && fresh.amendments[d.amendmentId]) {
+      res = await act(forumId, seat, { type: "sign_amendment", seat, amendmentId: d.amendmentId });
+    } else if (d.action === "propose_amendment" && d.amendment && fresh.documents[d.amendment.docId]) {
+      const a = d.amendment;
+      const idx = a.clauseNumber - 1;
+      const op =
+        a.kind === "delete"
+          ? ({ kind: "delete", clauseIndex: idx } as const)
+          : ({ kind: a.kind, clauseIndex: idx, text: a.text.trim().slice(0, 800) } as const);
+      res = await act(forumId, seat, { type: "submit_amendment", seat, targetDocId: a.docId, op });
+    }
+    await logAction(forumId, { seat, kind: "amendment", ok: res ? res.ok : true, action: d.action, amendmentId: d.amendmentId ?? null, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds.filter((id) => ev.chunks.some((c) => c.id === id)), matchLevel: ev.matchLevel, model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
+  }
+
+  // ── voting procedure: reorder (rule 34), divide (rule 33), division proposals ──
+  async function onVotingMotion(forumId: string, phaseId: string, seats: string[]) {
+    const L = await load(forumId);
+    if (!L || !shouldAct(L.state) || L.state.phaseId !== phaseId) return;
+    const p = L.state.phase;
+    if (p.type !== "VP_FLOOR" && p.type !== "DIVISION_PROPOSALS") return;
+    const start = parseInt(stableHash(phaseId).slice(0, 8), 16);
+    const consult = seats.map((_, i) => seats[(start + i) % seats.length]).slice(0, cfg.floorConsultPerWindow);
+    const docId = p.type === "DIVISION_PROPOSALS" ? p.docId : p.target.kind === "division" ? p.target.docId : null;
+    const order = L.state.votingOrder ?? [];
+    const task =
+      p.type === "DIVISION_PROPOSALS"
+        ? `The committee agreed to DIVIDE resolution ${docId}. You may "propose_division": separateClauses = groups of 1-based operative clause numbers to vote separately (remaining clauses form one more part). Propose only if separating clauses lets your country remove clauses it opposes or keep ones it supports. Otherwise "pass".`
+        : p.target.kind === "order"
+          ? `VOTING PROCEDURE. Current voting order: ${order.join(", ")}. You may "reorder" (order = every resolution id exactly once) only if voting another resolution first clearly serves your country (e.g. your preferred text first). Otherwise "pass".`
+          : `VOTING PROCEDURE. Resolution ${docId} is about to be voted on. You may "divide" (motion to vote some operative clauses separately) only if it contains clauses your country strongly opposes next to ones it supports. Otherwise "pass".`;
+    const docs = (docId ? [docId] : order).map((id) => `${id}:\n${docText(L.state, id)}`).join("\n");
+    for (const seat of consult) {
+      const fresh = await loadState(db, forumId);
+      if (!fresh || fresh.phaseId !== phaseId) return;
+      const ev = retr(L, seat, `${L.ctx.agenda} ${docs}`);
+      const r = await callLlm(forumId, {
+        model: cfg.models.decision,
+        schemaName: "voting_motion",
+        schema: VOTING_MOTION_SCHEMA,
+        maxOutputTokens: 300,
+        validate: parseWith(VotingMotionZ),
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: [situation(L.ctx, L.pub, seat), evidenceBlock(ev), docs, task, "Unused fields: empty arrays."].join("\n\n") },
+        ],
+      });
+      if (!r.ok) {
+        await logAction(forumId, { seat, kind: "voting_motion", phaseId, ok: false, error: r.error });
+        continue;
+      }
+      const d = r.data;
+      let res: Awaited<ReturnType<typeof act>> | null = null;
+      if (d.action === "reorder" && p.type === "VP_FLOOR" && p.target.kind === "order") {
+        res = await act(forumId, seat, { type: "submit_motion", seat, params: { type: "reorder_resolutions", order: d.order } }, { phaseId });
+      } else if (d.action === "divide" && docId && p.type === "VP_FLOOR") {
+        res = await act(forumId, seat, { type: "submit_motion", seat, params: { type: "divide_question", docId } }, { phaseId });
+      } else if (d.action === "propose_division" && docId && p.type === "DIVISION_PROPOSALS" && d.separateClauses.length) {
+        res = await act(forumId, seat, { type: "submit_division_proposal", seat, docId, parts: d.separateClauses.map((g) => g.map((n) => n - 1)) }, { phaseId });
+      }
+      await logAction(forumId, { seat, kind: "voting_motion", phaseId, ok: res ? res.ok : true, action: d.action, summary: d.rationale.slice(0, 400), model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
+    }
+    const s = await loadState(db, forumId);
+    if (!s || s.phaseId !== phaseId) return;
+    for (const seat of seats) await act(forumId, seat, { type: "floor_pass", seat }, { phaseId });
   }
 
   async function onSponsor(forumId: string, amendmentId: string, seats: string[]) {
@@ -454,9 +579,28 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
         case "ai_sponsor_response_needed":
           enqueue(forumId, `sponsor:${forumId}:${e.amendmentId}`, () => onSponsor(forumId, e.amendmentId, e.seats));
           break;
+        case "ai_voting_motion_needed":
+          enqueue(forumId, `vpm:${forumId}:${e.phaseId}`, () => onVotingMotion(forumId, e.phaseId, e.seats));
+          break;
       }
     }
   };
+}
+
+function amendmentText(s: ForumEngineState, id: string) {
+  const a = s.amendments[id];
+  if (!a) return "(missing)";
+  return a.op.kind === "delete" ? `delete operative clause ${a.op.clauseIndex + 1}` : `${a.op.kind} operative clause ${a.op.clauseIndex + 1}: "${a.op.text}"`;
+}
+function divisionText(s: ForumEngineState, proposalId: string) {
+  const pr = s.divisionProposals?.[proposalId];
+  return pr ? pr.parts.map((x, i) => `part ${i + 1} = clauses ${x.clauses.map((n) => n + 1).join(", ")}`).join("; ") : "(missing)";
+}
+function partText(s: ForumEngineState, docId: string, part: number) {
+  const div = s.divisions?.[docId];
+  const pr = div?.adoptedProposalId ? s.divisionProposals?.[div.adoptedProposalId] : undefined;
+  if (!div || !pr) return "(missing)";
+  return pr.parts[part].clauses.map((i) => `${i + 1}. ${div.baseOperative[i]}`).join("\n");
 }
 
 function docText(s: ForumEngineState, docId: string) {

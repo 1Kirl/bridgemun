@@ -71,8 +71,14 @@ export function describePhase(s: PublicForumState): { title: string; detail: str
       return { title: "Draft resolution introduction", detail: p.stage === "presentation" ? "Authors' presentation" : "Questions and answers", next: "Floor opens" };
     case "AMENDMENT_SPONSOR_RESPONSE":
       return { title: "Sponsors respond to the amendment", detail: "If every sponsor agrees it is friendly; otherwise it goes to a 2/3 vote (rule 29).", next: "Floor opens" };
+    case "VP_FLOOR":
+      return p.target.kind === "order"
+        ? { title: "Voting procedure — order of voting", detail: "Resolutions are voted in the order introduced. You may move to reorder them (rule 34); proposals are voted in the order received.", next: "Votes on reorder proposals, then the first resolution" }
+        : { title: `Voting procedure — before “${s.documents[p.target.docId]?.title ?? ""}”`, detail: "You may move to divide the question: vote some operative clauses separately (rule 33). Procedural, simple majority.", next: "Vote on the motion to divide, or the resolution vote" };
+    case "DIVISION_PROPOSALS":
+      return { title: `Proposals to divide “${s.documents[p.docId]?.title ?? ""}”`, detail: "Propose how to split the operative clauses. Proposals are voted from most to least disruptive; the first that passes is used (rule 33).", next: "Votes on proposals, then on each part" };
     case "VOTING_PROCEDURE":
-      return { title: "Voting procedure", detail: "Substantive votes on amendments and resolutions; text is locked during each vote.", next: "Next item, then the forum closes" };
+      return { title: "Voting procedure", detail: "Votes on voting motions, amendments, divided parts and resolutions; the text is locked during each vote.", next: p.queue.length ? `${p.queue.length} more step(s)` : "The forum closes after the last vote" };
     case "CLOSED":
       return { title: "Forum closed", detail: closedReason(p.reason), next: "" };
   }
@@ -84,6 +90,7 @@ export function closedReason(r: string) {
       adjourned: "Adjourned by motion (rule 14).",
       session_time_over: "Session time ended.",
       voting_completed: "Voting procedure completed.",
+      all_humans_left: "No human delegate returned during the idle hold (app policy H1).",
     } as Record<string, string>
   )[r] ?? r;
 }

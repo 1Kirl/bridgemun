@@ -29,6 +29,8 @@ export type Settings = {
     sponsorResponseSec: number;
     drPresentationSec: number;
     drQaSec: number;
+    /** App policy H1: how long an idle hold (no human online) lasts before the forum closes. Optional for older forums. */
+    idleHoldMaxSec?: number;
   };
   limits: {
     extensionSec: number;
@@ -117,6 +119,8 @@ export type Threshold = "simple_majority" | "two_thirds";
 
 export type BallotSubject =
   | { type: "motion"; motionId: string }
+  | { type: "division_proposal"; docId: string; proposalId: string; textHash: string }
+  | { type: "division_part"; docId: string; part: number; textHash: string }
   | { type: "amendment"; amendmentId: string; textHash: string }
   | { type: "resolution"; docId: string; version: number; textHash: string };
 
@@ -187,6 +191,32 @@ export type Amendment = {
   friendlyOutcome?: "all_agreed" | "objected" | "consent_not_obtained";
 };
 
+/**
+ * Rule 33 (division of the question). A proposal lists groups of operative clause indices (0-based);
+ * clauses not listed form one more part ("remaining clauses"). Every part is voted for inclusion.
+ */
+export type DivisionProposal = {
+  id: string;
+  docId: string;
+  proposer: SeatId;
+  /** Parts in display order; each part lists sorted operative clause indices (objects: Firestore has no nested arrays). */
+  parts: Array<{ clauses: number[] }>;
+  submittedAtMs: number;
+  status: "pending" | "voting" | "adopted" | "failed" | "discarded" | "not_held";
+};
+
+export type DivisionState = {
+  docId: string;
+  /** Text version the division applies to (locked: no amendments run after division starts). */
+  baseVersion: number;
+  baseOperative: string[];
+  proposals: string[];
+  adoptedProposalId?: string;
+  /** Inclusion result per part of the adopted proposal (null = vote not held). */
+  partResults?: Array<boolean | null>;
+  outcome?: "intact" | "recombined" | "rejected_as_whole";
+};
+
 // ── Record (context for AI) ───────────────────────────────────────
 export type RecordSource =
   | "human_voice_confirmed"
@@ -210,7 +240,12 @@ export type RecordEntry = {
 };
 
 // ── Phases ────────────────────────────────────────────────────────
-export type SpeechContext = { kind: "speakers_list" } | { kind: "mod_caucus" } | { kind: "dr_panel"; docId: string };
+export type SpeechContext =
+  | { kind: "speakers_list" }
+  | { kind: "mod_caucus" }
+  | { kind: "dr_panel"; docId: string }
+  /** Rule 18: remaining time yielded by another delegate; the receiver may not yield again. */
+  | { kind: "yield"; from: SeatId; sec: number };
 
 export type Phase =
   | { type: "LOBBY" }
@@ -233,6 +268,8 @@ export type Phase =
       context: SpeechContext;
       transcript: { status: "pending" | "ready" | "failed"; text?: string };
       waitExtended: boolean;
+      /** Rule 18: remaining time handed to another delegate after this speech is recorded. */
+      yieldTo?: { seat: SeatId; sec: number };
     }
   | {
       type: "FLOOR_OPEN";
@@ -263,14 +300,36 @@ export type Phase =
       responses: Record<SeatId, "agree" | "disagree">;
       waitExtended: boolean;
     }
+  /** Motions in voting procedure (rules 33, 34). target "order": reordering; otherwise division of that resolution. */
+  | {
+      type: "VP_FLOOR";
+      windowId: string;
+      target: { kind: "order" } | { kind: "division"; docId: string };
+      deadlineMs: number;
+      readySeats: SeatId[];
+      aiDoneSeats: SeatId[];
+      queue: VotingItem[];
+    }
+  /** Rule 33: after the motion to divide passes, delegations propose how to divide. */
+  | { type: "DIVISION_PROPOSALS"; docId: string; deadlineMs: number; readySeats: SeatId[]; aiDoneSeats: SeatId[]; queue: VotingItem[] }
   | {
       type: "VOTING_PROCEDURE";
-      queue: Array<{ kind: "amendment"; id: string } | { kind: "resolution"; id: string }>;
+      queue: VotingItem[];
       ballotId: string | null;
       stage: "reading" | "voting" | "between";
       deadlineMs: number;
     }
   | { type: "CLOSED"; reason: string };
+
+export type VotingItem =
+  | { kind: "amendment"; id: string }
+  | { kind: "resolution"; id: string }
+  | { kind: "vp_floor"; target: "order" }
+  | { kind: "vp_floor"; target: "division"; docId: string }
+  | { kind: "motion"; id: string }
+  | { kind: "division_proposal"; id: string }
+  | { kind: "division_part"; docId: string; part: number }
+  | { kind: "recombine"; docId: string };
 
 export type CaucusState = {
   kind: "mod" | "unmod";
@@ -313,8 +372,17 @@ export type ForumEngineState = {
   amendments: Record<string, Amendment>;
   introducedResolutionIds: string[];
   debateClosed: boolean;
+  /** Voting procedure (rules 33–34). Optional for states created before these existed. */
+  divisions?: Record<string, DivisionState>;
+  divisionProposals?: Record<string, DivisionProposal>;
+  votingOrder?: string[];
+  reorderAdopted?: boolean;
 
-  paused: { pausedAtMs: number; remainingMs: number; autoResumeAtMs: number; phaseDeadlineKey: string } | null;
+  /**
+   * reason "owner": app pause by the room owner. reason "no_humans": idle hold (app policy H1) entered when a
+   * deadline passes while no human delegate is online; resumes when one reconnects, closes at autoResumeAtMs.
+   */
+  paused: { pausedAtMs: number; remainingMs: number; autoResumeAtMs: number; phaseDeadlineKey: string; reason?: "owner" | "no_humans" } | null;
   usage: { extensionsBySeat: Record<SeatId, number>; pauseUsedSec: number };
   idCounter: number;
 };
@@ -329,7 +397,7 @@ export type Command =
   | { type: "declare_attendance"; seat: SeatId; value: "present" | "present_and_voting" }
   | { type: "add_to_speakers_list"; seat: SeatId }
   | { type: "remove_from_speakers_list"; seat: SeatId }
-  | { type: "end_speech"; seat: SeatId }
+  | { type: "end_speech"; seat: SeatId; yieldTo?: SeatId }
   | { type: "transcript_result"; seat: SeatId; ok: boolean; text?: string }
   | { type: "confirm_transcript"; seat: SeatId; text: string }
   | { type: "submit_text_speech"; seat: SeatId; text: string }
@@ -354,6 +422,8 @@ export type Command =
   | { type: "submit_amendment"; seat: SeatId; targetDocId: string; op: AmendmentOp }
   | { type: "sign_amendment"; seat: SeatId; amendmentId: string }
   | { type: "sponsor_response"; seat: SeatId; amendmentId: string; agree: boolean }
+  | { type: "submit_division_proposal"; seat: SeatId; docId: string; parts: number[][] }
+  | { type: "raise_point"; seat: SeatId; kind: "personal_privilege"; text: string }
   | { type: "app_pause" }
   | { type: "app_resume" }
   | { type: "connection"; seat: SeatId; online: boolean }
@@ -384,6 +454,7 @@ export type Effect =
   | { type: "ai_sponsor_response_needed"; amendmentId: string; seats: SeatId[] }
   | { type: "ai_volunteer_needed"; phaseId: string; seats: SeatId[] }
   | { type: "ai_caucus_work_needed"; phaseId: string; seats: SeatId[] }
+  | { type: "ai_voting_motion_needed"; phaseId: string; seats: SeatId[] }
   | { type: "transcription_expected"; seat: SeatId; phaseId: string }
   | { type: "announce"; text: string }
   | { type: "forum_closed"; reason: string };

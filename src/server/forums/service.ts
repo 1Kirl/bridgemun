@@ -242,6 +242,8 @@ const USER_COMMANDS = new Set<Command["type"]>([
   "submit_amendment",
   "sign_amendment",
   "sponsor_response",
+  "submit_division_proposal",
+  "raise_point",
   "app_pause",
   "app_resume",
 ]);
@@ -283,7 +285,7 @@ export async function advanceIfDue(db: Firestore, forumId: string, sink?: Effect
   if (!s) return { advanced: false, reason: "no_state" };
   const due = s.paused ? s.paused.autoResumeAtMs : phaseDeadline(s.phase);
   if (due === null || now() < due) return { advanced: false, reason: "not_due", phaseId: s.phaseId };
-  await sweepPresence(db, forumId, s, sink, now);
+  await sweepPresence(db, forumId, s, sink); // presence uses real heartbeat time (the `now` override only simulates deadlines)
   const r = await runCommand(db, forumId, { actor: { kind: "system" }, command: { type: "tick" }, expect: { phaseId: s.phaseId } }, { onEffects: sink, now });
   return { advanced: r.ok && !r.duplicate, reason: r.ok ? (r.duplicate ? "duplicate" : "advanced") : r.code };
 }

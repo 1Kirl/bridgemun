@@ -51,6 +51,8 @@ import type {
   SeatId,
   Settings,
   SpeechContext,
+  DivisionProposal,
+  VotingItem,
 } from "@/engine/types";
 
 // ── construction ─────────────────────────────────────────────────
@@ -72,6 +74,7 @@ export function defaultSettingsBase(): Omit<Settings, "sessionDurationSec" | "se
       sponsorResponseSec: 30,
       drPresentationSec: 90,
       drQaSec: 120,
+      idleHoldMaxSec: 600,
     },
     limits: {
       extensionSec: 30,
@@ -258,6 +261,7 @@ function sessionOver(ctx: Ctx) {
 
 function slotSeconds(ctx: Ctx, context: SpeechContext): number {
   if (context.kind === "mod_caucus") return ctx.s.activeCaucus?.speakingSec ?? ctx.s.speakingTimeSec;
+  if (context.kind === "yield") return context.sec;
   return ctx.s.speakingTimeSec;
 }
 
@@ -331,6 +335,15 @@ function afterSpeech(ctx: Ctx, context: SpeechContext) {
 
 function endSpeechSlot(ctx: Ctx, id: SeatId, context: SpeechContext) {
   ctx.actorSeatLast = id;
+  const p = ctx.s.phase;
+  if (p.type === "SPEECH_CONFIRM" && p.yieldTo && context.kind === "speakers_list") {
+    const y = p.yieldTo;
+    const to = ctx.s.seats[y.seat];
+    if (to && isPresent(to)) {
+      record(ctx, { source: "chair", substantive: false, text: `${ctx.s.seats[id].countryName} yields ${y.sec}s to ${to.countryName} (rule 18).` });
+      return startSpeakerSlot(ctx, y.seat, { kind: "yield", from: id, sec: y.sec });
+    }
+  }
   afterSpeech(ctx, context);
 }
 
@@ -620,6 +633,25 @@ function pickVolunteer(ctx: Ctx, volunteers: SeatId[]): SeatId {
 
 // ── voting procedure (substantive) ───────────────────────────────
 
+type VpPhase = Extract<Phase, { type: "VOTING_PROCEDURE" }>;
+
+function divisionsOf(s: ForumEngineState) {
+  s.divisions ??= {};
+  s.divisionProposals ??= {};
+  return { divisions: s.divisions, proposals: s.divisionProposals };
+}
+
+/** Items for one resolution: its unfriendly amendments (rule 29), the division window (rule 33), then the resolution. */
+function docItems(ctx: Ctx, docId: string): VotingItem[] {
+  const items: VotingItem[] = [];
+  for (const a of Object.values(ctx.s.amendments)) {
+    if (a.targetDocId === docId && a.status === "unfriendly_pending") items.push({ kind: "amendment", id: a.id });
+  }
+  items.push({ kind: "vp_floor", target: "division", docId });
+  items.push({ kind: "resolution", id: docId });
+  return items;
+}
+
 function enterVotingProcedure(ctx: Ctx) {
   ctx.s.debateClosed = true;
   for (const id of ctx.s.carriedMotionIds) {
@@ -630,56 +662,242 @@ function enterVotingProcedure(ctx: Ctx) {
     }
   }
   ctx.s.carriedMotionIds = [];
-  const queue: Extract<Phase, { type: "VOTING_PROCEDURE" }>["queue"] = [];
-  for (const docId of ctx.s.introducedResolutionIds) {
-    const doc = ctx.s.documents[docId];
-    if (doc.status !== "introduced") continue;
-    for (const a of Object.values(ctx.s.amendments)) {
-      if (a.targetDocId === docId && a.status === "unfriendly_pending") queue.push({ kind: "amendment", id: a.id });
-    }
-    queue.push({ kind: "resolution", id: docId });
-  }
+  divisionsOf(ctx.s);
+  // Rule 34 (official): default order = order of introduction.
+  const order = ctx.s.introducedResolutionIds.filter((id) => ctx.s.documents[id]?.status === "introduced");
+  ctx.s.votingOrder = order;
+  const queue: VotingItem[] = [];
+  if (order.length >= 2) queue.push({ kind: "vp_floor", target: "order" });
+  for (const id of order) queue.push(...docItems(ctx, id));
   transition(ctx, { type: "VOTING_PROCEDURE", queue, ballotId: null, stage: "between", deadlineMs: ctx.now });
-  nextVotingItem(ctx);
+  nextVotingItem(ctx, queue);
 }
 
-function nextVotingItem(ctx: Ctx) {
-  const p = ctx.s.phase as Extract<Phase, { type: "VOTING_PROCEDURE" }>;
-  const item = p.queue.shift();
-  if (!item) return close(ctx, "voting_completed");
-  let subject: Ballot["subject"];
-  let threshold: Ballot["threshold"];
-  if (item.kind === "amendment") {
-    const a = ctx.s.amendments[item.id];
-    const doc = ctx.s.documents[a.targetDocId];
-    const err = validateAmendmentOp(doc, a.op);
-    if (err) {
-      a.status = "failed";
-      announce(ctx, `Amendment ${a.id} cannot be applied to the current text (${err}).`);
-      return nextVotingItem(ctx);
-    }
-    subject = { type: "amendment", amendmentId: a.id, textHash: a.textHash };
-    threshold = "two_thirds"; // rule 29 (official): unfriendly amendment needs 2/3 substantive vote
+function openVpFloor(ctx: Ctx, item: Extract<VotingItem, { kind: "vp_floor" }>, queue: VotingItem[]) {
+  if (item.target === "order") {
+    if ((ctx.s.votingOrder?.length ?? 0) < 2 || ctx.s.reorderAdopted) return nextVotingItem(ctx, queue);
   } else {
-    const doc = ctx.s.documents[item.id];
-    subject = { type: "resolution", docId: doc.id, version: doc.version, textHash: doc.textHash };
-    threshold = "simple_majority"; // rule 26 (official)
+    const doc = ctx.s.documents[item.docId];
+    // Division needs at least two operative clauses; preambular clauses cannot be divided (rule 33).
+    if (!doc || doc.status !== "introduced" || doc.operative.length < 2 || divisionsOf(ctx.s).divisions[item.docId]) {
+      return nextVotingItem(ctx, queue);
+    }
   }
-  const b = openBallot({ id: newId(ctx, "b"), kind: "substantive", threshold, subject, seats: ctx.s.seats, nowMs: ctx.now });
+  transition(ctx, {
+    type: "VP_FLOOR",
+    windowId: "",
+    target: item.target === "order" ? { kind: "order" } : { kind: "division", docId: item.docId },
+    deadlineMs: ctx.now + ctx.s.settings.timers.motionWindowSec * 1000,
+    readySeats: [],
+    aiDoneSeats: [],
+    queue,
+  });
+  const p = ctx.s.phase as Extract<Phase, { type: "VP_FLOOR" }>;
+  p.windowId = ctx.s.phaseId;
+  const ai = aiSeats(ctx.s);
+  if (ai.length) ctx.effects.push({ type: "ai_voting_motion_needed", phaseId: ctx.s.phaseId, seats: ai });
+}
+
+function closeVpFloor(ctx: Ctx) {
+  const p = ctx.s.phase as Extract<Phase, { type: "VP_FLOOR" }>;
+  const valid: Motion[] = [];
+  for (const m of windowMotions(ctx, p.windowId)) {
+    const v = validateMotion(ctx.s, m.mover, m.params, ctx.now);
+    if (v.ok) valid.push(m);
+    else {
+      m.status = "obsolete";
+      m.disposition = { reason: v.message, source: v.source };
+    }
+  }
+  // Rule 34: reorder proposals are voted in the order received. Rule 33: one motion to divide per resolution.
+  valid.sort((a, b) => a.submittedAtMs - b.submittedAtMs || a.id.localeCompare(b.id));
+  const queue: VotingItem[] = [...valid.map((m) => ({ kind: "motion" as const, id: m.id })), ...p.queue];
+  transition(ctx, { type: "VOTING_PROCEDURE", queue, ballotId: null, stage: "between", deadlineMs: ctx.now });
+  nextVotingItem(ctx, queue);
+}
+
+function maybeCloseWindowEarly(ctx: Ctx) {
+  const p = ctx.s.phase as { readySeats: SeatId[]; aiDoneSeats: SeatId[] };
+  const humans = Object.values(ctx.s.seats).filter(isHumanOnlinePresent).map((x) => x.id);
+  const ais = aiSeats(ctx.s);
+  if (!(humans.every((h) => p.readySeats.includes(h)) && ais.every((a) => p.aiDoneSeats.includes(a)))) return;
+  if (ctx.s.phase.type === "FLOOR_OPEN") return closeFloor(ctx);
+  if (ctx.s.phase.type === "VP_FLOOR") return closeVpFloor(ctx);
+  if (ctx.s.phase.type === "DIVISION_PROPOSALS") return closeDivisionProposals(ctx);
+}
+
+/** Rule 33 (rule interpretation for ordering): more parts = more disruptive; ties by submission time. */
+export function compareDivisionProposals(a: DivisionProposal, b: DivisionProposal) {
+  return b.parts.length - a.parts.length || a.submittedAtMs - b.submittedAtMs || a.id.localeCompare(b.id);
+}
+
+/** Normalises a proposal: listed groups + one group of remaining clauses. Returns an error message or the parts. */
+export function normaliseDivision(operativeCount: number, groups: number[][]): { ok: true; parts: number[][] } | { ok: false; error: string } {
+  const seen = new Set<number>();
+  const parts: number[][] = [];
+  for (const g of groups) {
+    if (!Array.isArray(g) || g.length === 0) return { ok: false, error: "Each part needs at least one operative clause" };
+    const part = [...new Set(g)].sort((x, y) => x - y);
+    for (const i of part) {
+      if (!Number.isInteger(i) || i < 0 || i >= operativeCount) return { ok: false, error: `Clause ${i + 1} does not exist` };
+      if (seen.has(i)) return { ok: false, error: `Clause ${i + 1} appears in two parts` };
+      seen.add(i);
+    }
+    parts.push(part);
+  }
+  const rest = [...Array(operativeCount).keys()].filter((i) => !seen.has(i));
+  if (rest.length) parts.push(rest);
+  if (parts.length < 2) return { ok: false, error: "A division must create at least two parts" };
+  parts.sort((x, y) => x[0] - y[0]);
+  return { ok: true, parts };
+}
+
+function startDivisionProposals(ctx: Ctx, docId: string, queue: VotingItem[]) {
+  const doc = ctx.s.documents[docId];
+  divisionsOf(ctx.s).divisions[docId] = { docId, baseVersion: doc.version, baseOperative: [...doc.operative], proposals: [] };
+  transition(ctx, {
+    type: "DIVISION_PROPOSALS",
+    docId,
+    deadlineMs: ctx.now + ctx.s.settings.timers.motionWindowSec * 2 * 1000,
+    readySeats: [],
+    aiDoneSeats: [],
+    queue,
+  });
+  const ai = aiSeats(ctx.s);
+  if (ai.length) ctx.effects.push({ type: "ai_voting_motion_needed", phaseId: ctx.s.phaseId, seats: ai });
+}
+
+function closeDivisionProposals(ctx: Ctx) {
+  const p = ctx.s.phase as Extract<Phase, { type: "DIVISION_PROPOSALS" }>;
+  const { divisions, proposals } = divisionsOf(ctx.s);
+  const div = divisions[p.docId];
+  const list = div.proposals.map((id) => proposals[id]).filter((x) => x.status === "pending").sort(compareDivisionProposals);
+  if (list.length === 0) {
+    div.outcome = "intact";
+    record(ctx, { source: "chair", substantive: true, text: `No proposal to divide "${ctx.s.documents[p.docId].title}" was made; it remains intact (rule 33).` });
+  } else {
+    record(ctx, {
+      source: "chair",
+      substantive: false,
+      text: `Division proposals will be voted from most to least disruptive (rule 33; more parts first — rule interpretation): ${list.map((x) => `${x.id} (${x.parts.length} parts)`).join(", ")}.`,
+    });
+  }
+  const queue: VotingItem[] = [...list.map((x) => ({ kind: "division_proposal" as const, id: x.id })), ...p.queue];
+  transition(ctx, { type: "VOTING_PROCEDURE", queue, ballotId: null, stage: "between", deadlineMs: ctx.now });
+  nextVotingItem(ctx, queue);
+}
+
+function recombine(ctx: Ctx, docId: string, queue: VotingItem[]) {
+  const { divisions, proposals } = divisionsOf(ctx.s);
+  const div = divisions[docId];
+  const doc = ctx.s.documents[docId];
+  const pr = proposals[div.adoptedProposalId!];
+  const results = div.partResults ?? [];
+  if (results.some((x) => x === null || x === undefined)) {
+    div.outcome = "intact";
+    record(ctx, { source: "chair", substantive: true, text: `A vote on a divided part of "${doc.title}" was not held; the text remains intact (app policy).` });
+    return nextVotingItem(ctx, queue);
+  }
+  const included = pr.parts.filter((_, i) => results[i]).flatMap((x) => x.clauses).sort((a, b) => a - b);
+  if (included.length === 0) {
+    div.outcome = "rejected_as_whole";
+    doc.status = "failed";
+    record(ctx, { source: "chair", substantive: true, text: `All divided operative parts of "${doc.title}" were rejected; the resolution is rejected as a whole (rule 33).` });
+    return nextVotingItem(ctx, queue.filter((x) => !(x.kind === "resolution" && x.id === docId)));
+  }
+  div.outcome = "recombined";
+  if (included.length < div.baseOperative.length) {
+    doc.operative = included.map((i) => div.baseOperative[i]);
+    doc.version += 1;
+    doc.textHash = docTextHash(doc);
+  }
+  record(ctx, {
+    source: "chair",
+    substantive: true,
+    text: `"${doc.title}" recombined (rule 33): operative clauses ${included.map((i) => i + 1).join(", ")} of v${div.baseVersion} kept; now v${doc.version}. The final vote is on this text.`,
+  });
+  return nextVotingItem(ctx, queue);
+}
+
+function nextVotingItem(ctx: Ctx, queue: VotingItem[]): void {
+  const item = queue.shift();
+  if (!item) return close(ctx, "voting_completed");
+  if (item.kind === "vp_floor") return openVpFloor(ctx, item, queue);
+  if (item.kind === "recombine") return recombine(ctx, item.docId, queue);
+  const { divisions, proposals } = divisionsOf(ctx.s);
+  let subject: Ballot["subject"];
+  let threshold: Ballot["threshold"] = "simple_majority";
+  let kind: Ballot["kind"] = "substantive";
+  let label: string;
+  switch (item.kind) {
+    case "amendment": {
+      const a = ctx.s.amendments[item.id];
+      const doc = ctx.s.documents[a.targetDocId];
+      const err = doc.status === "introduced" ? validateAmendmentOp(doc, a.op) : "resolution no longer on the floor";
+      if (err) {
+        a.status = "failed";
+        announce(ctx, `Amendment ${a.id} cannot be applied to the current text (${err}).`);
+        return nextVotingItem(ctx, queue);
+      }
+      subject = { type: "amendment", amendmentId: a.id, textHash: a.textHash };
+      threshold = "two_thirds"; // rule 29 (official): unfriendly amendment needs 2/3 substantive vote
+      label = `amendment ${a.id}`;
+      break;
+    }
+    case "resolution": {
+      const doc = ctx.s.documents[item.id];
+      if (doc.status !== "introduced") return nextVotingItem(ctx, queue);
+      subject = { type: "resolution", docId: doc.id, version: doc.version, textHash: doc.textHash };
+      label = `resolution ${doc.id} v${doc.version}`; // rule 26 (official): simple majority
+      break;
+    }
+    case "motion": {
+      const m = ctx.s.motions[item.id];
+      if (!m || m.status !== "pending") return nextVotingItem(ctx, queue);
+      subject = { type: "motion", motionId: m.id };
+      kind = "procedural"; // rules 33/34: procedural, simple majority
+      threshold = motionThreshold(m.params.type, ctx.s);
+      label = `motion (${m.params.type}) by ${m.mover}`;
+      break;
+    }
+    case "division_proposal": {
+      const pr = proposals[item.id];
+      if (!pr || pr.status !== "pending") return nextVotingItem(ctx, queue);
+      subject = { type: "division_proposal", docId: pr.docId, proposalId: pr.id, textHash: ctx.s.documents[pr.docId].textHash };
+      label = `division proposal ${pr.id}`; // rule 33: substantive, simple majority
+      break;
+    }
+    case "division_part": {
+      subject = { type: "division_part", docId: item.docId, part: item.part, textHash: ctx.s.documents[item.docId].textHash };
+      label = `part ${item.part + 1} of "${ctx.s.documents[item.docId].title}"`; // rule 33: inclusion, simple majority
+      break;
+    }
+  }
+  const b = openBallot({ id: newId(ctx, "b"), kind, threshold, subject, seats: ctx.s.seats, nowMs: ctx.now });
   ctx.s.ballots[b.id] = b;
   if (!b.quorumMet) {
     record(ctx, {
       source: "chair",
       substantive: true,
-      text: `Vote NOT HELD on ${item.kind} ${item.id}: no voting quorum (${b.presentAtOpen} present, ${b.quorumRequired} required, rule 32). Not a rejection.`,
+      text: `Vote NOT HELD on ${label}: no voting quorum (${b.presentAtOpen} present, ${b.quorumRequired} required, rule 32). Not a rejection.`,
     });
     if (item.kind === "resolution") ctx.s.documents[item.id].status = "not_voted";
-    else ctx.s.amendments[item.id].status = "not_held";
-    return nextVotingItem(ctx);
+    else if (item.kind === "amendment") ctx.s.amendments[item.id].status = "not_held";
+    else if (item.kind === "motion") {
+      ctx.s.motions[item.id].status = "not_held";
+      ctx.s.motions[item.id].disposition = { reason: "no voting quorum — vote not held (D7)", source: "app_policy" };
+    } else if (item.kind === "division_proposal") proposals[item.id].status = "not_held";
+    else if (item.kind === "division_part") (divisions[item.docId].partResults ??= [])[item.part] = null;
+    return nextVotingItem(ctx, queue);
   }
+  if (item.kind === "motion") {
+    ctx.s.motions[item.id].status = "voting";
+    ctx.s.motions[item.id].ballotId = b.id;
+  }
+  if (item.kind === "division_proposal") proposals[item.id].status = "voting";
   transition(ctx, {
     type: "VOTING_PROCEDURE",
-    queue: p.queue,
+    queue,
     ballotId: b.id,
     stage: "reading",
     deadlineMs: ctx.now + ctx.s.settings.timers.readingSec * 1000,
@@ -687,12 +905,16 @@ function nextVotingItem(ctx: Ctx) {
 }
 
 function finishSubstantiveVote(ctx: Ctx) {
-  const p = ctx.s.phase as Extract<Phase, { type: "VOTING_PROCEDURE" }>;
+  const p = ctx.s.phase as VpPhase;
   const b = ctx.s.ballots[p.ballotId!];
   closeBallot(ctx, b);
   const r = b.result!;
-  if (b.subject.type === "amendment") {
-    const a = ctx.s.amendments[b.subject.amendmentId];
+  const tallyText = `Yes ${r.yes}, No ${r.no}, Abstain ${r.abstain}${r.notVoted.length ? `, did not vote ${r.notVoted.length}` : ""} [${r.formula}]`;
+  let queue = [...p.queue];
+  const { divisions, proposals } = divisionsOf(ctx.s);
+  const sub = b.subject;
+  if (sub.type === "amendment") {
+    const a = ctx.s.amendments[sub.amendmentId];
     if (r.passed) {
       const doc = ctx.s.documents[a.targetDocId];
       doc.operative = applyAmendmentOp(doc, a.op);
@@ -700,29 +922,58 @@ function finishSubstantiveVote(ctx: Ctx) {
       doc.textHash = docTextHash(doc);
       a.status = "adopted";
     } else a.status = "failed";
-    record(ctx, { source: "chair", substantive: true, text: `Amendment ${a.id} ${r.passed ? "ADOPTED" : "FAILED"}: Yes ${r.yes}, No ${r.no}, Abstain ${r.abstain} [${r.formula}]` });
-  } else if (b.subject.type === "resolution") {
-    const doc = ctx.s.documents[b.subject.docId];
+    record(ctx, { source: "chair", substantive: true, text: `Amendment ${a.id} ${r.passed ? "ADOPTED" : "FAILED"}: ${tallyText}` });
+  } else if (sub.type === "resolution") {
+    const doc = ctx.s.documents[sub.docId];
     doc.status = r.passed ? "adopted" : "failed";
-    record(ctx, { source: "chair", substantive: true, text: `Resolution "${doc.title}" v${doc.version} ${r.passed ? "ADOPTED" : "NOT ADOPTED"}: Yes ${r.yes}, No ${r.no}, Abstain ${r.abstain} [${r.formula}]` });
+    record(ctx, { source: "chair", substantive: true, text: `Resolution "${doc.title}" v${sub.version} ${r.passed ? "ADOPTED" : "NOT ADOPTED"}: ${tallyText}` });
+  } else if (sub.type === "motion") {
+    const m = ctx.s.motions[sub.motionId];
+    m.status = r.passed ? "adopted" : "rejected";
+    record(ctx, { source: "chair", substantive: true, text: `Motion (${m.params.type}) by ${m.mover} ${r.passed ? "ADOPTED" : "FAILED"}: ${tallyText}` });
+    if (r.passed && m.params.type === "reorder_resolutions") {
+      // Rule 34: once a proposal passes, all others are discarded.
+      for (const it of queue) {
+        if (it.kind === "motion" && ctx.s.motions[it.id]?.params.type === "reorder_resolutions") {
+          ctx.s.motions[it.id].status = "obsolete";
+          ctx.s.motions[it.id].disposition = { reason: "Rule 34: another ordering proposal passed", source: "official" };
+        }
+      }
+      ctx.s.votingOrder = [...m.params.order];
+      ctx.s.reorderAdopted = true;
+      queue = m.params.order.flatMap((id) => docItems(ctx, id));
+      record(ctx, { source: "chair", substantive: false, text: `Voting order: ${m.params.order.map((id) => `"${ctx.s.documents[id].title}"`).join(", ")} (rule 34).` });
+    } else if (r.passed && m.params.type === "divide_question") {
+      return startDivisionProposals(ctx, m.params.docId, queue);
+    }
+  } else if (sub.type === "division_proposal") {
+    const pr = proposals[sub.proposalId];
+    pr.status = r.passed ? "adopted" : "failed";
+    record(ctx, { source: "chair", substantive: true, text: `Division proposal ${pr.id} (${pr.parts.map((x) => x.clauses.map((i) => i + 1).join("+")).join(" | ")}) ${r.passed ? "ADOPTED" : "FAILED"}: ${tallyText}` });
+    const div = divisions[pr.docId];
+    if (r.passed) {
+      // Rule 33: all other proposals are discarded; each part is then voted for inclusion.
+      for (const it of queue) if (it.kind === "division_proposal") proposals[it.id].status = "discarded";
+      queue = queue.filter((it) => it.kind !== "division_proposal");
+      div.adoptedProposalId = pr.id;
+      div.partResults = pr.parts.map(() => null);
+      queue.unshift(...pr.parts.map((_, i) => ({ kind: "division_part" as const, docId: pr.docId, part: i })), { kind: "recombine", docId: pr.docId });
+    } else if (!queue.some((it) => it.kind === "division_proposal")) {
+      div.outcome = "intact";
+      record(ctx, { source: "chair", substantive: true, text: `No division passed; "${ctx.s.documents[pr.docId].title}" remains intact (rule 33).` });
+    }
+  } else if (sub.type === "division_part") {
+    divisions[sub.docId].partResults![sub.part] = r.passed;
+    record(ctx, { source: "chair", substantive: true, text: `Part ${sub.part + 1} of "${ctx.s.documents[sub.docId].title}" ${r.passed ? "INCLUDED" : "EXCLUDED"}: ${tallyText}` });
   }
-  transition(ctx, { type: "VOTING_PROCEDURE", queue: p.queue, ballotId: null, stage: "between", deadlineMs: ctx.now });
-  nextVotingItem(ctx);
+  transition(ctx, { type: "VOTING_PROCEDURE", queue, ballotId: null, stage: "between", deadlineMs: ctx.now });
+  nextVotingItem(ctx, queue);
 }
 
 // ── commands ─────────────────────────────────────────────────────
 
 function isHumanOnlinePresent(s: Seat) {
   return s.kind === "human" && isPresent(s) && s.connection === "online";
-}
-
-function maybeCloseFloorEarly(ctx: Ctx) {
-  const p = ctx.s.phase as Extract<Phase, { type: "FLOOR_OPEN" }>;
-  const humans = Object.values(ctx.s.seats).filter(isHumanOnlinePresent).map((x) => x.id);
-  const ais = aiSeats(ctx.s);
-  // App policy: the window closes early only when every online present human said "ready"
-  // AND every present AI delegation reported it has finished deciding. AI speed never shortens human time.
-  if (humans.every((h) => p.readySeats.includes(h)) && ais.every((a) => p.aiDoneSeats.includes(a))) closeFloor(ctx);
 }
 
 /** App policy replacing the moderator's discretion to end early (rule 11): every online present human is ready. */
@@ -735,11 +986,18 @@ function maybeEndUnmodEarly(ctx: Ctx) {
 function handleTick(ctx: Ctx) {
   const s = ctx.s;
   if (s.paused) {
+    if (s.paused.reason === "no_humans") {
+      if (ctx.now < s.paused.autoResumeAtMs) throw new Duplicate();
+      s.paused = null;
+      record(ctx, { source: "chair", substantive: true, text: "No human delegate returned during the idle hold; the forum is closed (app policy H1)." });
+      return close(ctx, "all_humans_left");
+    }
     if (ctx.now >= s.paused.autoResumeAtMs) return resume(ctx, "auto");
     throw new Duplicate();
   }
   const d = phaseDeadline(s.phase);
   if (d === null || ctx.now < d) throw new Duplicate(); // early/duplicate scheduler delivery: harmless no-op
+  if (!Object.values(s.seats).some((x) => x.kind === "human" && x.connection === "online")) return enterIdleHold(ctx);
   const p = s.phase;
   switch (p.type) {
     case "ROLL_CALL": {
@@ -789,6 +1047,10 @@ function handleTick(ctx: Ctx) {
     }
     case "FLOOR_OPEN":
       return closeFloor(ctx);
+    case "VP_FLOOR":
+      return closeVpFloor(ctx);
+    case "DIVISION_PROPOSALS":
+      return closeDivisionProposals(ctx);
     case "MOTION_VOTE": {
       const b = s.ballots[p.ballotId];
       if (p.stage === "reading") {
@@ -804,7 +1066,7 @@ function handleTick(ctx: Ctx) {
       return finishMotionVote(ctx);
     }
     case "VOTING_PROCEDURE": {
-      if (p.stage === "between") return nextVotingItem(ctx);
+      if (p.stage === "between") return nextVotingItem(ctx, p.queue);
       const b = s.ballots[p.ballotId!];
       if (p.stage === "reading") {
         b.status = "open";
@@ -854,6 +1116,23 @@ function handleTick(ctx: Ctx) {
   }
 }
 
+/**
+ * App policy H1 ("stop unnecessary work when every human has left"): a deadline that passes while no human
+ * delegate is online does not advance the meeting. The forum holds (no AI calls, one scheduled check) and
+ * resumes when a delegate reconnects; after settings.timers.idleHoldMaxSec it closes.
+ */
+function enterIdleHold(ctx: Ctx) {
+  const s = ctx.s;
+  const maxSec = s.settings.timers.idleHoldMaxSec ?? 600;
+  s.paused = { pausedAtMs: ctx.now, remainingMs: 5000, autoResumeAtMs: ctx.now + maxSec * 1000, phaseDeadlineKey: s.phaseId, reason: "no_humans" };
+  schedule(ctx, s.paused.autoResumeAtMs);
+  record(ctx, {
+    source: "chair",
+    substantive: false,
+    text: `No human delegate is online. The meeting is on hold (app policy H1); it resumes when a delegate reconnects and closes after ${Math.round(maxSec / 60)} min.`,
+  });
+}
+
 function maybeNonResponseExtension(ctx: Ctx, b: Ballot, p: { deadlineMs: number }): boolean {
   const pol = b.kind === "procedural" ? ctx.s.settings.policies.proceduralNonResponse : ctx.s.settings.policies.substantiveNonResponse;
   if (pol !== "extend_once_then_record_not_voting" || b.extendedForNonResponse || pendingVoters(b).length === 0) return false;
@@ -864,7 +1143,7 @@ function maybeNonResponseExtension(ctx: Ctx, b: Ballot, p: { deadlineMs: number 
   return true;
 }
 
-function toConfirm(ctx: Ctx, id: SeatId, context: SpeechContext) {
+function toConfirm(ctx: Ctx, id: SeatId, context: SpeechContext, yieldTo?: { seat: SeatId; sec: number }) {
   transition(ctx, {
     type: "SPEECH_CONFIRM",
     seat: id,
@@ -872,6 +1151,7 @@ function toConfirm(ctx: Ctx, id: SeatId, context: SpeechContext) {
     deadlineMs: ctx.now + ctx.s.settings.timers.transcriptConfirmSec * 1000,
     transcript: { status: "pending" },
     waitExtended: false,
+    ...(yieldTo ? { yieldTo } : {}),
   });
 }
 
@@ -911,23 +1191,24 @@ function pause(ctx: Ctx) {
     remainingMs: Math.max(0, (d as number) - ctx.now),
     autoResumeAtMs: ctx.now + maxSec * 1000,
     phaseDeadlineKey: s.phaseId,
+    reason: "owner",
   };
   schedule(ctx, s.paused.autoResumeAtMs);
   announce(ctx, "App paused by the room owner (not a formal suspension).");
 }
 
-function resume(ctx: Ctx, by: "owner" | "auto") {
+function resume(ctx: Ctx, by: "owner" | "auto" | "reconnect") {
   const s = ctx.s;
   const pz = s.paused;
   if (!pz) throw new Duplicate();
   const elapsedMs = ctx.now - pz.pausedAtMs;
-  s.usage.pauseUsedSec += Math.ceil(elapsedMs / 1000);
+  if (pz.reason !== "no_humans") s.usage.pauseUsedSec += Math.ceil(elapsedMs / 1000);
   setPhaseDeadline(s.phase, ctx.now + pz.remainingMs);
   if (s.phase.type === "SPEECH" && s.phase.ai) s.phase.ai.playStartMs += elapsedMs;
   if (s.phase.type === "SPEECH") s.phase.startedMs += elapsedMs;
   s.paused = null;
   schedule(ctx, phaseDeadline(s.phase)!);
-  announce(ctx, by === "auto" ? "App pause limit reached; resumed automatically." : "App resumed.");
+  announce(ctx, by === "auto" ? "App pause limit reached; resumed automatically." : by === "reconnect" ? "A delegate reconnected; the meeting continues." : "App resumed.");
 }
 
 function extend(ctx: Ctx, id: SeatId) {
@@ -1023,7 +1304,19 @@ function dispatch(ctx: Ctx, c: Command) {
       const p = s.phase;
       if (p.type !== "SPEECH" || p.seat !== c.seat || p.speakerKind !== "human") reject("not_speaking", "You do not hold the floor");
       requireSeatActor(ctx, c.seat);
-      return toConfirm(ctx, c.seat, (p as Extract<Phase, { type: "SPEECH" }>).context);
+      const sp = p as Extract<Phase, { type: "SPEECH" }>;
+      let yieldTo: { seat: SeatId; sec: number } | undefined;
+      if (c.yieldTo) {
+        // Rule 18: yields only on speakers'-list speeches (not in moderated caucus); a yielded-to delegate may not yield again.
+        if (sp.context.kind !== "speakers_list") reject("yield_not_in_order", "Yields are in order only on speakers' list speeches, and the receiver of a yield may not yield again (rule 18)");
+        const to = seat(ctx, c.yieldTo);
+        if (to.id === c.seat) reject("yield_self", "You cannot yield to yourself");
+        if (!isPresent(to)) reject("not_present", "That delegation is not present");
+        const sec = Math.floor((sp.deadlineMs - ctx.now) / 1000);
+        if (sec < 5) reject("no_time", "Less than 5 seconds remain; yield to the chair instead (app policy)");
+        yieldTo = { seat: to.id, sec };
+      }
+      return toConfirm(ctx, c.seat, sp.context, yieldTo);
     }
     case "submit_text_speech": {
       requireSeatActor(ctx, c.seat);
@@ -1095,9 +1388,13 @@ function dispatch(ctx: Ctx, c: Command) {
       const p = s.phase;
       const v = validateMotion(s, c.seat, c.params, ctx.now);
       if (!v.ok) return reject(v.code, `${v.message} [${v.source}${v.ruleRef ? `, rule ${v.ruleRef}` : ""}]`);
-      const fp = p as Extract<Phase, { type: "FLOOR_OPEN" }>;
+      const fp = p as { windowId: string };
       const key = motionContentKey(c.seat, c.params);
-      const mine = windowMotions(ctx, fp.windowId).filter((m) => m.mover === c.seat);
+      const inWindow = windowMotions(ctx, fp.windowId);
+      if (c.params.type === "divide_question" && inWindow.some((m) => m.params.type === "divide_question" && m.mover !== c.seat)) {
+        reject("already_on_floor", "A motion to divide this resolution is already on the floor (rule 33)");
+      }
+      const mine = inWindow.filter((m) => m.mover === c.seat);
       if (mine.some((m) => m.contentKey === key)) throw new Duplicate();
       if (mine.length >= s.settings.limits.maxMotionsPerSeatPerWindow) reject("motion_limit", "Motion limit for this window reached (app policy)");
       const id = newId(ctx, "m");
@@ -1107,12 +1404,12 @@ function dispatch(ctx: Ctx, c: Command) {
     case "floor_pass": {
       const st = requireSeatActor(ctx, c.seat);
       const p = s.phase;
-      if (p.type !== "FLOOR_OPEN") reject("floor_not_open", "Floor is not open", true);
-      const fp = p as Extract<Phase, { type: "FLOOR_OPEN" }>;
+      if (p.type !== "FLOOR_OPEN" && p.type !== "VP_FLOOR" && p.type !== "DIVISION_PROPOSALS") reject("floor_not_open", "Floor is not open", true);
+      const fp = p as { readySeats: SeatId[]; aiDoneSeats: SeatId[] };
       const list = st.kind === "ai" ? fp.aiDoneSeats : fp.readySeats;
       if (list.includes(c.seat)) throw new Duplicate();
       list.push(c.seat);
-      return maybeCloseFloorEarly(ctx);
+      return maybeCloseWindowEarly(ctx);
     }
     case "request_extension":
       return extend(ctx, c.seat);
@@ -1246,6 +1543,34 @@ function dispatch(ctx: Ctx, c: Command) {
       if (doc.sponsors.every((sp) => pp.responses[sp] === "agree")) return resolveAmendmentResponse(ctx, "all_agreed");
       return;
     }
+    case "submit_division_proposal": {
+      const st = requireSeatActor(ctx, c.seat);
+      if (!isPresent(st)) reject("not_present", "Only present delegations may propose a division");
+      const p = s.phase;
+      if (p.type !== "DIVISION_PROPOSALS" || p.docId !== c.docId) reject("not_accepting", "Division proposals are not being accepted for this resolution", true);
+      const { divisions, proposals } = divisionsOf(s);
+      const div = divisions[c.docId];
+      const n = normaliseDivision(div.baseOperative.length, c.parts);
+      if (!n.ok) return reject("bad_division", `${n.error} [official, rule 33]`);
+      const parts = n.parts.map((clauses) => ({ clauses }));
+      const key = JSON.stringify(parts);
+      const mine = div.proposals.map((id) => proposals[id]).filter((x) => x.proposer === c.seat);
+      if (mine.some((x) => JSON.stringify(x.parts) === key)) throw new Duplicate();
+      if (mine.length >= s.settings.limits.maxMotionsPerSeatPerWindow) reject("proposal_limit", "Proposal limit for this resolution reached (app policy)");
+      const id = newId(ctx, "dv");
+      proposals[id] = { id, docId: c.docId, proposer: c.seat, parts, submittedAtMs: ctx.now, status: "pending" };
+      div.proposals.push(id);
+      return;
+    }
+    case "raise_point": {
+      // Rule 20 (adapted): a point of personal privilege reports a problem affecting participation (audio, connection).
+      requireSeatActor(ctx, c.seat);
+      if (s.phase.type === "LOBBY") reject("not_started", "Not started");
+      const text = c.text.trim().slice(0, 200);
+      if (!text) reject("empty", "Describe the problem");
+      record(ctx, { source: "chair", seat: c.seat, substantive: false, text: `Point of personal privilege (rule 20) — ${s.seats[c.seat].countryName}: ${text}` });
+      return;
+    }
     case "app_pause":
       return pause(ctx);
     case "app_resume":
@@ -1257,8 +1582,9 @@ function dispatch(ctx: Ctx, c: Command) {
       const v = c.online ? "online" : "offline";
       if (st.connection === v) throw new Duplicate();
       st.connection = v; // never changes an open ballot's electorate
+      if (c.online && st.kind === "human" && s.paused?.reason === "no_humans") return resume(ctx, "reconnect");
       // A delegate leaving may mean every REMAINING online delegate is already ready (app policy).
-      if (!c.online && s.phase.type === "FLOOR_OPEN") return maybeCloseFloorEarly(ctx);
+      if (!c.online && ["FLOOR_OPEN", "VP_FLOOR", "DIVISION_PROPOSALS"].includes(s.phase.type)) return maybeCloseWindowEarly(ctx);
       if (!c.online && s.phase.type === "UNMOD_CAUCUS") return maybeEndUnmodEarly(ctx);
       return;
     }
@@ -1320,9 +1646,12 @@ export function availableActions(s: ForumEngineState, seatId: SeatId): Command["
   if (!st || p.type === "CLOSED" || s.paused) return [];
   const out: Command["type"][] = [];
   if (p.type !== "LOBBY" && st.attendance !== "present_and_voting") out.push("declare_attendance");
-  if (!isPresent(st)) return out;
+  if (!isPresent(st)) return p.type !== "LOBBY" ? [...out, "raise_point"] : out;
   if (!s.debateClosed && !s.speakersList.includes(seatId)) out.push("add_to_speakers_list");
   if (p.type === "FLOOR_OPEN") out.push("submit_motion", "floor_pass", "request_extension");
+  if (p.type === "VP_FLOOR") out.push("submit_motion", "floor_pass");
+  if (p.type === "DIVISION_PROPOSALS") out.push("submit_division_proposal", "floor_pass");
+  if (p.type !== "LOBBY") out.push("raise_point");
   if ((p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && p.stage === "voting" && p.ballotId) {
     const b = s.ballots[p.ballotId];
     if (b.eligible[seatId] && !b.votes[seatId]) out.push("cast_vote", "request_extension");

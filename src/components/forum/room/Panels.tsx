@@ -139,6 +139,35 @@ function BallotSubject({ state, b }: { state: PublicForumState; b: PublicBallot 
       </div>
     );
   }
+  if (b.subject.type === "division_proposal") {
+    const pr = state.divisionProposals?.[b.subject.proposalId];
+    const d = state.documents[b.subject.docId];
+    return (
+      <p className="text-sm font-bold text-gray-800">
+        Division of “{d?.title}” — proposal by {pr ? state.seats[pr.proposer]?.countryName : ""}:{" "}
+        {pr?.parts.map((x, i) => `part ${i + 1} = clause${x.clauses.length > 1 ? "s" : ""} ${x.clauses.map((n) => n + 1).join(", ")}`).join(" · ")} (rule 33, simple majority)
+      </p>
+    );
+  }
+  if (b.subject.type === "division_part") {
+    const div = state.divisions?.[b.subject.docId];
+    const pr = div?.adoptedProposalId ? state.divisionProposals?.[div.adoptedProposalId] : undefined;
+    const clauses = pr?.parts[b.subject.part]?.clauses ?? [];
+    return (
+      <div>
+        <p className="text-sm font-bold text-gray-800">
+          Keep part {b.subject.part + 1} of “{state.documents[b.subject.docId]?.title}” in the final text? (rule 33)
+        </p>
+        <div className="mt-1 space-y-0.5 rounded-lg bg-gray-50 p-2 text-xs text-gray-700">
+          {clauses.map((i) => (
+            <p key={i}>
+              <b>{i + 1}.</b> {div?.baseOperative[i]}
+            </p>
+          ))}
+        </div>
+      </div>
+    );
+  }
   const a = state.amendments[b.subject.amendmentId];
   return (
     <p className="text-sm font-bold text-gray-800">

@@ -4,6 +4,9 @@ import { advanceIfDue } from "@/server/forums/service";
 import { getRuntime } from "@/server/runtime";
 import { verifyQstashSignature } from "@/server/scheduler/qstashVerify";
 
+/** AI follow-up work runs in after(); bounded so a stuck provider cannot hold the function (engine deadlines recover). */
+export const maxDuration = 120;
+
 /**
  * QStash scheduler callback. Enabled only with SCHEDULER_DRIVER=qstash, APP_BASE_URL and both signing
  * keys; every request must carry a valid Upstash signature for exactly this URL and body. It can only

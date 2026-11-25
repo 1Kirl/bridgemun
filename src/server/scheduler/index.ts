@@ -40,8 +40,8 @@ export class LocalScheduler implements Scheduler {
 }
 
 /**
- * Upstash QStash driver (recommended for Vercel). NOT CONNECTED / NOT VERIFIED yet:
- * requires QSTASH_TOKEN, APP_BASE_URL and the tick endpoint with signature verification (Phase 3).
+ * Upstash QStash driver (production). Publishes a delayed, signed call to /api/engine/tick per deadline;
+ * QStash retries failed deliveries (3×) and the engine ignores duplicate/early/stale ticks.
  */
 export class QStashScheduler implements Scheduler {
   readonly driver = "qstash";
@@ -50,6 +50,15 @@ export class QStashScheduler implements Scheduler {
     private fetchImpl: typeof fetch = fetch,
   ) {}
   async schedule(job: ScheduledJob) {
+    // One retry on failure; the deduplication id makes a duplicate publish harmless.
+    try {
+      await this.publish(job);
+    } catch {
+      await new Promise((r) => setTimeout(r, 500));
+      await this.publish(job);
+    }
+  }
+  private async publish(job: ScheduledJob) {
     const target = `${this.cfg.baseUrl.replace(/\/$/, "")}/api/engine/tick`;
     const res = await this.fetchImpl(`${this.cfg.apiBase ?? "https://qstash.upstash.io"}/v2/publish/${target}`, {
       method: "POST",

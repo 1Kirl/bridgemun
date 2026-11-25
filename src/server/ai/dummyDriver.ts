@@ -107,6 +107,12 @@ export function createDummyAiDriver(db: Firestore, getSink: () => EffectSink, de
             }
           }, 3000);
           break;
+        case "ai_voting_motion_needed":
+          // Dummy: AI delegations make no voting-procedure motions; they report done.
+          later(async () => {
+            for (const seat of e.seats) await act(forumId, seat, { type: "floor_pass", seat }, { phaseId: e.phaseId });
+          });
+          break;
         case "ai_sponsor_response_needed":
           for (const seat of e.seats) later(() => act(forumId, seat, { type: "sponsor_response", seat, amendmentId: e.amendmentId, agree: true }));
           break;

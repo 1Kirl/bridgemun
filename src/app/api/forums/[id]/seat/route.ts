@@ -3,6 +3,9 @@ import { requireUser, withErrors } from "@/server/auth";
 import { claimSeat } from "@/server/forums/service";
 import { getRuntime } from "@/server/runtime";
 
+/** AI follow-up work runs in after(); bounded so a stuck provider cannot hold the function (engine deadlines recover). */
+export const maxDuration = 120;
+
 /** Join step 2: claim a seat (replacing its AI) atomically; existing members get their seat back. */
 export const POST = withErrors(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requireUser(req);

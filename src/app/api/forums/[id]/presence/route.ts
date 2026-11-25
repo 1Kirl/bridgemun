@@ -3,6 +3,9 @@ import { requireUser, withErrors } from "@/server/auth";
 import { setPresence } from "@/server/forums/service";
 import { getRuntime } from "@/server/runtime";
 
+/** AI follow-up work runs in after(); bounded so a stuck provider cannot hold the function (engine deadlines recover). */
+export const maxDuration = 120;
+
 /** Heartbeat (online) and tab-close beacon (offline). Never changes an open ballot's electorate. */
 export const POST = withErrors(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requireUser(req);

@@ -254,4 +254,109 @@ describe.skipIf(!onEmulator)("Phase 4–5 server pieces on the emulator (mock pr
     const log = await db.collection(`forums/${forumId}/aiActions`).where("kind", "==", "caucus").get();
     expect(log.size).toBeGreaterThanOrEqual(2);
   });
+
+  it("AI amendments (rule 29): AI proposes and signs an amendment, then a sponsor AI objects → unfriendly (distinct from silence)", async () => {
+    const { rt, llm, forumId } = await setup({
+      script: (name, m) => {
+        const you = /YOU ARE: [^(]+\((\w\w)\)/.exec(allText(m))?.[1];
+        if (name === "floor_decision") return { action: "pass", motion: null, rationale: "", evidenceIds: [] };
+        if (name === "ballot_votes") return { votes: ["fr", "de", "jp"].map((seat) => ({ seat, choice: "yes", rationale: "", evidenceIds: [] })) };
+        if (name === "amendment_work") {
+          const open = /- (a\d+) to/.exec(allText(m))?.[1];
+          if (!open) return { action: "propose_amendment", amendmentId: null, amendment: { docId: "dX", kind: "replace", clauseNumber: 2, text: "Requests biennial reports;" }, rationale: `${you} wants biennial`, evidenceIds: [] };
+          return { action: "sign_amendment", amendmentId: open, amendment: null, rationale: "worth debating", evidenceIds: [] };
+        }
+        if (name === "caucus_work") return { action: "nothing", docId: null, draft: null, rationale: "", evidenceIds: [] };
+        if (name === "sponsor_responses") return { responses: [{ seat: "fr", agree: false, rationale: "weakens oversight" }] };
+        return new Error(`unexpected ${name}`);
+      },
+    });
+    // an introduced resolution sponsored by fr (AI) and us (human)
+    await rt.drain(); // let the opening floor window's AI work finish before injecting state
+    const st = (await loadState(db, forumId))!;
+    st.documents.dX = { id: "dX", kind: "draft_resolution", title: "Hubs", sponsors: ["fr", "us"], signatories: ["gb"], preambular: ["Recognizing ..."], operative: ["Establishes hubs;", "Requests annual reports;"], version: 1, textHash: "hx", status: "introduced", submittedBy: "fr", submittedAtMs: 1 };
+    st.introducedResolutionIds = ["dX"];
+    await db.doc(`forums/${forumId}/engineState/current`).set({ state: JSON.parse(JSON.stringify(st)) });
+    const bid = await humanMotionToVote(rt, forumId);
+    await userCommand(db, U("owner"), forumId, { command: { type: "cast_vote", seat: "us", ballotId: bid, choice: "yes" } }, rt.sink);
+    await userCommand(db, U("u2"), forumId, { command: { type: "cast_vote", seat: "gb", ballotId: bid, choice: "yes" } }, rt.sink);
+    let s = await until(db, forumId, (x) => x.phase.type === "UNMOD_CAUCUS", 10000);
+    await rt.drain();
+    s = (await loadState(db, forumId))!;
+    const a = Object.values(s.amendments)[0];
+    expect(a).toMatchObject({ targetDocId: "dX", op: { kind: "replace", clauseIndex: 1, text: "Requests biennial reports;" }, status: "draft" });
+    expect(llm.calls.some((c) => c.schemaName === "amendment_work")).toBe(true);
+    // the human signs too, then moves to introduce it; AI sponsor France objects
+    if (a.signatories.length < 2) await userCommand(db, U("u2"), forumId, { command: { type: "sign_amendment", seat: "gb", amendmentId: a.id } }, rt.sink);
+    await advanceIfDue(db, forumId, rt.sink, () => (s.phase as { deadlineMs: number }).deadlineMs + 1); // caucus ends → floor
+    await userCommand(db, U("owner"), forumId, { command: { type: "submit_motion", seat: "us", params: { type: "introduce_amendment", amendmentId: a.id } } }, rt.sink);
+    await userCommand(db, U("owner"), forumId, { command: { type: "floor_pass", seat: "us" } }, rt.sink);
+    await userCommand(db, U("u2"), forumId, { command: { type: "floor_pass", seat: "gb" } }, rt.sink);
+    s = await until(db, forumId, (x) => x.phase.type === "MOTION_VOTE");
+    await advanceIfDue(db, forumId, rt.sink, () => (s.phase as { deadlineMs: number }).deadlineMs + 1);
+    const b2 = ((await loadState(db, forumId))!.phase as { ballotId: string }).ballotId;
+    await userCommand(db, U("owner"), forumId, { command: { type: "cast_vote", seat: "us", ballotId: b2, choice: "yes" } }, rt.sink);
+    await userCommand(db, U("u2"), forumId, { command: { type: "cast_vote", seat: "gb", ballotId: b2, choice: "yes" } }, rt.sink);
+    s = await until(db, forumId, (x) => x.amendments[a.id]?.status === "unfriendly_pending", 10000);
+    expect(s.amendments[a.id].friendlyOutcome).toBe("objected");
+  });
+
+  it("voting procedure: AI moves to divide and proposes a division through the engine; parts are voted", async () => {
+    const { rt, forumId } = await setup({
+      script: (name, m) => {
+        const t = allText(m);
+        const you = /YOU ARE: [^(]+\((\w\w)\)/.exec(t)?.[1];
+        if (name === "floor_decision") return { action: "pass", motion: null, rationale: "", evidenceIds: [] };
+        if (name === "ballot_votes") return { votes: ["fr", "de", "jp"].map((seat) => ({ seat, choice: "yes", rationale: "", evidenceIds: [] })) };
+        if (name === "voting_motion") {
+          if (t.includes("agreed to DIVIDE")) return { action: you === "jp" ? "propose_division" : "pass", order: [], separateClauses: [[3]], rationale: "split clause 3" };
+          if (t.includes("about to be voted on")) return { action: "divide", order: [], separateClauses: [], rationale: "clause 3 is unacceptable" };
+          return { action: "pass", order: [], separateClauses: [], rationale: "" };
+        }
+        return new Error(`unexpected ${name}`);
+      },
+    });
+    await rt.drain(); // let the opening floor window's AI work finish before injecting state
+    const st = (await loadState(db, forumId))!;
+    st.documents.dY = { id: "dY", kind: "draft_resolution", title: "Hubs", sponsors: ["fr", "us"], signatories: ["gb"], preambular: ["Recognizing ..."], operative: ["Establishes hubs;", "Requests reports;", "Mandates waivers;"], version: 1, textHash: "hy", status: "introduced", submittedBy: "fr", submittedAtMs: 1 };
+    st.introducedResolutionIds = ["dY"];
+    await db.doc(`forums/${forumId}/engineState/current`).set({ state: JSON.parse(JSON.stringify(st)) });
+    await userCommand(db, U("owner"), forumId, { command: { type: "submit_motion", seat: "us", params: { type: "enter_voting" } } }, rt.sink);
+    await userCommand(db, U("owner"), forumId, { command: { type: "floor_pass", seat: "us" } }, rt.sink);
+    await userCommand(db, U("u2"), forumId, { command: { type: "floor_pass", seat: "gb" } }, rt.sink);
+    let s = await until(db, forumId, (x) => x.phase.type === "MOTION_VOTE");
+    await advanceIfDue(db, forumId, rt.sink, () => (s.phase as { deadlineMs: number }).deadlineMs + 1);
+    const b = ((await loadState(db, forumId))!.phase as { ballotId: string }).ballotId;
+    for (const [u, seat] of [["owner", "us"], ["u2", "gb"]]) await userCommand(db, U(u), forumId, { command: { type: "cast_vote", seat, ballotId: b, choice: "yes" } }, rt.sink);
+    // division window: the AI moves to divide; humans pass
+    s = await until(db, forumId, (x) => x.phase.type === "VP_FLOOR");
+    s = await until(db, forumId, (x) => Object.values(x.motions).some((mm) => mm.params.type === "divide_question"), 8000);
+    for (const [u, seat] of [["owner", "us"], ["u2", "gb"]]) await userCommand(db, U(u), forumId, { command: { type: "floor_pass", seat } }, rt.sink);
+    // procedural vote on the motion to divide; humans vote yes, AI votes yes
+    const seen = new Set<string>();
+    const voteHumans = async () => {
+      let x = await until(db, forumId, (y) => y.phase.type === "VOTING_PROCEDURE" && !!(y.phase as { ballotId: string | null }).ballotId && !seen.has((y.phase as { ballotId: string }).ballotId));
+      seen.add((x.phase as { ballotId: string }).ballotId);
+      await advanceIfDue(db, forumId, rt.sink, () => (x.phase as { deadlineMs: number }).deadlineMs + 1);
+      x = (await loadState(db, forumId))!;
+      const id = (x.phase as { ballotId: string }).ballotId;
+      for (const [u, seat] of [["owner", "us"], ["u2", "gb"]]) await userCommand(db, U(u), forumId, { command: { type: "cast_vote", seat, ballotId: id, choice: "yes" } }, rt.sink);
+      return x.ballots[id];
+    };
+    expect((await voteHumans()).subject.type).toBe("motion");
+    s = await until(db, forumId, (x) => x.phase.type === "DIVISION_PROPOSALS");
+    s = await until(db, forumId, (x) => Object.keys(x.divisionProposals ?? {}).length > 0, 8000);
+    expect(Object.values(s.divisionProposals!)[0]).toMatchObject({ proposer: "jp", parts: [{ clauses: [0, 1] }, { clauses: [2] }] });
+    for (const [u, seat] of [["owner", "us"], ["u2", "gb"]]) await userCommand(db, U(u), forumId, { command: { type: "floor_pass", seat } }, rt.sink);
+    expect((await voteHumans()).subject.type).toBe("division_proposal");
+    expect((await voteHumans()).subject.type).toBe("division_part");
+    expect((await voteHumans()).subject.type).toBe("division_part");
+    const fin = await voteHumans();
+    expect(fin.subject).toMatchObject({ type: "resolution", docId: "dY" });
+    s = await until(db, forumId, (x) => x.phase.type === "CLOSED", 10000);
+    expect(s.documents.dY.status).toBe("adopted");
+    expect(s.divisions!.dY.outcome).toBe("recombined");
+    const log = await db.collection(`forums/${forumId}/aiActions`).where("kind", "==", "voting_motion").get();
+    expect(log.size).toBeGreaterThanOrEqual(2);
+  });
 });

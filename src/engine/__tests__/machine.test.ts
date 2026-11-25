@@ -384,6 +384,9 @@ describe("documents, amendments and final voting (text locked)", () => {
       sim.do(actorOf(id), { type: "cast_vote", seat: id, ballotId: b.id, choice: c });
     }
     expect(sim.s.amendments[amId].status).toBe("failed");
+    // rule 33 window before the resolution vote; nobody moves to divide
+    expectPhase(sim, "VP_FLOOR");
+    sim.expire();
     // resolution ballot with locked text hash
     sim.expire();
     b = sim.s.ballots[(sim.phase as { ballotId: string }).ballotId];
@@ -398,9 +401,10 @@ describe("documents, amendments and final voting (text locked)", () => {
 });
 
 describe("misc", () => {
-  it("unimplemented motions are refused honestly", () => {
+  it("voting-procedure motions are out of order during debate", () => {
     const sim = started();
-    expect(sim.try(human("owner"), { type: "submit_motion", seat: "us", params: { type: "divide_question", docId: "d1" } })).toMatchObject({ ok: false, code: "not_supported_yet" });
+    expect(sim.try(human("owner"), { type: "submit_motion", seat: "us", params: { type: "divide_question", docId: "d1" } })).toMatchObject({ ok: false, code: "not_in_order" });
+    expect(sim.try(human("owner"), { type: "submit_motion", seat: "us", params: { type: "reorder_resolutions", order: ["d1"] } })).toMatchObject({ ok: false, code: "not_in_order" });
   });
   it("session end policy close_forum", () => {
     const sim = started();

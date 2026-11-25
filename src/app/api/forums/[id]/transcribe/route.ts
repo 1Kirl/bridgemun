@@ -3,6 +3,9 @@ import { HttpError, requireUser, withErrors } from "@/server/auth";
 import { getRuntime } from "@/server/runtime";
 import { MAX_AUDIO_BYTES, transcribeSpeech } from "@/server/speech/transcribe";
 
+/** AI follow-up work runs in after(); bounded so a stuck provider cannot hold the function (engine deadlines recover). */
+export const maxDuration = 120;
+
 /** Upload of the speaker's own recording (multipart: audio, seconds). Mock or OpenAI per STT_PROVIDER. */
 export const POST = withErrors(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requireUser(req);

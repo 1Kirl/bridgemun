@@ -24,8 +24,8 @@ export const MOTION_SPECS: Record<MotionType, MotionSpec> = {
   introduce_resolution: { type: "introduce_resolution", ruleRefs: "26–27, 36.2h", precedence: 7, debatable: false, secondRequired: false, context: "debate", implemented: true },
   introduce_amendment: { type: "introduce_amendment", ruleRefs: "29, 36.2i", precedence: 8, debatable: false, secondRequired: false, context: "debate", implemented: true },
   enter_voting: { type: "enter_voting", ruleRefs: "13, 36.3a", precedence: 9, debatable: false, secondRequired: false, context: "debate", implemented: true },
-  reorder_resolutions: { type: "reorder_resolutions", ruleRefs: "34, 36.3b", precedence: 10, debatable: false, secondRequired: false, context: "voting_procedure", implemented: false },
-  divide_question: { type: "divide_question", ruleRefs: "33, 36.3c", precedence: 11, debatable: false, secondRequired: false, context: "voting_procedure", implemented: false },
+  reorder_resolutions: { type: "reorder_resolutions", ruleRefs: "34, 36.3b", precedence: 10, debatable: false, secondRequired: false, context: "voting_procedure", implemented: true },
+  divide_question: { type: "divide_question", ruleRefs: "33, 36.3c", precedence: 11, debatable: false, secondRequired: false, context: "voting_procedure", implemented: true },
 };
 
 export function motionThreshold(type: MotionType, state: ForumEngineState): Threshold {
@@ -63,6 +63,7 @@ export function validateMotion(state: ForumEngineState, seat: string, p: MotionP
   if (!spec.implemented) {
     return bad("not_supported_yet", `${p.type} is specified but not implemented until Phase 6`, "app_policy", spec.ruleRefs);
   }
+  if (spec.context === "voting_procedure") return validateVotingMotion(state, p);
   if (state.phase.type !== "FLOOR_OPEN") {
     return bad("floor_not_open", "Motions are in order only when the floor is open", "official", "10–14, 17");
   }
@@ -146,6 +147,30 @@ export function validateMotion(state: ForumEngineState, seat: string, p: MotionP
     default:
       return bad("not_supported_yet", "Not implemented", "app_policy");
   }
+}
+
+/** Rules 33–34: motions made after debate is closed, in the voting-procedure window for their subject. */
+function validateVotingMotion(state: ForumEngineState, p: MotionParams): Validation {
+  const ph = state.phase;
+  if (ph.type !== "VP_FLOOR") return bad("not_in_order", "In order only in voting procedure, when the committee takes motions on voting", "official", "33, 34");
+  if (p.type === "reorder_resolutions") {
+    if (ph.target.kind !== "order") return bad("not_in_order", "Reordering is taken before the first resolution is voted", "rule_interpretation", "34");
+    const cur = state.votingOrder ?? [];
+    if (p.order.length !== cur.length || [...p.order].sort().join() !== [...cur].sort().join()) {
+      return bad("invalid_order", "The order must list every resolution on the floor exactly once", "official", "34");
+    }
+    if (p.order.join() === cur.join()) return bad("no_change", "That is already the voting order", "app_policy", "34");
+    return { ok: true };
+  }
+  if (p.type === "divide_question") {
+    if (ph.target.kind !== "division" || ph.target.docId !== p.docId) {
+      return bad("not_in_order", "Division is moved on the resolution about to be voted on", "official", "33");
+    }
+    const doc = state.documents[p.docId];
+    if (!doc || doc.status !== "introduced" || doc.operative.length < 2) return bad("not_divisible", "Needs at least two operative clauses (preambular clauses cannot be divided)", "official", "33");
+    return { ok: true };
+  }
+  return bad("not_in_order", "Not a voting-procedure motion", "official");
 }
 
 /**

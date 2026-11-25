@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import type { PublicForumState } from "@/engine/publicView";
 import type { MotionParams, MotionType, Phase, VoteChoice } from "@/engine/types";
 import { allowedChoices } from "@/engine/voting";
-import { MOTION_LABEL } from "@/lib/phaseText";
+import { MOTION_LABEL, describeMotion, describePhase } from "@/lib/phaseText";
 import type { useForumActions } from "@/hooks/useForumActions";
 
 type Props = {
@@ -26,7 +26,16 @@ export function ActionPanel({ state, mySeat, actions, recorder }: Props) {
   const present = me.attendance === "present" || me.attendance === "present_and_voting";
   const { send, busy } = actions;
   if (p.type === "CLOSED") return null;
-  if (state.paused) return <div className={box}><p className="text-sm text-gray-600">The app is paused by the room owner. Actions resume automatically.</p></div>;
+  if (state.paused)
+    return (
+      <div className={box}>
+        <p className="text-sm text-gray-600">
+          {state.paused.reason === "no_humans"
+            ? "The meeting was on hold because no human delegate was online (app policy H1). It continues now that you are connected."
+            : "The app is paused by the room owner. Actions resume automatically."}
+        </p>
+      </div>
+    );
 
   return (
     <div className={`${box} space-y-4`}>
@@ -51,6 +60,8 @@ export function ActionPanel({ state, mySeat, actions, recorder }: Props) {
 
       {present && <SpeakerControls state={state} mySeat={mySeat} actions={actions} recorder={recorder} />}
       {present && p.type === "FLOOR_OPEN" && <FloorControls state={state} mySeat={mySeat} actions={actions} />}
+      {present && p.type === "VP_FLOOR" && <VotingMotionControls state={state} mySeat={mySeat} actions={actions} />}
+      {present && p.type === "DIVISION_PROPOSALS" && <DivisionControls state={state} mySeat={mySeat} actions={actions} />}
       {present && (p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && <VoteControls state={state} mySeat={mySeat} actions={actions} />}
       {present && p.type === "MOD_CAUCUS" && (
         <Button size="sm" disabled={busy || p.volunteers.includes(mySeat)} onClick={() => void send({ type: "volunteer", seat: mySeat }, { phaseId: state.phaseId })}>
@@ -59,13 +70,161 @@ export function ActionPanel({ state, mySeat, actions, recorder }: Props) {
       )}
       {present && p.type === "UNMOD_CAUCUS" && (
         <div className="space-y-1">
-          <p className="text-xs text-gray-600">Formal debate is suspended. Talk freely. (Shared documents arrive in Phase 6.)</p>
+          <p className="text-xs text-gray-600">Formal debate is suspended. Talk freely and work on documents and amendments below.</p>
           <Button size="sm" variant="secondary" disabled={busy || p.readySeats.includes(mySeat)} onClick={() => void send({ type: "caucus_ready", seat: mySeat })}>
             {p.readySeats.includes(mySeat) ? "Ready" : "Ready to resume"}
           </Button>
         </div>
       )}
+      {p.type !== "LOBBY" && <PointsControls state={state} mySeat={mySeat} actions={actions} />}
       {actions.error && <p className="text-xs font-semibold text-red-600">{actions.error}</p>}
+    </div>
+  );
+}
+
+/** Rules 20–22 as adapted: personal privilege is recorded; inquiry and order are answered from the rules and engine checks. */
+function PointsControls({ state, mySeat, actions }: Props) {
+  const [text, setText] = useState("");
+  const { send, busy } = actions;
+  const info = describePhase(state);
+  return (
+    <details className="rounded-xl border border-gray-100 p-3 text-xs" data-testid="points">
+      <summary className="cursor-pointer font-bold text-gray-700">Points (personal privilege · parliamentary inquiry · order)</summary>
+      <div className="mt-2 space-y-3">
+        <div className="space-y-1">
+          <p className="font-bold text-gray-800">Point of personal privilege (rule 20)</p>
+          <p className="text-gray-500">Report a problem affecting your participation (audio, connection). It is shown to everyone in the record.</p>
+          <div className="flex gap-2">
+            <input value={text} onChange={(e) => setText(e.target.value)} maxLength={200} placeholder="e.g. I cannot hear the speaker" className="flex-1 rounded-lg border border-gray-200 p-2" />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || !text.trim()}
+              onClick={async () => {
+                if (await send({ type: "raise_point", seat: mySeat, kind: "personal_privilege", text })) setText("");
+              }}
+            >
+              Raise
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="font-bold text-gray-800">Point of parliamentary inquiry (rule 22)</p>
+          <p className="text-gray-600">
+            <b>Now:</b> {info.title}. {info.detail} <b>Next:</b> {info.next}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <p className="font-bold text-gray-800">Point of order (rule 21)</p>
+          <p className="text-gray-600">The automatic chair checks every motion, vote and speech against the rules before applying it; an out-of-order action is refused with the rule cited (shown below the buttons).</p>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+/** Rules 33–34: motions taken in voting procedure. */
+function VotingMotionControls({ state, mySeat, actions }: Props) {
+  const p = state.phase as Extract<Phase, { type: "VP_FLOOR" }>;
+  const { send, busy } = actions;
+  const [order, setOrder] = useState<string[]>(state.votingOrder ?? []);
+  const ready = p.readySeats.includes(mySeat);
+  const move = (i: number, d: number) => {
+    const o = [...order];
+    const j = i + d;
+    if (j < 0 || j >= o.length) return;
+    [o[i], o[j]] = [o[j], o[i]];
+    setOrder(o);
+  };
+  const mine = Object.values(state.motions).filter((m) => m.windowId === p.windowId && m.status === "pending");
+  return (
+    <div className="space-y-2 rounded-xl border border-brand/20 bg-brand/5 p-3" data-testid="vp-floor">
+      {p.target.kind === "order" ? (
+        <>
+          <p className="text-sm font-black text-brand">Move to reorder the resolutions (rule 34)</p>
+          <ol className="space-y-1">
+            {order.map((id, i) => (
+              <li key={id} className="flex items-center gap-2 text-sm">
+                <span className="w-5 font-bold">{i + 1}.</span>
+                <span className="flex-1">{state.documents[id]?.title}</span>
+                <Button size="sm" variant="outline" disabled={i === 0} onClick={() => move(i, -1)}>
+                  ↑
+                </Button>
+                <Button size="sm" variant="outline" disabled={i === order.length - 1} onClick={() => move(i, 1)}>
+                  ↓
+                </Button>
+              </li>
+            ))}
+          </ol>
+          <Button size="sm" disabled={busy || order.join() === (state.votingOrder ?? []).join()} onClick={() => void send({ type: "submit_motion", seat: mySeat, params: { type: "reorder_resolutions", order } }, { phaseId: state.phaseId })}>
+            Propose this order
+          </Button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm font-black text-brand">Move to divide the question (rule 33)</p>
+          <p className="text-xs text-gray-600">If adopted, delegations propose which operative clauses to vote separately. Preambular clauses cannot be divided.</p>
+          <Button size="sm" disabled={busy} onClick={() => void send({ type: "submit_motion", seat: mySeat, params: { type: "divide_question", docId: p.target.kind === "division" ? p.target.docId : "" } }, { phaseId: state.phaseId })}>
+            Move to divide “{p.target.kind === "division" ? state.documents[p.target.docId]?.title : ""}”
+          </Button>
+        </>
+      )}
+      {mine.length > 0 && (
+        <ul className="text-xs text-gray-600">
+          {mine.map((m) => (
+            <li key={m.id}>
+              • {describeMotion(m.params)}
+              {m.params.type === "reorder_resolutions" ? `: ${m.params.order.map((id) => state.documents[id]?.title).join(" → ")}` : ""} — {state.seats[m.mover]?.countryName}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Button size="sm" variant="secondary" disabled={busy || ready} onClick={() => void send({ type: "floor_pass", seat: mySeat }, { phaseId: state.phaseId })}>
+        {ready ? "Ready ✓" : "No motion (ready)"}
+      </Button>
+    </div>
+  );
+}
+
+function DivisionControls({ state, mySeat, actions }: Props) {
+  const p = state.phase as Extract<Phase, { type: "DIVISION_PROPOSALS" }>;
+  const { send, busy } = actions;
+  const div = state.divisions?.[p.docId];
+  const clauses = div?.baseOperative ?? [];
+  const [sel, setSel] = useState<number[]>([]);
+  const ready = p.readySeats.includes(mySeat);
+  const proposals = (div?.proposals ?? []).map((id) => state.divisionProposals?.[id]).filter(Boolean);
+  return (
+    <div className="space-y-2 rounded-xl border border-brand/20 bg-brand/5 p-3" data-testid="division-proposals">
+      <p className="text-sm font-black text-brand">Propose a division</p>
+      <p className="text-xs text-gray-600">Tick the operative clauses to vote separately. The other clauses form a second part.</p>
+      <div className="space-y-1">
+        {clauses.map((c, i) => (
+          <label key={i} className="flex items-start gap-2 text-xs">
+            <input type="checkbox" checked={sel.includes(i)} onChange={(e) => setSel(e.target.checked ? [...sel, i] : sel.filter((x) => x !== i))} />
+            <span>
+              <b>{i + 1}.</b> {c}
+            </span>
+          </label>
+        ))}
+      </div>
+      <Button size="sm" disabled={busy || sel.length === 0 || sel.length === clauses.length} onClick={async () => {
+        if (await send({ type: "submit_division_proposal", seat: mySeat, docId: p.docId, parts: [sel] }, { phaseId: state.phaseId })) setSel([]);
+      }}>
+        Propose: clauses {sel.map((x) => x + 1).sort((a, b) => a - b).join(", ") || "—"} separately
+      </Button>
+      {proposals.length > 0 && (
+        <ul className="text-xs text-gray-600">
+          {proposals.map((x) => (
+            <li key={x!.id}>
+              • {state.seats[x!.proposer]?.countryName}: {x!.parts.map((g) => g.clauses.map((n) => n + 1).join("+")).join(" | ")}
+            </li>
+          ))}
+        </ul>
+      )}
+      <Button size="sm" variant="secondary" disabled={busy || ready} onClick={() => void send({ type: "floor_pass", seat: mySeat }, { phaseId: state.phaseId })}>
+        {ready ? "Ready ✓" : "Done (ready)"}
+      </Button>
     </div>
   );
 }
@@ -74,6 +233,7 @@ function SpeakerControls({ state, mySeat, actions, recorder }: Props) {
   const p = state.phase;
   const { send, busy } = actions;
   const [text, setText] = useState("");
+  const [yieldTo, setYieldTo] = useState("");
   const inList = state.speakersList.includes(mySeat);
   const pos = state.speakersList.indexOf(mySeat);
   const mySpeech = p.type === "SPEECH" && p.seat === mySeat && p.speakerKind === "human";
@@ -111,9 +271,24 @@ function SpeakerControls({ state, mySeat, actions, recorder }: Props) {
                 ? recorder.detail
                 : "Preparing microphone…"}
           </p>
-          <Button size="sm" disabled={busy} onClick={() => void send({ type: "end_speech", seat: mySeat }, { phaseId: state.phaseId })}>
-            End speech
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {p.context.kind === "speakers_list" && (
+              <select value={yieldTo} onChange={(e) => setYieldTo(e.target.value)} className="rounded-lg border border-red-200 bg-white p-1.5 text-xs" aria-label="Yield">
+                <option value="">Yield to the chair</option>
+                {Object.values(state.seats)
+                  .filter((x) => x.id !== mySeat && (x.attendance === "present" || x.attendance === "present_and_voting"))
+                  .map((x) => (
+                    <option key={x.id} value={x.id}>
+                      Yield remaining time to {x.countryName}
+                    </option>
+                  ))}
+              </select>
+            )}
+            <Button size="sm" disabled={busy} onClick={() => void send({ type: "end_speech", seat: mySeat, ...(yieldTo ? { yieldTo } : {}) }, { phaseId: state.phaseId })}>
+              End speech
+            </Button>
+          </div>
+          {p.context.kind === "yield" && <p className="text-[11px] text-red-800">You received yielded time; it cannot be yielded again (rule 18).</p>}
           <TextSpeech text={text} setText={setText} label="No microphone? Submit your speech as text instead" onSubmit={() => send({ type: "submit_text_speech", seat: mySeat, text })} busy={busy} />
         </div>
       )}

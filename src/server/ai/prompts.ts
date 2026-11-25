@@ -3,6 +3,7 @@ import type { PublicForumState } from "@/engine/publicView";
 import type { RecordEntry } from "@/engine/types";
 import type { Retrieval } from "@/server/positions/positions";
 import { describeMotion } from "@/lib/phaseText";
+import { effectiveDocThresholds } from "@/engine/documents";
 
 export type ForumContext = {
   forumId: string;
@@ -52,7 +53,22 @@ export function situation(ctx: ForumContext, s: PublicForumState, seat: string):
       .filter((d) => d.status === "introduced" || d.status === "approved")
       .slice(0, 3)
       .map((d) => `TEXT of ${d.id} (${d.status}):\n${[...d.preambular, ...d.operative.map((o, i) => `${i + 1}. ${o}`)].join("\n").slice(0, 1500)}`),
+    amendmentsBlock(s),
   ].join("\n");
+}
+
+/** Open amendments (rule 29) with what is still needed before they can be introduced. */
+export function amendmentsBlock(s: PublicForumState): string {
+  const open = Object.values(s.amendments).filter((a) => a.status === "draft" || a.status === "unfriendly_pending");
+  if (!open.length) return "AMENDMENTS: none open.";
+  const need = effectiveDocThresholds(Object.keys(s.seats).length, s.settings.documents).amendmentSignatories;
+  return `AMENDMENTS:\n${open
+    .map((a) => {
+      const op = a.op.kind === "delete" ? `delete operative clause ${a.op.clauseIndex + 1}` : `${a.op.kind} operative clause ${a.op.clauseIndex + 1}: "${a.op.text}"`;
+      const ready = a.status === "draft" && a.signatories.length >= need && s.documents[a.targetDocId]?.version === a.targetVersion;
+      return `- ${a.id} to ${a.targetDocId}: ${op} (proposer ${a.proposer}; signatories ${a.signatories.join(",") || "none"}; ${a.status === "unfriendly_pending" ? "unfriendly, will be voted 2/3 in voting procedure" : ready ? "READY to introduce" : `needs ${need} signatories`})`;
+    })
+    .join("\n")}`;
 }
 
 export function motionText(s: PublicForumState, motionId: string) {
@@ -76,7 +92,7 @@ export const FLOOR_SCHEMA = {
           additionalProperties: false,
           required: ["type", "topic", "speakingSec", "totalSec"],
           properties: {
-            type: { type: "string", enum: ["mod_caucus", "unmod_caucus", "set_speaking_time", "introduce_resolution", "enter_voting"] },
+            type: { type: "string", enum: ["mod_caucus", "unmod_caucus", "set_speaking_time", "introduce_resolution", "introduce_amendment", "enter_voting"] },
             topic: { type: "string" },
             speakingSec: { type: "integer" },
             totalSec: { type: "integer" },
@@ -175,5 +191,45 @@ export const CAUCUS_WORK_SCHEMA = {
     },
     rationale: { type: "string" },
     evidenceIds: { type: "array", items: { type: "string" } },
+  },
+} as const;
+
+export const CAUCUS_AMEND_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["action", "amendmentId", "amendment", "rationale", "evidenceIds"],
+  properties: {
+    action: { type: "string", enum: ["nothing", "propose_amendment", "sign_amendment"] },
+    amendmentId: { type: ["string", "null"] },
+    amendment: {
+      anyOf: [
+        { type: "null" },
+        {
+          type: "object",
+          additionalProperties: false,
+          required: ["docId", "kind", "clauseNumber", "text"],
+          properties: {
+            docId: { type: "string" },
+            kind: { type: "string", enum: ["replace", "insert", "delete"] },
+            clauseNumber: { type: "integer" },
+            text: { type: "string" },
+          },
+        },
+      ],
+    },
+    rationale: { type: "string" },
+    evidenceIds: { type: "array", items: { type: "string" } },
+  },
+} as const;
+
+export const VOTING_MOTION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["action", "order", "separateClauses", "rationale"],
+  properties: {
+    action: { type: "string", enum: ["pass", "reorder", "divide", "propose_division"] },
+    order: { type: "array", items: { type: "string" } },
+    separateClauses: { type: "array", items: { type: "array", items: { type: "integer" } } },
+    rationale: { type: "string" },
   },
 } as const;

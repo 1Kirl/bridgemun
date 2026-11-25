@@ -117,6 +117,16 @@ function DocCard({ d, state, mySeat, actions, canWrite, amendSigs }: { d: Docume
           </p>
         ))}
       </div>
+      {state.divisions?.[d.id]?.outcome && (
+        <p className="mt-2 rounded bg-slate-50 px-2 py-1 text-[11px] text-slate-700">
+          Division of the question (rule 33):{" "}
+          {state.divisions[d.id].outcome === "intact"
+            ? "no division passed; text voted intact."
+            : state.divisions[d.id].outcome === "rejected_as_whole"
+              ? "every divided part was rejected; the resolution is rejected as a whole."
+              : `divided parts voted; recombined from v${state.divisions[d.id].baseVersion}.`}
+        </p>
+      )}
       {editing && <DraftForm initial={d} busy={actions.busy} onCancel={() => setEditing(false)} onSubmit={async (v) => (await actions.send({ type: "update_document", seat: mySeat, docId: d.id, preambular: v.preambular, operative: v.operative })) && setEditing(false)} />}
       {canWrite && open && (
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -145,7 +155,17 @@ function DocCard({ d, state, mySeat, actions, canWrite, amendSigs }: { d: Docume
               <b>{a.id}</b> by {name(a.proposer)}: {a.op.kind} clause {a.op.clauseIndex + 1}
               {"text" in a.op ? ` → “${a.op.text}”` : ""} · signatories {a.signatories.length}/{amendSigs} ·{" "}
               <span className="font-bold">{a.status.replace(/_/g, " ")}</span>
-              {a.friendlyOutcome && <span className="text-gray-400">({a.friendlyOutcome.replace(/_/g, " ")})</span>}
+              {a.friendlyOutcome && (
+                <span className="text-gray-500">
+                  (
+                  {a.friendlyOutcome === "all_agreed"
+                    ? "all sponsors agreed — friendly"
+                    : a.friendlyOutcome === "objected"
+                      ? "a sponsor objected — unfriendly"
+                      : "sponsor consent not obtained in time; no objection recorded (app policy D5) — unfriendly"}
+                  )
+                </span>
+              )}
               {a.status === "draft" && canWrite && a.proposer !== mySeat && !a.signatories.includes(mySeat) && (
                 <Button size="sm" variant="outline" disabled={actions.busy} onClick={() => void actions.send({ type: "sign_amendment", seat: mySeat, amendmentId: a.id })}>Sign amendment</Button>
               )}
