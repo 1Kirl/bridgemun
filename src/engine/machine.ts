@@ -1472,6 +1472,7 @@ function dispatch(ctx: Ctx, c: Command) {
       };
       doc.textHash = docTextHash(doc);
       s.documents[id] = doc;
+      requestCaucusWork(ctx, id, c.seat);
       return reapprove(ctx, id);
     }
     case "update_document": {
@@ -1520,6 +1521,7 @@ function dispatch(ctx: Ctx, c: Command) {
         textHash: stableHash({ t: d.id, v: d.version, op: c.op }),
         status: "draft",
       };
+      requestCaucusWork(ctx, id, c.seat);
       return;
     }
     case "sign_amendment": {
@@ -1592,6 +1594,13 @@ function dispatch(ctx: Ctx, c: Command) {
       requireSystem(ctx);
       return handleTick(ctx);
   }
+}
+
+/** A new draft or amendment during an unmoderated caucus: the other AI delegations may sign or sponsor it. */
+function requestCaucusWork(ctx: Ctx, trigger: string, by: SeatId) {
+  if (ctx.s.phase.type !== "UNMOD_CAUCUS") return;
+  const ai = aiSeats(ctx.s).filter((x) => x !== by);
+  if (ai.length) ctx.effects.push({ type: "ai_caucus_work_needed", phaseId: ctx.s.phaseId, seats: ai, trigger });
 }
 
 function reapprove(ctx: Ctx, docId: string) {

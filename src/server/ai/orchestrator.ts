@@ -362,7 +362,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
   }
 
   // ── unmoderated caucus: sponsor/sign/draft documents ─────────────
-  async function onCaucusWork(forumId: string, phaseId: string, seats: string[]) {
+  async function onCaucusWork(forumId: string, phaseId: string, seats: string[], trigger?: string) {
     const L = await load(forumId);
     if (!L || !shouldAct(L.state) || L.state.phaseId !== phaseId) return;
     const start = parseInt(stableHash(phaseId).slice(0, 8), 16);
@@ -372,12 +372,13 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       if (!fresh || fresh.phaseId !== phaseId) return;
       const pub = toPublicState(fresh);
       const introduced = Object.values(fresh.documents).filter((d) => d.status === "introduced");
-      // Once resolutions are on the floor, every other consulted delegation works on amendments (rule 29).
-      if (introduced.length && !fresh.debateClosed && consult.indexOf(seat) % 2 === 0) {
+      // A new amendment, or (at caucus start, once resolutions are on the floor) every other delegation: amendment work (rule 29).
+      if ((trigger && fresh.amendments[trigger]) || (!trigger && introduced.length && !fresh.debateClosed && consult.indexOf(seat) % 2 === 0)) {
         await amendmentWork(forumId, L, fresh, pub, seat);
         continue;
       }
-      const docs = Object.values(fresh.documents).filter((d) => d.status === "draft" || d.status === "approved");
+      const docs = Object.values(fresh.documents).filter((d) => (d.status === "draft" || d.status === "approved") && (!trigger || d.id === trigger));
+      if (trigger && !docs.length) return;
       const ev = retr(L, seat, `${L.ctx.agenda} resolution draft`);
       const docList = docs.length
         ? docs.map((d) => `- ${d.id} "${d.title}" (${d.status}; sponsors ${d.sponsors.join(",")}; signatories ${d.signatories.join(",")})\n${docText(fresh, d.id)}`).join("\n")
@@ -396,7 +397,9 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
               situation(L.ctx, pub, seat),
               evidenceBlock(ev),
               `UNMODERATED CAUCUS. Draft resolutions on the floor:\n${docList}`,
-              `Choose ONE: "nothing"; "sponsor" or "sign" an existing draft (docId) only if it fits your position (signing means it deserves debate, not support); or "submit_draft" with a short draft (title, 1-3 preambular clauses, 2-4 operative clauses beginning with a verb) if no existing draft reflects your country's priorities.`,
+              trigger
+                ? `A delegation has just shared draft ${trigger}. Choose ONE: "nothing"; or "sponsor" / "sign" it (docId ${trigger}). Signing means it deserves debate, not support; sponsor only if it fits your position. Do not submit a new draft now.`
+                : `Choose ONE: "nothing"; "sponsor" or "sign" an existing draft (docId) only if it fits your position (signing means it deserves debate, not support); or "submit_draft" with a short draft (title, 1-3 preambular clauses, 2-4 operative clauses beginning with a verb) if no existing draft reflects your country's priorities.`,
             ].join("\n\n"),
           },
         ],
@@ -409,7 +412,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       let res: Awaited<ReturnType<typeof act>> | null = null;
       if ((d.action === "sponsor" || d.action === "sign") && d.docId && fresh.documents[d.docId]) {
         res = await act(forumId, seat, { type: "sign_document", seat, docId: d.docId, role: d.action === "sponsor" ? "sponsor" : "signatory" });
-      } else if (d.action === "submit_draft" && d.draft && d.draft.operative.length) {
+      } else if (!trigger && d.action === "submit_draft" && d.draft && d.draft.operative.length) {
         res = await act(forumId, seat, {
           type: "submit_document",
           seat,
@@ -574,7 +577,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
           });
           break;
         case "ai_caucus_work_needed":
-          enqueue(forumId, `caucus:${forumId}:${e.phaseId}`, () => onCaucusWork(forumId, e.phaseId, e.seats));
+          enqueue(forumId, `caucus:${forumId}:${e.phaseId}:${e.trigger ?? "start"}`, () => onCaucusWork(forumId, e.phaseId, e.seats, e.trigger));
           break;
         case "ai_sponsor_response_needed":
           enqueue(forumId, `sponsor:${forumId}:${e.amendmentId}`, () => onSponsor(forumId, e.amendmentId, e.seats));
