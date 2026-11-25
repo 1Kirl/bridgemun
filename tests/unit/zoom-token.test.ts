@@ -24,3 +24,18 @@ describe("zoom token", () => {
     expect(p.exp - p.iat).toBe(7200);
   });
 });
+
+import { KJUR } from "jsrsasign";
+import { signZoomToken } from "@/server/zoom";
+
+describe("zoom JWT (Video SDK format)", () => {
+  it("is a valid HS256 JWT verifiable with the SDK secret, with Video SDK claims", () => {
+    const p = buildZoomTokenPayload(cfg, { forumId: "f", uid: "u1", roleType: 1, nowSec: 1_800_000_000 });
+    const jwt = signZoomToken(cfg, p);
+    expect(KJUR.jws.JWS.verify(jwt, { utf8: cfg.sdkSecret } as unknown as string, ["HS256"])).toBe(true);
+    expect(KJUR.jws.JWS.verify(jwt, { utf8: "wrong-secret" } as unknown as string, ["HS256"])).toBe(false);
+    const claims = JSON.parse(Buffer.from(jwt.split(".")[1], "base64url").toString("utf8"));
+    expect(claims).toMatchObject({ app_key: "key", role_type: 1, version: 1, user_identity: "u1" });
+    expect(claims.tpc).toMatch(/^bm-[0-9a-f]{40}$/);
+  });
+});
