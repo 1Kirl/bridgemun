@@ -1,0 +1,11 @@
+# Never upload local secrets or dev-only artefacts to Vercel (CLI deploys)
+.env*
+!.env.example
+*firebase-adminsdk*.json
+*service-account*.json
+.data
+.firebase
+emulator-data
+*-debug.log
+.next
+node_modules
