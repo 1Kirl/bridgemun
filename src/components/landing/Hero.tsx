@@ -1,16 +1,17 @@
 'use client';
 
 import React from "react";
-import { LogIn, Plus } from "lucide-react";
+import { KeyRound, LogIn, Plus } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useAuth } from "@/context/AuthContext";
 
 interface HeroProps {
   onLoginClick: () => void;
   onCreateForum: () => void;
+  onJoinForum: () => void;
 }
 
-export const Hero = ({ onLoginClick, onCreateForum }: HeroProps) => {
+export const Hero = ({ onLoginClick, onCreateForum, onJoinForum }: HeroProps) => {
   const { user } = useAuth();
 
   return (
@@ -21,26 +22,36 @@ export const Hero = ({ onLoginClick, onCreateForum }: HeroProps) => {
         </h1>
         <div className="mx-auto max-w-2xl space-y-6">
           <p className="text-lg text-gray-600 sm:text-xl md:text-2xl">
-            Join live diplomatic simulations via Zoom. Represent countries, debate
-            global issues, and vote on resolutions in real-time.
+            Create a committee, share its code, and debate with other students and
+            AI delegations under an automatic chair that follows HMUN-style rules.
           </p>
           <p className="text-base text-gray-400">
-            Platform features text-based discussion logs, speaker queue
-            management, and AI-powered analysis for comprehensive session
-            reporting.
+            Speakers&apos; list, motions, caucuses and votes are run by the server, so
+            everyone sees the same step and the same deadline.
           </p>
         </div>
-        <div className="flex flex-col items-center justify-center pt-4">
+        <div className="flex flex-col items-center justify-center gap-3 pt-4 sm:flex-row">
           {user ? (
-            <Button
-              variant="primary"
-              size="lg"
-              className="flex items-center gap-2 px-12 py-7 transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-brand/20"
-              onClick={onCreateForum}
-            >
-              <Plus size={22} />
-              <span className="text-lg font-bold">Create New Forum</span>
-            </Button>
+            <>
+              <Button
+                variant="primary"
+                size="lg"
+                className="flex items-center gap-2 px-10 py-7 transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-brand/20"
+                onClick={onCreateForum}
+              >
+                <Plus size={22} />
+                <span className="text-lg font-bold">Create Forum</span>
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="flex items-center gap-2 px-10 py-7 transition-all hover:scale-[1.02] active:scale-95"
+                onClick={onJoinForum}
+              >
+                <KeyRound size={22} />
+                <span className="text-lg font-bold">Join Forum</span>
+              </Button>
+            </>
           ) : (
             <Button
               variant="primary"

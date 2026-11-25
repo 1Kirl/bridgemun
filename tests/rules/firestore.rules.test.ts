@@ -6,11 +6,11 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc, collection } from "firebase/firestore";
+import { addDoc, collection, collectionGroup, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
 
 const onEmulator = !!process.env.FIRESTORE_EMULATOR_HOST;
 
-describe.skipIf(!onEmulator)("firestore.rules (emulator)", () => {
+describe.skipIf(!onEmulator)("firestore.rules (emulator) — server-only writes", () => {
   let env: RulesTestEnvironment;
   const F = "forum1";
 
@@ -27,66 +27,53 @@ describe.skipIf(!onEmulator)("firestore.rules (emulator)", () => {
     await env.clearFirestore();
     await env.withSecurityRulesDisabled(async (ctx) => {
       const db = ctx.firestore();
-      await setDoc(doc(db, `forums/${F}`), { topic: "t", createdBy: "owner", status: "active" });
-      await setDoc(doc(db, `forums/${F}/members/alice`), { countryCode: "fr" });
-      await setDoc(doc(db, `forums/${F}/engine/state`), { phase: "LOBBY" });
-      await setDoc(doc(db, `forums/${F}/participants/p1`), { userId: "alice", country: { code: "fr" }, online: true });
-      await setDoc(doc(db, `joinCodes/ABC123`), { forumId: F });
+      await setDoc(doc(db, `forums/${F}`), { title: "t", ownerUid: "owner", joinCode: "ABC234", status: "lobby" });
+      await setDoc(doc(db, `forums/${F}/members/owner`), { uid: "owner", countryCode: "us" });
+      await setDoc(doc(db, `forums/${F}/members/alice`), { uid: "alice", countryCode: "fr" });
+      await setDoc(doc(db, `forums/${F}/engine/public`), { state: {} });
+      await setDoc(doc(db, `forums/${F}/engineState/current`), { state: {} });
+      await setDoc(doc(db, `forums/${F}/record/000000001`), { text: "x" });
+      await setDoc(doc(db, `joinCodes/ABC234`), { forumId: F });
     });
   });
 
-  const as = (uid: string | null) => (uid ? env.authenticatedContext(uid).firestore() : env.unauthenticatedContext().firestore());
+  const as = (u: string | null) => (u ? env.authenticatedContext(u).firestore() : env.unauthenticatedContext().firestore());
 
-  it("only the creator can update a forum; nobody can delete; engine fields are immutable", async () => {
-    await assertFails(updateDoc(doc(as("mallory"), `forums/${F}`), { status: "closed" }));
-    await assertSucceeds(updateDoc(doc(as("owner"), `forums/${F}`), { votingOpen: true }));
-    await assertFails(updateDoc(doc(as("owner"), `forums/${F}`), { engine: { phase: "X" } }));
-    await assertFails(updateDoc(doc(as("owner"), `forums/${F}`), { createdBy: "mallory" }));
-    await assertFails(deleteDoc(doc(as("owner"), `forums/${F}`)));
+  it("forum, projection and record: members read; non-members and anonymous cannot", async () => {
+    await assertSucceeds(getDoc(doc(as("alice"), `forums/${F}`)));
+    await assertSucceeds(getDoc(doc(as("alice"), `forums/${F}/engine/public`)));
+    await assertSucceeds(getDoc(doc(as("alice"), `forums/${F}/record/000000001`)));
+    await assertFails(getDoc(doc(as("bob"), `forums/${F}`)));
+    await assertFails(getDoc(doc(as(null), `forums/${F}`)));
+    await assertFails(getDoc(doc(as("bob"), `forums/${F}/engine/public`)));
   });
 
-  it("forum create requires createdBy == caller and no engine fields", async () => {
-    const db = as("bob");
-    await assertSucceeds(addDoc(collection(db, "forums"), { topic: "x", createdBy: "bob", status: "active" }));
-    await assertFails(addDoc(collection(db, "forums"), { topic: "x", createdBy: "alice", status: "active" }));
-    await assertFails(addDoc(collection(db, "forums"), { topic: "x", createdBy: "bob", status: "active", joinLocked: false }));
+  it("no client writes anywhere under forums (incl. the owner)", async () => {
+    await assertFails(addDoc(collection(as("bob"), "forums"), { title: "x", ownerUid: "bob" }));
+    await assertFails(updateDoc(doc(as("owner"), `forums/${F}`), { status: "closed" }));
+    await assertFails(setDoc(doc(as("alice"), `forums/${F}/members/alice`), { uid: "alice", countryCode: "us" }));
+    await assertFails(setDoc(doc(as("bob"), `forums/${F}/members/bob`), { uid: "bob", countryCode: "gb" }));
+    await assertFails(setDoc(doc(as("owner"), `forums/${F}/engine/public`), { state: {} }));
+    await assertFails(setDoc(doc(as("alice"), `forums/${F}/record/x`), { text: "forged" }));
+    // removed legacy collections stay closed
+    await assertFails(addDoc(collection(as("alice"), `forums/${F}/speeches`), { userId: "alice", text: "x" }));
+    await assertFails(addDoc(collection(as("alice"), `forums/${F}/participants`), { userId: "alice" }));
+    await assertFails(setDoc(doc(as("alice"), `forums/${F}/votes/alice`), { userId: "alice", choice: "yes" }));
   });
 
-  it("speeches cannot impersonate other users or AI delegates", async () => {
-    const db = as("bob");
-    await assertSucceeds(addDoc(collection(db, `forums/${F}/speeches`), { userId: "bob", text: "hi" }));
-    await assertFails(addDoc(collection(db, `forums/${F}/speeches`), { userId: "alice", text: "forged" }));
-    await assertFails(addDoc(collection(db, `forums/${F}/speeches`), { userId: "ai:fr", sourceType: "ai", text: "forged ai" }));
-    await assertSucceeds(
-      addDoc(collection(as("owner"), `forums/${F}/speeches`), { userId: "ai:fr", sourceType: "ai", text: "legacy publish" }),
-    );
+  it("private engine state, join codes and usage are unreadable", async () => {
+    await assertFails(getDoc(doc(as("owner"), `forums/${F}/engineState/current`)));
+    await assertFails(getDoc(doc(as("alice"), `joinCodes/ABC234`)));
+    await assertFails(getDoc(doc(as("owner"), `forums/${F}/usage/x`)));
   });
 
-  it("participants cannot change their country after joining", async () => {
-    await assertSucceeds(updateDoc(doc(as("alice"), `forums/${F}/participants/p1`), { online: false }));
-    await assertFails(updateDoc(doc(as("alice"), `forums/${F}/participants/p1`), { country: { code: "us" } }));
-    await assertFails(updateDoc(doc(as("bob"), `forums/${F}/participants/p1`), { online: false }));
+  it("a user can list only their own memberships", async () => {
+    await assertSucceeds(getDocs(query(collectionGroup(as("alice"), "members"), where("uid", "==", "alice"))));
+    await assertFails(getDocs(query(collectionGroup(as("alice"), "members"), where("uid", "==", "owner"))));
   });
 
-  it("aiSuggestions and motions are owner-only", async () => {
-    await assertFails(addDoc(collection(as("bob"), `forums/${F}/aiSuggestions`), { x: 1 }));
-    await assertFails(addDoc(collection(as("bob"), `forums/${F}/motions`), { title: "m" }));
-    await assertSucceeds(addDoc(collection(as("owner"), `forums/${F}/motions`), { title: "m", status: "open" }));
-  });
-
-  it("server-owned collections: members can read, nobody can write", async () => {
-    await assertSucceeds(getDoc(doc(as("alice"), `forums/${F}/engine/state`)));
-    await assertFails(getDoc(doc(as("bob"), `forums/${F}/engine/state`)));
-    await assertFails(setDoc(doc(as("alice"), `forums/${F}/engine/state`), { phase: "CLOSED" }));
-    await assertFails(setDoc(doc(as("alice"), `forums/${F}/members/alice`), { countryCode: "us" }));
-    await assertFails(setDoc(doc(as("bob"), `forums/${F}/members/bob`), { countryCode: "us" }));
-    await assertFails(setDoc(doc(as("alice"), `forums/${F}/seats/us`), { uid: "alice" }));
-    await assertFails(getDoc(doc(as("alice"), `joinCodes/ABC123`)));
-    await assertFails(getDoc(doc(as("owner"), `forums/${F}/usage/legacyAi`)));
-    await assertFails(getDoc(doc(as("alice"), `forums/${F}/engineState/current`)));
-  });
-
-  it("admin_countries is read-only for clients", async () => {
-    await assertFails(setDoc(doc(as("alice"), `admin_countries/fr`), { politicalAlignment: "x" }));
+  it("users: only own profile", async () => {
+    await assertSucceeds(setDoc(doc(as("alice"), "users/alice"), { displayName: "A" }));
+    await assertFails(setDoc(doc(as("alice"), "users/bob"), { displayName: "B" }));
   });
 });

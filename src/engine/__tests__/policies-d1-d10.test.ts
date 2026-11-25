@@ -221,3 +221,26 @@ describe("lobby seats", () => {
     expect(sim.try(ai("de"), { type: "claim_seat", seat: "gb" })).toMatchObject({ ok: false, code: "humans_only" });
   });
 });
+
+describe("presence changes re-check early close", () => {
+  it("when the last non-ready human leaves, the floor window closes; the remaining ready human is not kept waiting", () => {
+    const sim = started();
+    for (const id of ["fr", "de", "jp"]) sim.do(ai(id), { type: "floor_pass", seat: id });
+    sim.do(human("owner"), { type: "floor_pass", seat: "us" });
+    expectPhase(sim, "FLOOR_OPEN");
+    const before = sim.s.phaseId;
+    sim.do(system, { type: "connection", seat: "gb", online: false });
+    expect(sim.s.phaseId).not.toBe(before); // window closed (no motions → a fresh window opens)
+  });
+  it("unmoderated caucus ends early when the only non-ready human goes offline", () => {
+    const sim = started();
+    sim.do(ai("fr"), { type: "submit_motion", seat: "fr", params: { type: "unmod_caucus", totalSec: 300 } });
+    passFloor(sim);
+    vote(sim, { us: "yes", gb: "yes", fr: "yes" });
+    expectPhase(sim, "UNMOD_CAUCUS");
+    sim.do(human("owner"), { type: "caucus_ready", seat: "us" });
+    expectPhase(sim, "UNMOD_CAUCUS");
+    sim.do(system, { type: "connection", seat: "gb", online: false });
+    expectPhase(sim, "FLOOR_OPEN");
+  });
+});

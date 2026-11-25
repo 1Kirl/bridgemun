@@ -141,6 +141,8 @@ export default function ZoomVideo({
           method: 'POST',
           body: JSON.stringify({ forumId }),
         });
+        if (res.status === 503) throw new Error('Video/audio is not configured on this server yet (Zoom keys missing).');
+        if (res.status === 403) throw new Error('Only seated delegates can join the media session.');
         if (!res.ok) throw new Error('Failed to get session token');
         const { token, sessionName } = (await res.json()) as { token: string; sessionName: string };
 

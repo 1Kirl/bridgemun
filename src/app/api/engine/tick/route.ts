@@ -1,4 +1,3 @@
-import { type NextRequest } from "next/server";
 import { HttpError, withErrors } from "@/server/auth";
 
 /**
@@ -7,6 +6,6 @@ import { HttpError, withErrors } from "@/server/auth";
  * connection (deployment step). Until then it refuses every call so nobody can drive forums from
  * outside. Local development uses the in-process scheduler plus the member "nudge" fallback.
  */
-export const POST = withErrors(async (_req: NextRequest) => {
+export const POST = withErrors(async () => {
   throw new HttpError(404, "not_enabled");
 });

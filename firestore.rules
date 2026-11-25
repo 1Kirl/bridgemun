@@ -3,121 +3,26 @@ rules_version = '2';
 // BridgeMUN rules for the NEW Firebase environment (emulator / your own project).
 // Never deployed to the previous developer's project.
 //
-// Two layers coexist during migration:
-//  (A) Legacy collections still written directly by the inherited UI (participants, speeches,
-//      speakRequests, motions/ballots, votes, aiSuggestions). Kept writable so the existing
-//      screens keep working, but holes from the audit are closed (ownership, identity, no deletes).
-//      Phase 2–3 move these writes to server APIs; each rule is removed when its API ships.
-//  (B) Server-owned collections for the new engine (members, seats, engine, record, ballotsV2,
-//      documents, events, joinCodes, usage). Clients may READ (members only) and NEVER write;
-//      only the Admin SDK (which bypasses rules) writes them.
+// All forum data is written by the server (Admin SDK bypasses rules) through the engine API.
+// Clients only READ, and only forums they hold a seat in. The legacy client-write collections
+// (participants, speeches, speakRequests, motions, votes, aiSuggestions, admin_countries) were removed
+// together with the inherited UI that wrote them, so the two paths can never diverge.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     function signedIn() { return request.auth != null; }
     function uid() { return request.auth.uid; }
-    function forumDoc(forumId) { return get(/databases/$(database)/documents/forums/$(forumId)); }
-    function isForumOwner(forumId) {
-      let f = forumDoc(forumId).data;
-      return signedIn() && (f.get('createdBy', null) == uid() || f.get('ownerUid', null) == uid());
-    }
     function isMember(forumId) {
       return signedIn() && exists(/databases/$(database)/documents/forums/$(forumId)/members/$(uid()));
     }
-    function forumOpen(forumId) { return forumDoc(forumId).data.get('status', 'active') != 'closed'; }
 
-    // ── forum document ──────────────────────────────────────────────
     match /forums/{forumId} {
-      // Legacy landing page lists forums without login. Contains no secrets (join codes live elsewhere).
-      allow read: if true;
-      // Legacy create flow. Engine-managed fields can only be written by the server.
-      allow create: if signedIn()
-        && request.resource.data.createdBy == uid()
-        && request.resource.data.status == 'active'
-        && !request.resource.data.keys().hasAny(['ownerUid', 'engine', 'rulesetId', 'joinLocked', 'roster']);
-      // Only the creator may edit; identity and engine fields are immutable from the client.
-      allow update: if isForumOwner(forumId)
-        && request.resource.data.createdBy == resource.data.createdBy
-        && !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['ownerUid', 'engine', 'rulesetId', 'joinLocked', 'roster', 'createdBy']);
-      allow delete: if false;
+      allow read: if isMember(forumId);
+      allow write: if false;
 
-      // ── (A) legacy, client-written ──
-      match /participants/{participantId} {
-        allow read: if signedIn();
-        allow create: if signedIn()
-          && request.resource.data.userId == uid()
-          && forumOpen(forumId);
-        allow update: if signedIn() && resource.data.userId == uid()
-          && request.resource.data.userId == uid()
-          && request.resource.data.country == resource.data.country;
-        allow delete: if false;
-      }
-
-      match /speakRequests/{requestId} {
-        allow read: if signedIn();
-        allow create: if signedIn() && request.resource.data.userId == uid()
-          && request.resource.data.status == 'pending';
-        allow update: if isForumOwner(forumId)
-          || (signedIn() && resource.data.userId == uid() && request.resource.data.status == 'done');
-        allow delete: if false;
-      }
-
-      match /speeches/{speechId} {
-        allow read: if signedIn();
-        // Humans post only as themselves; "ai:<code>" speeches only by the forum owner (legacy publish flow).
-        allow create: if signedIn() && (
-          (request.resource.data.userId == uid() && request.resource.data.get('sourceType', 'human') != 'ai')
-          || (isForumOwner(forumId) && request.resource.data.userId.matches('^ai:[a-z]{2}$')
-              && request.resource.data.sourceType == 'ai')
-        );
-        allow update: if signedIn()
-          && request.resource.data.userId == resource.data.userId
-          && (isForumOwner(forumId) || resource.data.userId == uid());
-        allow delete: if false;
-      }
-
-      match /aiSuggestions/{suggestionId} {
-        allow read: if signedIn();
-        allow create, update: if isForumOwner(forumId);
-        allow delete: if false;
-      }
-
-      match /motions/{motionId} {
-        allow read: if signedIn();
-        allow create, update, delete: if isForumOwner(forumId);
-        match /ballots/{userId} {
-          allow read: if signedIn();
-          allow create, update: if signedIn()
-            && uid() == userId
-            && request.resource.data.userId == uid()
-            && get(/databases/$(database)/documents/forums/$(forumId)/motions/$(motionId)).data.get('status', 'open') == 'open';
-          allow delete: if false;
-        }
-      }
-
-      match /votes/{userId} {
-        allow read: if signedIn();
-        allow create, update: if signedIn()
-          && uid() == userId
-          && request.resource.data.userId == uid()
-          && request.resource.data.choice in ['yes', 'no', 'abstain']
-          && forumDoc(forumId).data.get('ballotsFinalized', false) != true
-          && (
-            (forumDoc(forumId).data.status == 'active' && forumDoc(forumId).data.get('votingOpen', false) == true)
-            || forumDoc(forumId).data.status == 'closed'
-          );
-        allow delete: if false;
-      }
-
-      // ── (B) server-owned (Admin SDK only) ──
       match /members/{memberUid} {
         allow read: if signedIn() && (memberUid == uid() || isMember(forumId));
-        allow write: if false;
-      }
-      match /seats/{seatId} {
-        allow read: if isMember(forumId);
         allow write: if false;
       }
       // Member-readable projection of the engine (open-ballot choices hidden).
@@ -125,19 +30,7 @@ service cloud.firestore {
         allow read: if isMember(forumId);
         allow write: if false;
       }
-      // Full private engine state: server only.
-      match /engineState/{docId=**} {
-        allow read, write: if false;
-      }
       match /record/{entryId} {
-        allow read: if isMember(forumId);
-        allow write: if false;
-      }
-      match /ballotsV2/{ballotPath=**} {
-        allow read: if isMember(forumId);
-        allow write: if false;
-      }
-      match /documents/{docPath=**} {
         allow read: if isMember(forumId);
         allow write: if false;
       }
@@ -145,28 +38,30 @@ service cloud.firestore {
         allow read: if isMember(forumId);
         allow write: if false;
       }
+      // Full private engine state and usage counters: server only.
+      match /engineState/{docId=**} {
+        allow read, write: if false;
+      }
       match /usage/{docId} {
         allow read, write: if false;
       }
+      // Anything else under a forum is closed by default.
+      match /{other=**} {
+        allow read, write: if false;
+      }
+    }
+
+    // "My forums": a user may list their own membership rows across forums.
+    match /{path=**}/members/{memberUid} {
+      allow read: if signedIn() && resource.data.uid == uid();
     }
 
     match /joinCodes/{code} {
       allow read, write: if false;
     }
 
-    // collectionGroup reads used by the profile pages (legacy)
-    match /{path=**}/participants/{participantId} { allow read: if signedIn(); }
-    match /{path=**}/speeches/{speechId} { allow read: if signedIn(); }
-    match /{path=**}/votes/{voteId} { allow read: if signedIn(); }
-
-    // Country reference data: read-only for clients (admin UI was removed; seeded by script).
-    match /admin_countries/{countryId} {
-      allow read: if signedIn();
-      allow write: if false;
-    }
-
     match /users/{userId} {
-      allow read: if signedIn();
+      allow read: if signedIn() && uid() == userId;
       allow write: if signedIn() && uid() == userId;
     }
   }

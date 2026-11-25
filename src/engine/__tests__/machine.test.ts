@@ -163,9 +163,7 @@ describe("floor window protects human time", () => {
     sim.do(human("owner"), { type: "floor_pass", seat: "us" });
     expectPhase(sim, "FLOOR_OPEN");
     sim.do(system, { type: "connection", seat: "gb", online: false }); // offline humans cannot block forever
-    sim.do(human("owner"), { type: "request_extension", seat: "us" });
-    sim.do(human("u2"), { type: "floor_pass", seat: "gb" });
-    expectPhase(sim, "MOTION_VOTE");
+    expectPhase(sim, "MOTION_VOTE"); // every remaining online human was ready
   });
 
   it("extensions are capped per window and per seat", () => {

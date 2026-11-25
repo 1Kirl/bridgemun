@@ -290,6 +290,9 @@ export async function setPresence(db: Firestore, user: AuthedUser, forumId: stri
   const m = await requireMember(db, user, forumId);
   await db.doc(`forums/${forumId}/members/${user.uid}`).set({ lastSeenMs: online ? Date.now() : 0 }, { merge: true });
   const r = await runCommand(db, forumId, { actor: { kind: "system" }, command: { type: "connection", seat: m.countryCode, online } }, { onEffects: sink });
+  // Heartbeats of present members also detect members whose tab closed without a beacon.
+  const s = await loadState(db, forumId);
+  if (s) await sweepPresence(db, forumId, s, sink);
   return { ok: r.ok };
 }
 

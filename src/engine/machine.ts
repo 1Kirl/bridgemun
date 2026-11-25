@@ -723,6 +723,13 @@ function maybeCloseFloorEarly(ctx: Ctx) {
   if (humans.every((h) => p.readySeats.includes(h)) && ais.every((a) => p.aiDoneSeats.includes(a))) closeFloor(ctx);
 }
 
+/** App policy replacing the moderator's discretion to end early (rule 11): every online present human is ready. */
+function maybeEndUnmodEarly(ctx: Ctx) {
+  const up = ctx.s.phase as Extract<Phase, { type: "UNMOD_CAUCUS" }>;
+  const humans = Object.values(ctx.s.seats).filter(isHumanOnlinePresent).map((x) => x.id);
+  if (humans.length > 0 && humans.every((h) => up.readySeats.includes(h))) endCaucus(ctx);
+}
+
 function handleTick(ctx: Ctx) {
   const s = ctx.s;
   if (s.paused) {
@@ -1141,9 +1148,7 @@ function dispatch(ctx: Ctx, c: Command) {
       const up = p as Extract<Phase, { type: "UNMOD_CAUCUS" }>;
       if (up.readySeats.includes(c.seat)) throw new Duplicate();
       up.readySeats.push(c.seat);
-      const humans = Object.values(s.seats).filter(isHumanOnlinePresent).map((x) => x.id);
-      // App policy replacing the moderator's discretion to end early (rule 11): all online present humans ready.
-      if (st.kind === "human" && humans.length > 0 && humans.every((h) => up.readySeats.includes(h))) endCaucus(ctx);
+      if (st.kind === "human") maybeEndUnmodEarly(ctx);
       return;
     }
     case "submit_document": {
@@ -1249,6 +1254,9 @@ function dispatch(ctx: Ctx, c: Command) {
       const v = c.online ? "online" : "offline";
       if (st.connection === v) throw new Duplicate();
       st.connection = v; // never changes an open ballot's electorate
+      // A delegate leaving may mean every REMAINING online delegate is already ready (app policy).
+      if (!c.online && s.phase.type === "FLOOR_OPEN") return maybeCloseFloorEarly(ctx);
+      if (!c.online && s.phase.type === "UNMOD_CAUCUS") return maybeEndUnmodEarly(ctx);
       return;
     }
     case "tick":
