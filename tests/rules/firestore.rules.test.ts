@@ -83,6 +83,7 @@ describe.skipIf(!onEmulator)("firestore.rules (emulator)", () => {
     await assertFails(setDoc(doc(as("alice"), `forums/${F}/seats/us`), { uid: "alice" }));
     await assertFails(getDoc(doc(as("alice"), `joinCodes/ABC123`)));
     await assertFails(getDoc(doc(as("owner"), `forums/${F}/usage/legacyAi`)));
+    await assertFails(getDoc(doc(as("alice"), `forums/${F}/engineState/current`)));
   });
 
   it("admin_countries is read-only for clients", async () => {

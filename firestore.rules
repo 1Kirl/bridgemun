@@ -120,9 +120,14 @@ service cloud.firestore {
         allow read: if isMember(forumId);
         allow write: if false;
       }
+      // Member-readable projection of the engine (open-ballot choices hidden).
       match /engine/{docId=**} {
         allow read: if isMember(forumId);
         allow write: if false;
+      }
+      // Full private engine state: server only.
+      match /engineState/{docId=**} {
+        allow read, write: if false;
       }
       match /record/{entryId} {
         allow read: if isMember(forumId);
