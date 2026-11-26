@@ -52,7 +52,7 @@ Stage track (Roll call → Debate & negotiation [loop: general debate / moderate
 - Emulator dev: `npm run emulators` + `npm run dev` (AI = dummy, speech = mock; no paid calls)
 - Emulator + real AI: `AI_DRIVER=openai STT_PROVIDER=openai TTS_PROVIDER=elevenlabs POSITION_SET_VERSION=fixture-v0 npm run dev`
 - Real Firebase project locally: `npm run dev:project` (loads `.env.project.local`; git-ignored)
-- Tests: `npm run test:emu` (205) · Connectivity: `npm run check:project`
+- Tests: `npm run test:emu` (228) · Connectivity: `npm run check:project`
 - Production E2E driver (admin-created test users, public API routes, no passwords):
   `node scripts/with-env.mjs .env.project.local -- node scripts/e2e/prod-drive.mjs <users|create|lookup|join|cmd|presence|heartbeat|state|wait|vote|record|ai|usage|forumdoc|use>`
   (state in `.data/prod-e2e*.json`, git-ignored). Duplicate QStash deliveries: `scripts/e2e/dup-ticks.mjs`.
@@ -74,12 +74,23 @@ Stage track (Roll call → Debate & negotiation [loop: general debate / moderate
 - After close: stale QStash ticks change nothing; AI action counts stay constant.
 - All deadlines in E2E 3–4 came from QStash (scripts sent presence heartbeats only, never nudges).
 - Production usage (2026-11-25 UTC day counter): 95 LLM calls, ~116k tokens (E2E 3: 62 calls / 79k; E2E 4: 33 calls / 36k). TTS/STT: none in production.
+- W1 production check (2026-11-27, forum p8KKydoKPHrTZczKn3UL "AUDIT TEST — W1 production check", commit 356c95d, real OpenAI AI, QStash only):
+  start → BRIEFING → roll call after 13 s; UK silent → held past the 60 s timer (`holding`, deadline = request + 300 s); UK declared → floor at once;
+  floor closed as soon as both humans and the AI responded; motion vote: US + 3 AI voted, UK silent → held past the 30 s timer; 5 duplicate QStash
+  deliveries + the original → exactly one transition; at 5 min UK recorded "did not vote" (not abstain), motion adopted 4-0 [yes > eligible/2], amber
+  record entry; session end extended by the held time only (279.6 s = 8 s + 270 s). Both users offline → H1 idle hold (no AI calls) → closed after 10 min.
+### Local real browser (emulator Firebase, dummy AI) — 2026-11-27 W1 UI
+- Browser user (US, owner) + API users (UK, France) + 4 AI; second browser origin signed in as UK for side-by-side checks. Screenshots: /Users/kirl/BridgeMUN/screenshots/2026-11-27-w1/.
+- Lobby badge; briefing (cards, refresh resumes mid-animation, 5 s countdown); roll call held for the last human and advancing on their click; refresh did not reset the window;
+  vote where all 4 AI and 2 of 3 humans had voted waited for the last human (6/7; the 10 AI + 3 humans case is an engine test); 60 s and 15 s warnings; expiry → not voting; result chart with pass line; caucus list "paused — resumes after";
+  moderated caucus Volunteer / Not this round; resolution pipeline; final voting; results cards; Start speech → 45 s speaking time; mobile (375 px) and desktop; two users saw the same stage and countdown.
 ### Local real APIs (emulator Firebase)
 - Earlier full real-AI meeting (see git history of this file): adopted 3-0-2; restarts recovered; 36 LLM calls / 43k tokens, 3,007 TTS chars, 44 s STT.
 - This session: browser UI as user A (emulator account) + API user B with real OpenAI/ElevenLabs: yield to Japan (AI) → ElevenLabs speech played in sync (joined at +11.96 s, playing, 22 s clip); reorder, division proposals (checkbox UI), part votes, locked-text final vote and results screen rendered.
 - Voice samples for listening: `/Users/kirl/BridgeMUN/audio-samples/` (13 pool voices, eleven_multilingual_v2, same sentence; plus the earlier Brian samples for eleven_multilingual_v2 and eleven_v4; index in `samples.json`). **Not listened to by a person.**
 ### Automated
-- 205 tests (engine incl. reorder/division/yield/points/H1/stale ticks; rules; unit incl. transient-retry classification; emulator store/service/Phase 4–6 with scripted LLM incl. AI amendments, AI division, 503 retry, Firestore audio store).
+- 228 tests (2026-11-27: +22 engine W1 tests with a controlled clock — 10 AI + 3 humans wait, early close, expiry ≠ abstain, AI do not hold past the timer, duplicate/racing ticks, floor "no motion", unrelated actions do not count, refresh/offline grace, H1 precedence, start speech vs speaking time, list kept through caucus, volunteer/pass, roll call no attendance chosen, sponsor consent not obtained, session credit once; +1 emulator test for W1 defaults/briefing).
+- Earlier: 205 tests (engine incl. reorder/division/yield/points/H1/stale ticks; rules; unit incl. transient-retry classification; emulator store/service/Phase 4–6 with scripted LLM incl. AI amendments, AI division, 503 retry, Firestore audio store).
 
 ## Known gaps / decisions waiting
 - Zoom Video SDK keys not available → live audio/video untested; "Zoom keys missing" notice and token tests exist.
