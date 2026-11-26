@@ -31,6 +31,13 @@ export type Settings = {
     drQaSec: number;
     /** App policy H1: how long an idle hold (no human online) lasts before the forum closes. Optional for older forums. */
     idleHoldMaxSec?: number;
+    /**
+     * App policy W1 ("wait for required human responses"): how long a required human response is awaited
+     * after it is requested. 0/undefined = legacy behaviour (short phase timers only). New forums: 300.
+     */
+    responseWaitSec?: number;
+    /** Start briefing shown to everyone before roll call (0/undefined = none). New forums: 12. */
+    briefingSec?: number;
   };
   limits: {
     extensionSec: number;
@@ -237,9 +244,27 @@ export type RecordEntry = {
   phaseId: string;
   /** Contributes to AI context (increments contextSeq). */
   substantive: boolean;
+  /** App policy W1 bookkeeping, for the UI: an automatic step after a response window expired, or a seat not awaited. */
+  kind?: "response_timeout" | "not_awaited";
 };
 
 // ── Phases ────────────────────────────────────────────────────────
+/**
+ * App policy W1. Attached to a phase that needs responses from specific humans (see engine/responses.ts).
+ * baseDeadlineMs = the phase's normal timer (the AI work window). The phase never ends before every required
+ * human has responded or responseDeadlineMs has passed (offline humans are not awaited past the base timer).
+ * Time held past baseDeadlineMs is added back to the session end (not charged to the meeting's time budget).
+ */
+export type ResponseWait = {
+  requestedAtMs: number;
+  baseDeadlineMs: number;
+  responseDeadlineMs: number;
+  /** True once the base timer passed and the phase is held for humans. */
+  holding: boolean;
+  /** Seats already noted as "offline — not awaited" (avoids repeated record lines). */
+  notedOffline?: SeatId[];
+};
+
 export type SpeechContext =
   | { kind: "speakers_list" }
   | { kind: "mod_caucus" }
@@ -249,8 +274,9 @@ export type SpeechContext =
 
 export type Phase =
   | { type: "LOBBY" }
-  | { type: "ROLL_CALL"; deadlineMs: number }
-  | { type: "SPEECH_PREP"; seat: SeatId; deadlineMs: number; context: SpeechContext }
+  | { type: "BRIEFING"; startedMs: number; deadlineMs: number }
+  | { type: "ROLL_CALL"; deadlineMs: number; wait?: ResponseWait }
+  | { type: "SPEECH_PREP"; seat: SeatId; deadlineMs: number; context: SpeechContext; wait?: ResponseWait }
   | { type: "AI_SPEECH_PENDING"; seat: SeatId; deadlineMs: number; requiredContextSeq: number; context: SpeechContext }
   | {
       type: "SPEECH";
@@ -270,6 +296,7 @@ export type Phase =
       waitExtended: boolean;
       /** Rule 18: remaining time handed to another delegate after this speech is recorded. */
       yieldTo?: { seat: SeatId; sec: number };
+      wait?: ResponseWait;
     }
   | {
       type: "FLOOR_OPEN";
@@ -279,6 +306,7 @@ export type Phase =
       readySeats: SeatId[];
       aiDoneSeats: SeatId[];
       extensionUsedSec: number;
+      wait?: ResponseWait;
     }
   | {
       type: "MOTION_VOTE";
@@ -288,8 +316,9 @@ export type Phase =
       ballotId: string;
       stage: "reading" | "voting";
       deadlineMs: number;
+      wait?: ResponseWait;
     }
-  | { type: "MOD_CAUCUS"; deadlineMs: number; volunteers: SeatId[] }
+  | { type: "MOD_CAUCUS"; deadlineMs: number; volunteers: SeatId[]; passed?: SeatId[]; wait?: ResponseWait }
   | { type: "UNMOD_CAUCUS"; deadlineMs: number; readySeats: SeatId[] }
   | { type: "SUSPENDED"; resumeAtMs: number }
   | { type: "DR_INTRO"; queue: string[]; docId: string; stage: "presentation" | "qa"; deadlineMs: number }
@@ -299,6 +328,7 @@ export type Phase =
       deadlineMs: number;
       responses: Record<SeatId, "agree" | "disagree">;
       waitExtended: boolean;
+      wait?: ResponseWait;
     }
   /** Motions in voting procedure (rules 33, 34). target "order": reordering; otherwise division of that resolution. */
   | {
@@ -309,15 +339,17 @@ export type Phase =
       readySeats: SeatId[];
       aiDoneSeats: SeatId[];
       queue: VotingItem[];
+      wait?: ResponseWait;
     }
   /** Rule 33: after the motion to divide passes, delegations propose how to divide. */
-  | { type: "DIVISION_PROPOSALS"; docId: string; deadlineMs: number; readySeats: SeatId[]; aiDoneSeats: SeatId[]; queue: VotingItem[] }
+  | { type: "DIVISION_PROPOSALS"; docId: string; deadlineMs: number; readySeats: SeatId[]; aiDoneSeats: SeatId[]; queue: VotingItem[]; wait?: ResponseWait }
   | {
       type: "VOTING_PROCEDURE";
       queue: VotingItem[];
       ballotId: string | null;
       stage: "reading" | "voting" | "between";
       deadlineMs: number;
+      wait?: ResponseWait;
     }
   | { type: "CLOSED"; reason: string };
 
@@ -383,7 +415,7 @@ export type ForumEngineState = {
    * deadline passes while no human delegate is online; resumes when one reconnects, closes at autoResumeAtMs.
    */
   paused: { pausedAtMs: number; remainingMs: number; autoResumeAtMs: number; phaseDeadlineKey: string; reason?: "owner" | "no_humans" } | null;
-  usage: { extensionsBySeat: Record<SeatId, number>; pauseUsedSec: number };
+  usage: { extensionsBySeat: Record<SeatId, number>; pauseUsedSec: number; /** W1: time held for humans, added back to the session end (ms). */ responseWaitCreditMs?: number };
   idCounter: number;
 };
 
@@ -397,6 +429,7 @@ export type Command =
   | { type: "declare_attendance"; seat: SeatId; value: "present" | "present_and_voting" }
   | { type: "add_to_speakers_list"; seat: SeatId }
   | { type: "remove_from_speakers_list"; seat: SeatId }
+  | { type: "start_speech"; seat: SeatId }
   | { type: "end_speech"; seat: SeatId; yieldTo?: SeatId }
   | { type: "transcript_result"; seat: SeatId; ok: boolean; text?: string }
   | { type: "confirm_transcript"; seat: SeatId; text: string }
@@ -408,6 +441,7 @@ export type Command =
   | { type: "request_extension"; seat: SeatId }
   | { type: "cast_vote"; seat: SeatId; ballotId: string; choice: VoteChoice }
   | { type: "volunteer"; seat: SeatId }
+  | { type: "volunteer_pass"; seat: SeatId }
   | { type: "caucus_ready"; seat: SeatId }
   | {
       type: "submit_document";

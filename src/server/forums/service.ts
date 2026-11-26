@@ -34,6 +34,9 @@ export const CreateForumInput = z.object({
       humanPrepSec: z.number().int().min(5).max(60),
       drPresentationSec: z.number().int().min(30).max(300),
       drQaSec: z.number().int().min(30).max(300),
+      /** App policy W1 response window; 0 = legacy short timers (used by older tests). */
+      responseWaitSec: z.number().int().min(0).max(600),
+      briefingSec: z.number().int().min(0).max(30),
     })
     .partial()
     .default({}),
@@ -77,7 +80,8 @@ export async function createForum(db: Firestore, user: AuthedUser, raw: unknown)
     settings: {
       ...base,
       speakingTimeSec: input.speakingTimeSec,
-      timers: { ...base.timers, ...input.timers },
+      // New forums: W1 (wait up to 5 min for required human responses) + 12 s start briefing.
+      timers: { ...base.timers, responseWaitSec: 300, briefingSec: 12, ...input.timers },
       sessionDurationSec: input.durationMin * 60,
       sessionStartMs: 0,
       sessionEndsAtMs: 0,
@@ -226,6 +230,7 @@ const USER_COMMANDS = new Set<Command["type"]>([
   "declare_attendance",
   "add_to_speakers_list",
   "remove_from_speakers_list",
+  "start_speech",
   "end_speech",
   "submit_text_speech",
   "confirm_transcript",
@@ -235,6 +240,7 @@ const USER_COMMANDS = new Set<Command["type"]>([
   "request_extension",
   "cast_vote",
   "volunteer",
+  "volunteer_pass",
   "caucus_ready",
   "submit_document",
   "update_document",

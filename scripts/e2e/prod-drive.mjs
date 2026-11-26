@@ -16,8 +16,11 @@ const S = process.env.E2E_STATE || ".data/prod-e2e.json";
 const st = existsSync(S) ? JSON.parse(readFileSync(S, "utf8")) : { tokens: {} };
 const save = () => writeFileSync(S, JSON.stringify(st, null, 2));
 
-const sa = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf8"));
-const app = initializeApp({ credential: cert(sa), projectId: process.env.FIREBASE_PROJECT_ID });
+// Local mode: FIREBASE_AUTH_EMULATOR_HOST / FIRESTORE_EMULATOR_HOST set → emulator project, no credentials.
+const EMU = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+const app = EMU
+  ? initializeApp({ projectId: process.env.E2E_PROJECT_ID || "demo-bridgemun" })
+  : initializeApp({ credential: cert(JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf8"))), projectId: process.env.FIREBASE_PROJECT_ID });
 const auth = getAuth(app);
 const db = getFirestore(app);
 
@@ -44,7 +47,8 @@ async function token(name) {
   const c = st.tokens[name];
   if (c && c.exp > Date.now() + 120_000) return c.idToken;
   const custom = await auth.createCustomToken(USERS[name].uid, { auditTest: true });
-  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${KEY}`, {
+  const idt = EMU ? `http://${EMU}/identitytoolkit.googleapis.com` : "https://identitytoolkit.googleapis.com";
+  const r = await fetch(`${idt}/v1/accounts:signInWithCustomToken?key=${KEY || "demo-key"}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ token: custom, returnSecureToken: true }),

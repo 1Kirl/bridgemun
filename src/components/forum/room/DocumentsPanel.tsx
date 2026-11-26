@@ -107,6 +107,7 @@ function DocCard({ d, state, mySeat, actions, canWrite, amendSigs }: { d: Docume
       <p className="mt-1 text-gray-500">
         Sponsors: {d.sponsors.map(name).join(", ") || "—"} · Signatories: {d.signatories.map(name).join(", ") || "—"}
       </p>
+      {d.kind === "draft_resolution" && <DocPipeline d={d} state={state} />}
       <div className="mt-2 space-y-1 text-gray-700">
         {d.preambular.map((x, i) => (
           <p key={`p${i}`} className="italic">{x}</p>
@@ -198,6 +199,57 @@ function AmendmentForm({ d, onSubmit, onCancel, busy }: { d: DocumentState; onSu
         <Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button>
       </div>
       <p className="text-[10px] text-gray-400">Then collect signatures and move “Introduce an amendment” when the floor is open (rule 29).</p>
+    </div>
+  );
+}
+
+const PIPE = [
+  { id: "draft", label: "Draft" },
+  { id: "approved", label: "Approved" },
+  { id: "introduced", label: "Introduced" },
+  { id: "voted", label: "Voted" },
+] as const;
+
+/** Resolution lifecycle with signature progress toward automatic approval (counts only, from the engine thresholds). */
+function DocPipeline({ d, state }: { d: DocumentState; state: PublicForumState }) {
+  const t = effectiveDocThresholds(Object.keys(state.seats).length, state.settings.documents);
+  const idx = d.status === "draft" ? 0 : d.status === "approved" ? 1 : d.status === "introduced" ? 2 : 3;
+  const final = d.status === "adopted" ? "Adopted" : d.status === "failed" ? "Not adopted" : d.status === "not_voted" ? "Not voted (no quorum)" : null;
+  return (
+    <div className="mt-2 space-y-1.5" data-testid={`doc-pipeline-${d.id}`}>
+      <ol className="flex items-center gap-1">
+        {PIPE.map((st, i) => (
+          <li key={st.id} className="flex items-center gap-1">
+            {i > 0 && <span className={`h-0.5 w-3 ${i <= idx ? "bg-brand" : "bg-gray-200"}`} />}
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${i < idx ? "bg-brand-light text-brand" : i === idx ? (st.id === "voted" ? (d.status === "adopted" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white") : "bg-brand text-white") : "bg-gray-100 text-gray-400"}`}>
+              {i === 3 && final ? final : st.label}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {(d.status === "draft" || d.status === "approved") && (
+        <div className="grid grid-cols-2 gap-2">
+          <Meter label="Sponsors" n={d.sponsors.length} need={t.sponsors} />
+          <Meter label="Signatories" n={d.signatories.length} need={t.signatories} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Meter({ label, n, need }: { label: string; n: number; need: number }) {
+  const ok = n >= need;
+  return (
+    <div>
+      <p className="flex justify-between text-[10px] font-bold text-gray-600">
+        <span>{label}</span>
+        <span className={ok ? "text-emerald-700" : ""}>
+          {n} / {need} needed {ok ? "✓" : ""}
+        </span>
+      </p>
+      <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
+        <div className={`h-full ${ok ? "bg-emerald-500" : "bg-brand"}`} style={{ width: `${need ? Math.min(100, (n / need) * 100) : 100}%` }} />
+      </div>
     </div>
   );
 }

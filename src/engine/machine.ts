@@ -26,6 +26,7 @@ import {
   pendingVoters,
   tally,
 } from "@/engine/voting";
+import { responseView } from "@/engine/responses";
 import {
   MIN_SEATS,
   applyAmendmentOp,
@@ -52,6 +53,7 @@ import type {
   Settings,
   SpeechContext,
   DivisionProposal,
+  ResponseWait,
   VotingItem,
 } from "@/engine/types";
 
@@ -201,12 +203,157 @@ function schedule(ctx: Ctx, atMs: number) {
 }
 
 function transition(ctx: Ctx, phase: Phase) {
+  commitHoldCredit(ctx);
   ctx.s.phaseSeq += 1;
   ctx.s.phaseId = `p${ctx.s.phaseSeq}`;
   ctx.s.phase = phase;
+  attachWait(ctx);
   const d = phaseDeadline(phase);
   if (d !== null) schedule(ctx, d);
   ctx.notes.push(`→ ${phase.type}`);
+}
+
+// ── app policy W1: wait for required human responses ─────────────
+
+/** Seconds a required human response is awaited (0 = legacy forums without W1). */
+export function responseWaitSec(s: ForumEngineState): number {
+  return s.settings.timers.responseWaitSec ?? 0;
+}
+const W = (s: ForumEngineState) => responseWaitSec(s) > 0;
+const engineVoted = (s: ForumEngineState) => (id: string) => Object.keys(s.ballots[id]?.votes ?? {});
+const WAIT_PHASES = new Set<Phase["type"]>([
+  "ROLL_CALL",
+  "SPEECH_PREP",
+  "SPEECH_CONFIRM",
+  "FLOOR_OPEN",
+  "VP_FLOOR",
+  "DIVISION_PROPOSALS",
+  "MOD_CAUCUS",
+  "AMENDMENT_SPONSOR_RESPONSE",
+]);
+/** Seconds a delegate who went offline during a hold is given to come back before the phase continues without them. */
+const OFFLINE_GRACE_MS = 20_000;
+
+function newWait(ctx: Ctx, baseDeadlineMs: number): ResponseWait {
+  return {
+    requestedAtMs: ctx.now,
+    baseDeadlineMs,
+    responseDeadlineMs: Math.max(baseDeadlineMs, ctx.now + responseWaitSec(ctx.s) * 1000),
+    holding: false,
+  };
+}
+
+/** Starts the response window when a phase that needs human responses begins (votes: when voting opens). */
+function attachWait(ctx: Ctx) {
+  if (!W(ctx.s)) return;
+  const p = ctx.s.phase;
+  if (!WAIT_PHASES.has(p.type)) return;
+  const d = phaseDeadline(p);
+  if (d === null) return;
+  (p as { wait?: ResponseWait }).wait = newWait(ctx, d);
+}
+
+/** Time the current phase has been held past its normal timer — not charged to the session budget. */
+function holdCreditMs(s: ForumEngineState, now: number): number {
+  const w = (s.phase as { wait?: ResponseWait }).wait;
+  if (!w?.holding) return 0;
+  const raw = Math.max(0, now - w.baseDeadlineMs);
+  const left = s.settings.sessionDurationSec * 1000 - (s.usage.responseWaitCreditMs ?? 0); // cap: at most one extra session length
+  return Math.max(0, Math.min(raw, left));
+}
+
+function commitHoldCredit(ctx: Ctx) {
+  const c = holdCreditMs(ctx.s, ctx.now);
+  if (c <= 0) return;
+  ctx.s.settings.sessionEndsAtMs += c;
+  ctx.s.usage.responseWaitCreditMs = (ctx.s.usage.responseWaitCreditMs ?? 0) + c;
+}
+
+/** Session end as the UI should show it: the stored end plus the hold currently in progress. */
+export function effectiveSessionEndMs(s: ForumEngineState, now: number): number {
+  return s.settings.sessionEndsAtMs + holdCreditMs(s, now);
+}
+
+const names = (s: ForumEngineState, ids: SeatId[]) => ids.map((id) => s.seats[id]?.countryName ?? id).join(", ");
+
+const EXPIRY_RECORD: Record<string, (who: string, min: string) => string> = {
+  attendance: (w, m) => `${w} did not answer the roll call within ${m}; no attendance was chosen for them (they remain not recorded as present).`,
+  start_speech: (w, m) => `${w} did not start speaking within ${m}; the turn ended without a speech (no response).`,
+  confirm_transcript: (w, m) => `${w} did not confirm the transcript within ${m}.`,
+  motion: (w, m) => `${w} did not respond within ${m}; treated as having no motion.`,
+  voting_motion: (w, m) => `${w} did not respond within ${m}; treated as having no motion.`,
+  division: (w, m) => `${w} did not respond within ${m}; treated as having no division proposal.`,
+  vote: (w, m) => `${w} did not vote within ${m}; recorded as not voting (not as abstaining). The vote is counted.`,
+  volunteer: (w, m) => `${w} did not respond within ${m}; treated as not volunteering this round.`,
+  sponsor: (w, m) => `${w} did not respond as sponsor within ${m}; friendly consent not obtained (not an objection).`,
+};
+
+/**
+ * Called when the phase's timer fires. Returns "held" if the phase must keep waiting for online humans;
+ * otherwise records what happens to pending humans (expired / offline) and lets the phase end normally.
+ * App policy H1 (nobody online) is checked BEFORE this and takes precedence.
+ */
+function waitGate(ctx: Ctx): "held" | "go" {
+  const s = ctx.s;
+  if (!W(s)) return "go";
+  const p = s.phase as Phase & { wait?: ResponseWait };
+  const w = p.wait;
+  if (!w) return "go";
+  const v = responseView(s, engineVoted(s));
+  if (!v || !v.holds || v.pending.length === 0) return "go";
+  const min = `${Math.round(responseWaitSec(s) / 60 * 10) / 10} min`;
+  if (ctx.now >= w.responseDeadlineMs) {
+    const text = EXPIRY_RECORD[v.kind]?.(names(s, v.pending), min);
+    if (text) record(ctx, { source: "chair", substantive: false, kind: "response_timeout", text: `Response time expired (app policy W1): ${text}` });
+    return "go";
+  }
+  const online = v.pending.filter((id) => s.seats[id].connection === "online");
+  if (online.length) {
+    w.holding = true;
+    setPhaseDeadline(p, w.responseDeadlineMs);
+    schedule(ctx, w.responseDeadlineMs);
+    ctx.notes.push(`held for ${online.join(",")}`);
+    return "held";
+  }
+  const fresh = v.pending.filter((id) => !(w.notedOffline ?? []).includes(id));
+  if (fresh.length) {
+    w.notedOffline = [...(w.notedOffline ?? []), ...fresh];
+    record(ctx, { source: "chair", substantive: false, kind: "not_awaited", text: `${names(s, fresh)} offline — not awaited (app policy W1).` });
+  }
+  return "go";
+}
+
+/** Every AI delegation has finished its part of the current phase (if not, the phase's normal timer applies). */
+function aiDone(s: ForumEngineState): boolean {
+  const p = s.phase;
+  const ai = aiSeats(s);
+  switch (p.type) {
+    case "ROLL_CALL":
+      return Object.values(s.seats).filter((x) => x.kind === "ai").every(isPresent);
+    case "FLOOR_OPEN":
+    case "VP_FLOOR":
+    case "DIVISION_PROPOSALS":
+      return ai.every((a) => p.aiDoneSeats.includes(a));
+    case "MOTION_VOTE":
+    case "VOTING_PROCEDURE": {
+      const b = p.ballotId ? s.ballots[p.ballotId] : undefined;
+      return !!b && Object.keys(b.eligible).filter((x) => s.seats[x].kind === "ai").every((x) => b.votes[x] !== undefined);
+    }
+    default:
+      return false; // e.g. caucus volunteering: AI intent is only known when it volunteers → normal timer
+  }
+}
+
+/** After a human (or AI) response: if nobody is awaited any more, the phase continues at once. */
+function maybeAdvanceOnResponse(ctx: Ctx) {
+  const s = ctx.s;
+  if (!W(s) || s.paused) return;
+  const w = (s.phase as { wait?: ResponseWait }).wait;
+  if (!w) return;
+  const v = responseView(s, engineVoted(s));
+  if (!v || v.pending.length > 0) return;
+  if (!(aiDone(s) || ctx.now >= w.baseDeadlineMs)) return;
+  endPhase(ctx);
 }
 
 function record(ctx: Ctx, e: Omit<RecordEntry, "seq" | "atMs" | "phaseId">) {
@@ -254,7 +401,7 @@ function aiSeats(s: ForumEngineState, presentOnly = true): SeatId[] {
 }
 
 function sessionOver(ctx: Ctx) {
-  return ctx.now >= ctx.s.settings.sessionEndsAtMs;
+  return ctx.now >= effectiveSessionEndMs(ctx.s, ctx.now);
 }
 
 // ── debate flow ──────────────────────────────────────────────────
@@ -997,9 +1144,19 @@ function handleTick(ctx: Ctx) {
   }
   const d = phaseDeadline(s.phase);
   if (d === null || ctx.now < d) throw new Duplicate(); // early/duplicate scheduler delivery: harmless no-op
+  // H1 first: with nobody online, nothing advances and no response window is processed.
   if (!Object.values(s.seats).some((x) => x.kind === "human" && x.connection === "online")) return enterIdleHold(ctx);
+  if (waitGate(ctx) === "held") return;
+  return endPhase(ctx);
+}
+
+/** The current phase's timer has run out (and W1 says nobody is awaited any more): apply its normal outcome. */
+function endPhase(ctx: Ctx) {
+  const s = ctx.s;
   const p = s.phase;
   switch (p.type) {
+    case "BRIEFING":
+      return openRollCall(ctx);
     case "ROLL_CALL": {
       const present = presentSeats(s).length;
       const required = debateQuorumRequired(Object.keys(s.seats).length);
@@ -1007,7 +1164,8 @@ function handleTick(ctx: Ctx) {
         record(ctx, { source: "chair", substantive: false, text: `Roll call closed: ${present} present (debate quorum ${required}).` });
         return nextSpeakerOrFloor(ctx, "empty_list");
       }
-      announce(ctx, `No debate quorum yet (${present}/${required}). Roll call remains open.`);
+      if (sessionOver(ctx)) return sessionEnd(ctx);
+      announce(ctx, `No debate quorum yet (${present}/${required}, rule 32). Roll call remains open.`);
       return transition(ctx, { type: "ROLL_CALL", deadlineMs: ctx.now + s.settings.timers.rollCallSec * 1000 });
     }
     case "SPEECH_PREP": {
@@ -1016,10 +1174,12 @@ function handleTick(ctx: Ctx) {
         record(ctx, { source: "human_forfeit", seat: p.seat, substantive: false, text: `${st.countryName} was absent when recognised; time forfeited (rule 16).` });
         return endSpeechSlot(ctx, p.seat, p.context);
       }
-      const sec = slotSeconds(ctx, p.context);
-      transition(ctx, { type: "SPEECH", seat: p.seat, speakerKind: "human", startedMs: ctx.now, deadlineMs: ctx.now + sec * 1000, context: p.context });
-      ctx.effects.push({ type: "transcription_expected", seat: p.seat, phaseId: s.phaseId });
-      return;
+      if (W(s)) {
+        // W1: the speaker starts the speech; the response window has expired without that.
+        record(ctx, { source: "human_forfeit", seat: p.seat, substantive: false, text: `${st.countryName} did not start the speech; the turn ended without a speech (no response).` });
+        return endSpeechSlot(ctx, p.seat, p.context);
+      }
+      return beginHumanSpeech(ctx, p.seat, p.context);
     }
     case "SPEECH":
       if (p.speakerKind === "ai") {
@@ -1036,7 +1196,7 @@ function handleTick(ctx: Ctx) {
         return endSpeechSlot(ctx, p.seat, p.context);
       }
       // App policy: one extension while the transcript is pending OR after it failed (time to type instead).
-      if ((p.transcript.status === "pending" || p.transcript.status === "failed") && !p.waitExtended) {
+      if (!W(s) && (p.transcript.status === "pending" || p.transcript.status === "failed") && !p.waitExtended) {
         p.waitExtended = true;
         p.deadlineMs = ctx.now + s.settings.timers.transcriptConfirmSec * 1000;
         schedule(ctx, p.deadlineMs);
@@ -1053,31 +1213,15 @@ function handleTick(ctx: Ctx) {
       return closeDivisionProposals(ctx);
     case "MOTION_VOTE": {
       const b = s.ballots[p.ballotId];
-      if (p.stage === "reading") {
-        b.status = "open";
-        p.stage = "voting";
-        p.deadlineMs = ctx.now + s.settings.timers.votingSec * 1000;
-        schedule(ctx, p.deadlineMs);
-        const ai = Object.keys(b.eligible).filter((x) => s.seats[x].kind === "ai");
-        if (ai.length) ctx.effects.push({ type: "ai_vote_needed", ballotId: b.id, seats: ai });
-        return;
-      }
-      if (maybeNonResponseExtension(ctx, b, p)) return;
+      if (p.stage === "reading") return openVoting(ctx, b, p);
+      if (!W(s) && maybeNonResponseExtension(ctx, b, p)) return;
       return finishMotionVote(ctx);
     }
     case "VOTING_PROCEDURE": {
       if (p.stage === "between") return nextVotingItem(ctx, p.queue);
       const b = s.ballots[p.ballotId!];
-      if (p.stage === "reading") {
-        b.status = "open";
-        p.stage = "voting";
-        p.deadlineMs = ctx.now + s.settings.timers.votingSec * 1000;
-        schedule(ctx, p.deadlineMs);
-        const ai = Object.keys(b.eligible).filter((x) => s.seats[x].kind === "ai");
-        if (ai.length) ctx.effects.push({ type: "ai_vote_needed", ballotId: b.id, seats: ai });
-        return;
-      }
-      if (maybeNonResponseExtension(ctx, b, p)) return;
+      if (p.stage === "reading") return openVoting(ctx, b, p);
+      if (!W(s) && maybeNonResponseExtension(ctx, b, p)) return;
       return finishSubstantiveVote(ctx);
     }
     case "MOD_CAUCUS": {
@@ -1103,6 +1247,7 @@ function handleTick(ctx: Ctx) {
       }
       return openFloor(ctx, "after_motions");
     case "AMENDMENT_SPONSOR_RESPONSE": {
+      if (W(s) && p.wait && ctx.now >= p.wait.responseDeadlineMs) return resolveAmendmentResponse(ctx, "consent_not_obtained");
       if (s.settings.policies.amendmentSponsorSilence === "extend_once_then_not_agreeing" && !p.waitExtended) {
         p.waitExtended = true;
         p.deadlineMs = ctx.now + s.settings.timers.sponsorResponseSec * 1000;
@@ -1114,6 +1259,31 @@ function handleTick(ctx: Ctx) {
     default:
       throw new Duplicate();
   }
+}
+
+/** Reading time is over: the ballot opens, AI votes are requested, and (W1) the response window starts. */
+function openVoting(ctx: Ctx, b: Ballot, p: { stage: string; deadlineMs: number; wait?: ResponseWait }) {
+  const s = ctx.s;
+  b.status = "open";
+  p.stage = "voting";
+  p.deadlineMs = ctx.now + s.settings.timers.votingSec * 1000;
+  if (W(s)) p.wait = newWait(ctx, p.deadlineMs);
+  schedule(ctx, p.deadlineMs);
+  const ai = Object.keys(b.eligible).filter((x) => s.seats[x].kind === "ai");
+  if (ai.length) ctx.effects.push({ type: "ai_vote_needed", ballotId: b.id, seats: ai });
+}
+
+function beginHumanSpeech(ctx: Ctx, id: SeatId, context: SpeechContext) {
+  const sec = slotSeconds(ctx, context);
+  transition(ctx, { type: "SPEECH", seat: id, speakerKind: "human", startedMs: ctx.now, deadlineMs: ctx.now + sec * 1000, context });
+  ctx.effects.push({ type: "transcription_expected", seat: id, phaseId: ctx.s.phaseId });
+}
+
+function openRollCall(ctx: Ctx) {
+  const s = ctx.s;
+  transition(ctx, { type: "ROLL_CALL", deadlineMs: ctx.now + s.settings.timers.rollCallSec * 1000 });
+  const ai = aiSeats(s, false);
+  if (ai.length) ctx.effects.push({ type: "ai_attendance_needed", seats: ai });
 }
 
 /**
@@ -1206,6 +1376,13 @@ function resume(ctx: Ctx, by: "owner" | "auto" | "reconnect") {
   setPhaseDeadline(s.phase, ctx.now + pz.remainingMs);
   if (s.phase.type === "SPEECH" && s.phase.ai) s.phase.ai.playStartMs += elapsedMs;
   if (s.phase.type === "SPEECH") s.phase.startedMs += elapsedMs;
+  const w = (s.phase as { wait?: ResponseWait }).wait;
+  if (w) {
+    // A pause never consumes anyone's response window (and a reconnect never resets it).
+    w.requestedAtMs += elapsedMs;
+    w.baseDeadlineMs += elapsedMs;
+    w.responseDeadlineMs += elapsedMs;
+  }
   s.paused = null;
   schedule(ctx, phaseDeadline(s.phase)!);
   announce(ctx, by === "auto" ? "App pause limit reached; resumed automatically." : by === "reconnect" ? "A delegate reconnected; the meeting continues." : "App resumed.");
@@ -1216,6 +1393,7 @@ function extend(ctx: Ctx, id: SeatId) {
   if (st.kind !== "human") reject("humans_only", "Extensions exist to protect human participation time");
   const p = ctx.s.phase;
   const lim = ctx.s.settings.limits;
+  if (W(ctx.s)) reject("not_needed", "Required responses are awaited for up to the response window (app policy W1); +30 s extensions are not used");
   const used = ctx.s.usage.extensionsBySeat[id] ?? 0;
   if (used >= lim.maxExtensionsPerSeat) reject("extension_limit", "Extension allowance used up");
   if (p.type === "FLOOR_OPEN") {
@@ -1265,24 +1443,25 @@ function dispatch(ctx: Ctx, c: Command) {
       if (s.phase.type !== "LOBBY") throw new Duplicate();
       if (Object.keys(s.seats).length === 0) reject("no_seats", "No seats");
       s.joinLocked = true; // roster fixed atomically with the transition (rule: no new joiners after start)
-      s.settings.sessionStartMs = ctx.now;
-      s.settings.sessionEndsAtMs = ctx.now + s.settings.sessionDurationSec * 1000;
-      transition(ctx, { type: "ROLL_CALL", deadlineMs: ctx.now + s.settings.timers.rollCallSec * 1000 });
-      const ai = aiSeats(s, false);
-      if (ai.length) ctx.effects.push({ type: "ai_attendance_needed", seats: ai });
-      return;
+      const briefingMs = (s.settings.timers.briefingSec ?? 0) * 1000;
+      // The session clock starts when roll call opens (after the shared start briefing, if any).
+      s.settings.sessionStartMs = ctx.now + briefingMs;
+      s.settings.sessionEndsAtMs = s.settings.sessionStartMs + s.settings.sessionDurationSec * 1000;
+      if (briefingMs > 0) return transition(ctx, { type: "BRIEFING", startedMs: ctx.now, deadlineMs: ctx.now + briefingMs });
+      return openRollCall(ctx);
     }
     case "declare_attendance": {
       const st = requireSeatActor(ctx, c.seat);
-      if (s.phase.type === "LOBBY") reject("not_started", "Roll call has not started");
+      if (s.phase.type === "LOBBY" || s.phase.type === "BRIEFING") reject("not_started", "Roll call has not started");
       if (st.attendance === c.value) throw new Duplicate();
       if (st.attendance === "present_and_voting") reject("irrevocable", "Present and voting cannot be withdrawn (rule 31)");
       st.attendance = c.value;
       if (s.phase.type === "ROLL_CALL" && Object.values(s.seats).every(isPresent)) {
         const present = presentSeats(s).length;
         record(ctx, { source: "chair", substantive: false, text: `Roll call complete: ${present} present.` });
-        nextSpeakerOrFloor(ctx, "empty_list");
+        return nextSpeakerOrFloor(ctx, "empty_list");
       }
+      if (s.phase.type === "ROLL_CALL") return maybeAdvanceOnResponse(ctx);
       return;
     }
     case "add_to_speakers_list": {
@@ -1299,6 +1478,13 @@ function dispatch(ctx: Ctx, c: Command) {
       if (i < 0) throw new Duplicate();
       s.speakersList.splice(i, 1);
       return;
+    }
+    case "start_speech": {
+      const p = s.phase;
+      if (p.type !== "SPEECH_PREP" || p.seat !== c.seat) reject("not_recognised", "You have not been given the floor", true);
+      const st = requireSeatActor(ctx, c.seat);
+      if (st.kind !== "human") reject("humans_only", "Only human speakers start their speech");
+      return beginHumanSpeech(ctx, c.seat, (p as Extract<Phase, { type: "SPEECH_PREP" }>).context);
     }
     case "end_speech": {
       const p = s.phase;
@@ -1399,7 +1585,13 @@ function dispatch(ctx: Ctx, c: Command) {
       if (mine.length >= s.settings.limits.maxMotionsPerSeatPerWindow) reject("motion_limit", "Motion limit for this window reached (app policy)");
       const id = newId(ctx, "m");
       s.motions[id] = { id, params: c.params, mover: c.seat, submittedAtMs: ctx.now, windowId: fp.windowId, contentKey: key, status: "pending" };
-      return; // submission never closes the window early
+      if (W(s) && st.kind === "human" && (p.type === "FLOOR_OPEN" || p.type === "VP_FLOOR")) {
+        // W1: moving a motion is this delegate's response for the window (they may still add another while it is open).
+        const rp = p as { readySeats: SeatId[] };
+        if (!rp.readySeats.includes(c.seat)) rp.readySeats.push(c.seat);
+        return maybeAdvanceOnResponse(ctx);
+      }
+      return; // legacy: submission never closes the window early
     }
     case "floor_pass": {
       const st = requireSeatActor(ctx, c.seat);
@@ -1409,7 +1601,7 @@ function dispatch(ctx: Ctx, c: Command) {
       const list = st.kind === "ai" ? fp.aiDoneSeats : fp.readySeats;
       if (list.includes(c.seat)) throw new Duplicate();
       list.push(c.seat);
-      return maybeCloseWindowEarly(ctx);
+      return W(s) ? maybeAdvanceOnResponse(ctx) : maybeCloseWindowEarly(ctx);
     }
     case "request_extension":
       return extend(ctx, c.seat);
@@ -1424,6 +1616,8 @@ function dispatch(ctx: Ctx, c: Command) {
       }
       if (b.votes[c.seat] === c.choice) throw new Duplicate();
       b.votes[c.seat] = c.choice;
+      const ph = s.phase as { ballotId?: string | null };
+      if (W(s) && ph.ballotId === b.id) return maybeAdvanceOnResponse(ctx);
       if (allEligibleVoted(b)) {
         // Early close: every eligible voter (humans AND AI) has a valid vote.
         if (s.phase.type === "MOTION_VOTE" && s.phase.ballotId === b.id) return finishMotionVote(ctx);
@@ -1439,7 +1633,19 @@ function dispatch(ctx: Ctx, c: Command) {
       const mp = p as Extract<Phase, { type: "MOD_CAUCUS" }>;
       if (mp.volunteers.includes(c.seat)) throw new Duplicate();
       mp.volunteers.push(c.seat);
-      return;
+      if (mp.passed?.includes(c.seat)) mp.passed = mp.passed.filter((x) => x !== c.seat);
+      return maybeAdvanceOnResponse(ctx);
+    }
+    case "volunteer_pass": {
+      requireSeatActor(ctx, c.seat);
+      const p = s.phase;
+      if (p.type !== "MOD_CAUCUS") reject("no_caucus", "No moderated caucus is taking volunteers", true);
+      const mp = p as Extract<Phase, { type: "MOD_CAUCUS" }>;
+      if (mp.volunteers.includes(c.seat)) reject("already_volunteered", "You already volunteered in this round");
+      mp.passed ??= [];
+      if (mp.passed.includes(c.seat)) throw new Duplicate();
+      mp.passed.push(c.seat);
+      return maybeAdvanceOnResponse(ctx);
     }
     case "caucus_ready": {
       const st = requireSeatActor(ctx, c.seat);
@@ -1562,6 +1768,11 @@ function dispatch(ctx: Ctx, c: Command) {
       const id = newId(ctx, "dv");
       proposals[id] = { id, docId: c.docId, proposer: c.seat, parts, submittedAtMs: ctx.now, status: "pending" };
       div.proposals.push(id);
+      if (W(s) && st.kind === "human") {
+        const dp = p as Extract<Phase, { type: "DIVISION_PROPOSALS" }>;
+        if (!dp.readySeats.includes(c.seat)) dp.readySeats.push(c.seat);
+        return maybeAdvanceOnResponse(ctx);
+      }
       return;
     }
     case "raise_point": {
@@ -1585,6 +1796,20 @@ function dispatch(ctx: Ctx, c: Command) {
       if (st.connection === v) throw new Duplicate();
       st.connection = v; // never changes an open ballot's electorate
       if (c.online && st.kind === "human" && s.paused?.reason === "no_humans") return resume(ctx, "reconnect");
+      if (W(s)) {
+        // W1: a delegate who drops out during a hold gets a short grace to return; it never resets anyone's window.
+        const w = (s.phase as { wait?: ResponseWait }).wait;
+        if (!c.online && w?.holding && !s.paused) {
+          const v = responseView(s, engineVoted(s));
+          if (v && !v.pending.some((id) => s.seats[id].connection === "online")) {
+            const at = Math.min(w.responseDeadlineMs, ctx.now + OFFLINE_GRACE_MS);
+            setPhaseDeadline(s.phase, at);
+            schedule(ctx, at);
+          }
+        }
+        if (!c.online && s.phase.type === "UNMOD_CAUCUS") return maybeEndUnmodEarly(ctx);
+        return;
+      }
       // A delegate leaving may mean every REMAINING online delegate is already ready (app policy).
       if (!c.online && ["FLOOR_OPEN", "VP_FLOOR", "DIVISION_PROPOSALS"].includes(s.phase.type)) return maybeCloseWindowEarly(ctx);
       if (!c.online && s.phase.type === "UNMOD_CAUCUS") return maybeEndUnmodEarly(ctx);
@@ -1657,17 +1882,19 @@ export function availableActions(s: ForumEngineState, seatId: SeatId): Command["
   if (p.type !== "LOBBY" && st.attendance !== "present_and_voting") out.push("declare_attendance");
   if (!isPresent(st)) return p.type !== "LOBBY" ? [...out, "raise_point"] : out;
   if (!s.debateClosed && !s.speakersList.includes(seatId)) out.push("add_to_speakers_list");
-  if (p.type === "FLOOR_OPEN") out.push("submit_motion", "floor_pass", "request_extension");
+  const ext = W(s) ? [] : (["request_extension"] as const);
+  if (p.type === "FLOOR_OPEN") out.push("submit_motion", "floor_pass", ...ext);
   if (p.type === "VP_FLOOR") out.push("submit_motion", "floor_pass");
   if (p.type === "DIVISION_PROPOSALS") out.push("submit_division_proposal", "floor_pass");
   if (p.type !== "LOBBY") out.push("raise_point");
   if ((p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && p.stage === "voting" && p.ballotId) {
     const b = s.ballots[p.ballotId];
-    if (b.eligible[seatId] && !b.votes[seatId]) out.push("cast_vote", "request_extension");
+    if (b.eligible[seatId] && !b.votes[seatId]) out.push("cast_vote", ...ext);
   }
+  if (p.type === "SPEECH_PREP" && p.seat === seatId) out.push("start_speech");
   if (p.type === "SPEECH" && p.seat === seatId && p.speakerKind === "human") out.push("end_speech", "submit_text_speech");
   if (p.type === "SPEECH_CONFIRM" && p.seat === seatId) out.push("confirm_transcript", "submit_text_speech", "skip_transcript");
-  if (p.type === "MOD_CAUCUS") out.push("volunteer");
+  if (p.type === "MOD_CAUCUS") out.push("volunteer", "volunteer_pass");
   if (p.type === "UNMOD_CAUCUS") out.push("caucus_ready", "submit_document", "sign_document");
   return out;
 }

@@ -45,6 +45,8 @@ export function describePhase(s: PublicForumState): { title: string; detail: str
   switch (p.type) {
     case "LOBBY":
       return { title: "Waiting room", detail: "Delegations are taking their seats.", next: "The room owner starts the forum; seats are then fixed." };
+    case "BRIEFING":
+      return { title: "Opening briefing", detail: "How this forum runs. Roll call opens in a few seconds.", next: "Roll call" };
     case "ROLL_CALL":
       return { title: "Roll call", detail: "Declare Present or Present and voting (rule 31). AI delegations answer automatically.", next: "Debate opens once at least a quarter of the delegations are present (rule 32)." };
     case "SPEECH_PREP":

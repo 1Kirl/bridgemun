@@ -29,6 +29,8 @@ const input = (over: Record<string, unknown> = {}) => ({
   countries: COUNTRIES,
   ownerCountry: "us",
   durationMin: 30,
+  // These tests exercise the service and AI paths with the pre-W1 timers; W1 defaults are covered below.
+  timers: { responseWaitSec: 0, briefingSec: 0 },
   ...over,
 });
 
@@ -72,6 +74,20 @@ describe.skipIf(!onEmulator)("forum service (Phase 2) on emulator", () => {
     expect(s.settings.sessionStartMs).toBe(0);
     expect(s.settings.policies.proceduralNonResponse).toBe("require_majority_of_eligible");
     expect(await membersOf(forumId)).toEqual({ owner: "us" });
+  });
+
+  it("new forums use W1 (5-minute response window) and the start briefing; start → BRIEFING for every member", async () => {
+    const { timers: _legacy, ...plain } = input();
+    void _legacy;
+    const { forumId } = await createForum(db, U("owner"), plain);
+    const s0 = (await loadState(db, forumId))!;
+    expect(s0.settings.timers.responseWaitSec).toBe(300);
+    expect(s0.settings.timers.briefingSec).toBe(12);
+    await userCommand(db, U("owner"), forumId, { command: { type: "start" } });
+    const s = (await loadState(db, forumId))!;
+    expect(s.phase.type).toBe("BRIEFING");
+    expect(s.settings.sessionStartMs).toBe((s.phase as { deadlineMs: number }).deadlineMs);
+    await expectHttp(userCommand(db, U("owner"), forumId, { command: { type: "declare_attendance", seat: "us", value: "present" } }), "not_started");
   });
 
   it("create validation: unsupported committee, owner country missing, too few seats", async () => {

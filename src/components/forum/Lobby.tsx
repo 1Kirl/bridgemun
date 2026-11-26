@@ -1,5 +1,6 @@
 "use client";
 
+import { HMUN_RULES } from "@/engine/ruleset/hmun-ga-2026";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bot, Copy, Crown, Info, Play, User } from "lucide-react";
@@ -48,6 +49,7 @@ export function Lobby({ uid, mySeat, meta, state, actions }: ForumViewProps) {
             <span className="font-bold">{committee?.id.replace("_HMUN", "")}</span> · {meta.agenda} · {meta.durationMin} min
           </p>
           {committee?.disclaimer && <p className="mt-1 text-xs font-semibold text-amber-700">{committee.disclaimer}</p>}
+          <RulesBadge rulesetId={state.rulesetId} waitSec={state.settings.timers.responseWaitSec ?? 0} />
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <div className="rounded-xl border-2 border-dashed border-brand/30 bg-brand-light px-5 py-3">
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Join code</p>
@@ -120,6 +122,38 @@ export function Lobby({ uid, mySeat, meta, state, actions }: ForumViewProps) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+const STATUS_LABEL: Record<string, string> = { applied: "applied", applied_adapted: "applied (adapted online)", partial: "partly applied", planned: "planned", excluded: "not used" };
+
+/** "Based on HMUN 2026" with a short description; the full rule-by-rule status is folded away. */
+function RulesBadge({ rulesetId, waitSec }: { rulesetId: string; waitSec: number }) {
+  return (
+    <div className="mt-4 rounded-xl border border-brand/20 bg-brand-light p-3" data-testid="rules-badge">
+      <p className="flex flex-wrap items-center gap-2">
+        <span className="rounded-md bg-brand px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-white">Based on HMUN 2026</span>
+        <span className="text-xs font-semibold text-gray-600">Rules of procedure for General Assembly committees · {rulesetId}</span>
+      </p>
+      <p className="mt-1.5 text-xs text-gray-700">
+        An automatic chair applies the HMUN 2026 general rules (debate, caucuses, motions, resolutions, amendments, voting). Online adaptations are marked as app policies.
+        {waitSec > 0 && ` BridgeMUN waits up to ${Math.round(waitSec / 60)} min for the human delegates whose response a step needs, then applies a stated default (operating policy, not an HMUN rule).`}
+      </p>
+      <details className="mt-2 text-xs">
+        <summary className="cursor-pointer font-bold text-brand">Rule-by-rule details</summary>
+        <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto pr-1 custom-scrollbar">
+          {HMUN_RULES.map((r) => (
+            <li key={r.rule} className="rounded-lg bg-white px-2 py-1">
+              <b>
+                {r.rule}. {r.title}
+              </b>{" "}
+              <span className={`rounded px-1 text-[10px] font-black uppercase ${r.status === "excluded" || r.status === "planned" ? "bg-gray-100 text-gray-500" : "bg-emerald-50 text-emerald-700"}`}>{STATUS_LABEL[r.status]}</span>
+              <span className="block text-gray-600">{r.note}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }

@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Hand, Mic, Send, SkipForward, Timer } from "lucide-react";
+import { CheckCircle2, CircleDashed, Hand, Mic, Play, Send, SkipForward, Timer, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { PublicForumState } from "@/engine/publicView";
 import type { MotionParams, MotionType, Phase, VoteChoice } from "@/engine/types";
 import { allowedChoices } from "@/engine/voting";
 import { MOTION_LABEL, describeMotion, describePhase } from "@/lib/phaseText";
 import type { useForumActions } from "@/hooks/useForumActions";
+import { RESPONSE_ACTION } from "@/engine/responses";
+import { publicResponseView } from "@/lib/meetingFlow";
+import { Countdown, ExpiryWarning } from "./Visuals";
 
 type Props = {
   state: PublicForumState;
@@ -15,17 +18,34 @@ type Props = {
   actions: ReturnType<typeof useForumActions>;
   recorder?: { status: string; detail: string };
 };
+/** W1 on: required responses are awaited; the old +30 s extension buttons are not used. */
+const w1 = (s: PublicForumState) => (s.settings.timers.responseWaitSec ?? 0) > 0;
 
 const box = "rounded-2xl border border-gray-100 bg-white p-4 shadow-sm";
 const h3 = "mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800";
 
 /** "What can I do now?" — every button maps to one engine command; the server validates it. */
-export function ActionPanel({ state, mySeat, actions, recorder }: Props) {
+export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & { now: number }) {
   const p = state.phase;
   const me = state.seats[mySeat];
   const present = me.attendance === "present" || me.attendance === "present_and_voting";
   const { send, busy } = actions;
-  if (p.type === "CLOSED") return null;
+  if (p.type === "CLOSED" || p.type === "BRIEFING") return null;
+  const rv = publicResponseView(state);
+  const mine = !!rv?.required.includes(mySeat);
+  const myDone = !!rv?.responded.includes(mySeat);
+  const speaking = p.type === "SPEECH" && p.seat === mySeat && p.speakerKind === "human";
+  const status: "needed" | "optional" | "done" | "speaking" | "waiting" | "none" = speaking
+    ? "speaking"
+    : mine && !myDone && rv && !rv.holds
+      ? "optional"
+      : mine && !myDone
+        ? "needed"
+      : mine && myDone
+        ? "done"
+        : rv && rv.pending.length > 0 && rv.holds
+          ? "waiting"
+          : "none";
   if (state.paused)
     return (
       <div className={box}>
@@ -37,20 +57,38 @@ export function ActionPanel({ state, mySeat, actions, recorder }: Props) {
       </div>
     );
 
+  const head = {
+    needed: { cls: "border-amber-300 bg-amber-50", icon: <Hand size={18} className="text-amber-700" />, title: "Your response is needed", sub: rv ? RESPONSE_ACTION[rv.kind] : "" },
+    optional: { cls: "border-brand/30 bg-brand-light", icon: <CircleDashed size={18} className="text-brand" />, title: "Negotiation in progress", sub: "Optional: click “Ready to resume” when you are done. The caucus ends at its adopted time, or earlier once every human is ready." },
+    done: { cls: "border-emerald-200 bg-emerald-50", icon: <CheckCircle2 size={18} className="text-emerald-700" />, title: "Done — waiting for others", sub: rv && rv.pending.length ? `${rv.pending.length} other delegate${rv.pending.length > 1 ? "s" : ""} still to respond` : "Waiting for the AI delegations / step timer" },
+    speaking: { cls: "border-red-200 bg-red-50", icon: <Mic size={18} className="text-red-700" />, title: "You have the floor", sub: "Speak now; end your speech when you are finished" },
+    waiting: { cls: "border-gray-200 bg-gray-50", icon: <CircleDashed size={18} className="text-gray-500" />, title: "No action needed from you", sub: "Waiting for other delegates to respond" },
+    none: { cls: "border-gray-200 bg-gray-50", icon: <UserCheck size={18} className="text-gray-500" />, title: "No action needed right now", sub: "You can still use the optional actions below" },
+  }[status];
+
   return (
-    <div className={`${box} space-y-4`}>
+    <div className={`${box} space-y-4`} data-testid="my-action">
+      <div className={`rounded-xl border-2 p-3 ${head.cls}`} data-testid={`my-status-${status}`}>
+        <div className="flex items-start gap-2">
+          {head.icon}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-gray-900">{head.title}</p>
+            <p className="text-xs text-gray-600">{head.sub}</p>
+          </div>
+          {status === "needed" && rv?.wait && <Countdown atMs={rv.wait.responseDeadlineMs} now={now} size="md" />}
+        </div>
+        {status === "needed" && rv && <div className="mt-2"><ExpiryWarning rv={rv} now={now} /></div>}
+      </div>
       <h3 className={h3}>Your actions — {me.countryName}</h3>
 
-      {me.attendance !== "present_and_voting" && (
+      {!present && (
         <div className="space-y-2">
-          {!present && <p className="text-xs text-gray-600">You are not recorded as present. Declare attendance to speak, move motions and vote (rule 31).</p>}
+          <p className="text-xs text-gray-600">You are not recorded as present. Declare attendance to speak, move motions and vote (rule 31).</p>
           <div className="flex flex-wrap gap-2">
-            {!present && (
-              <Button size="sm" disabled={busy} onClick={() => void send({ type: "declare_attendance", seat: mySeat, value: "present" })}>
-                Present
-              </Button>
-            )}
-            <Button size="sm" variant="secondary" disabled={busy} onClick={() => void send({ type: "declare_attendance", seat: mySeat, value: "present_and_voting" })}>
+            <Button size="md" disabled={busy} onClick={() => void send({ type: "declare_attendance", seat: mySeat, value: "present" })}>
+              Present
+            </Button>
+            <Button size="md" variant="secondary" disabled={busy} onClick={() => void send({ type: "declare_attendance", seat: mySeat, value: "present_and_voting" })}>
               Present and voting
             </Button>
           </div>
@@ -58,15 +96,32 @@ export function ActionPanel({ state, mySeat, actions, recorder }: Props) {
         </div>
       )}
 
-      {present && <SpeakerControls state={state} mySeat={mySeat} actions={actions} recorder={recorder} />}
+      {present && <SpeakerControls state={state} mySeat={mySeat} actions={actions} recorder={recorder} part="speech" />}
       {present && p.type === "FLOOR_OPEN" && <FloorControls state={state} mySeat={mySeat} actions={actions} />}
       {present && p.type === "VP_FLOOR" && <VotingMotionControls state={state} mySeat={mySeat} actions={actions} />}
       {present && p.type === "DIVISION_PROPOSALS" && <DivisionControls state={state} mySeat={mySeat} actions={actions} />}
       {present && (p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && <VoteControls state={state} mySeat={mySeat} actions={actions} />}
       {present && p.type === "MOD_CAUCUS" && (
-        <Button size="sm" disabled={busy || p.volunteers.includes(mySeat)} onClick={() => void send({ type: "volunteer", seat: mySeat }, { phaseId: state.phaseId })}>
-          <Hand size={14} className="mr-1" /> {p.volunteers.includes(mySeat) ? "Volunteered" : "Volunteer to speak"}
-        </Button>
+        <div className="flex flex-wrap gap-2" data-testid="volunteer-controls">
+          <Button size="md" disabled={busy || p.volunteers.includes(mySeat)} onClick={() => void send({ type: "volunteer", seat: mySeat }, { phaseId: state.phaseId })}>
+            <Hand size={14} className="mr-1" /> {p.volunteers.includes(mySeat) ? "Volunteered ✓" : "Volunteer to speak"}
+          </Button>
+          {!p.volunteers.includes(mySeat) && (
+            <Button size="md" variant="secondary" disabled={busy || (p.passed ?? []).includes(mySeat)} onClick={() => void send({ type: "volunteer_pass", seat: mySeat }, { phaseId: state.phaseId })}>
+              {(p.passed ?? []).includes(mySeat) ? "Passed ✓" : "Not this round"}
+            </Button>
+          )}
+        </div>
+      )}
+      {present && p.type === "AMENDMENT_SPONSOR_RESPONSE" && mine && !myDone && (
+        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="sponsor-response">
+          <p className="text-sm font-black text-amber-900">You sponsor the resolution: accept amendment {p.amendmentId} as friendly?</p>
+          <p className="text-xs text-amber-800">{(() => { const a = state.amendments[p.amendmentId]; return a ? `${a.op.kind} clause ${a.op.clauseIndex + 1}${"text" in a.op ? `: “${a.op.text}”` : ""}` : ""; })()}</p>
+          <div className="flex gap-2">
+            <Button size="md" disabled={busy} onClick={() => void send({ type: "sponsor_response", seat: mySeat, amendmentId: p.amendmentId, agree: true })}>Accept (friendly)</Button>
+            <Button size="md" variant="outline" disabled={busy} onClick={() => void send({ type: "sponsor_response", seat: mySeat, amendmentId: p.amendmentId, agree: false })}>Object</Button>
+          </div>
+        </div>
       )}
       {present && p.type === "UNMOD_CAUCUS" && (
         <div className="space-y-1">
@@ -76,8 +131,20 @@ export function ActionPanel({ state, mySeat, actions, recorder }: Props) {
           </Button>
         </div>
       )}
-      {p.type !== "LOBBY" && <PointsControls state={state} mySeat={mySeat} actions={actions} />}
-      {actions.error && <p className="text-xs font-semibold text-red-600">{actions.error}</p>}
+      {actions.error && <p className="text-xs font-semibold text-red-600" role="alert">{actions.error}</p>}
+      <div className="space-y-2 border-t border-gray-100 pt-3" data-testid="optional-actions">
+        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Optional</p>
+        {present && <SpeakerControls state={state} mySeat={mySeat} actions={actions} recorder={recorder} part="signup" />}
+        {present && me.attendance !== "present_and_voting" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "declare_attendance", seat: mySeat, value: "present_and_voting" })}>
+              Change to “Present and voting”
+            </Button>
+            <span className="text-[11px] text-gray-400">cannot abstain on substantive votes; cannot be withdrawn</span>
+          </div>
+        )}
+        {p.type !== "LOBBY" && <PointsControls state={state} mySeat={mySeat} actions={actions} />}
+      </div>
     </div>
   );
 }
@@ -180,7 +247,7 @@ function VotingMotionControls({ state, mySeat, actions }: Props) {
         </ul>
       )}
       <Button size="sm" variant="secondary" disabled={busy || ready} onClick={() => void send({ type: "floor_pass", seat: mySeat }, { phaseId: state.phaseId })}>
-        {ready ? "Ready ✓" : "No motion (ready)"}
+        {ready ? "Done ✓" : "No motion — I'm done"}
       </Button>
     </div>
   );
@@ -223,13 +290,13 @@ function DivisionControls({ state, mySeat, actions }: Props) {
         </ul>
       )}
       <Button size="sm" variant="secondary" disabled={busy || ready} onClick={() => void send({ type: "floor_pass", seat: mySeat }, { phaseId: state.phaseId })}>
-        {ready ? "Ready ✓" : "Done (ready)"}
+        {ready ? "Done ✓" : "No proposal — I'm done"}
       </Button>
     </div>
   );
 }
 
-function SpeakerControls({ state, mySeat, actions, recorder }: Props) {
+function SpeakerControls({ state, mySeat, actions, recorder, part }: Props & { part: "speech" | "signup" }) {
   const p = state.phase;
   const { send, busy } = actions;
   const [text, setText] = useState("");
@@ -242,7 +309,7 @@ function SpeakerControls({ state, mySeat, actions, recorder }: Props) {
 
   return (
     <div className="space-y-2">
-      {!state.debateClosed && !mySpeech && !myConfirm && (
+      {part === "signup" && !state.debateClosed && !mySpeech && !myConfirm && (
         <div className="flex items-center gap-2">
           {inList ? (
             <>
@@ -252,14 +319,24 @@ function SpeakerControls({ state, mySeat, actions, recorder }: Props) {
               </Button>
             </>
           ) : (
-            <Button size="sm" disabled={busy} onClick={() => void send({ type: "add_to_speakers_list", seat: mySeat })}>
+            <Button size="sm" variant="secondary" disabled={busy} onClick={() => void send({ type: "add_to_speakers_list", seat: mySeat })}>
               <Hand size={14} className="mr-1" /> Add me to the speakers’ list
             </Button>
           )}
         </div>
       )}
-      {myPrep && <p className="rounded-lg bg-brand-light px-3 py-2 text-sm font-bold text-brand">You are next — get ready. Your microphone opens when your time starts.</p>}
-      {mySpeech && (
+      {part === "speech" && myPrep && (
+        <div className="space-y-2 rounded-xl border-2 border-brand bg-brand-light p-3" data-testid="start-speech">
+          <p className="text-sm font-black text-brand">You have been recognised to speak</p>
+          <p className="text-xs text-gray-700">
+            Your speaking time ({p.type === "SPEECH_PREP" && p.context.kind === "yield" ? p.context.sec : p.type === "SPEECH_PREP" && p.context.kind === "mod_caucus" ? state.activeCaucus?.speakingSec ?? state.speakingTimeSec : state.speakingTimeSec} s) starts when you press Start. Your microphone opens then.
+          </p>
+          <Button size="lg" disabled={busy} onClick={() => void send({ type: "start_speech", seat: mySeat }, { phaseId: state.phaseId })}>
+            <Play size={16} className="mr-1" /> Start speech
+          </Button>
+        </div>
+      )}
+      {part === "speech" && mySpeech && (
         <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3">
           <p className="flex items-center gap-1 text-sm font-black text-red-700">
             <Mic size={14} /> You have the floor
@@ -292,7 +369,7 @@ function SpeakerControls({ state, mySeat, actions, recorder }: Props) {
           <TextSpeech text={text} setText={setText} label="No microphone? Submit your speech as text instead" onSubmit={() => send({ type: "submit_text_speech", seat: mySeat, text })} busy={busy} />
         </div>
       )}
-      {myConfirm && p.type === "SPEECH_CONFIRM" && (
+      {part === "speech" && myConfirm && p.type === "SPEECH_CONFIRM" && (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
           <p className="text-sm font-black text-amber-900">Confirm what enters the record</p>
           <p className="text-xs text-amber-800">
@@ -416,14 +493,18 @@ function FloorControls({ state, mySeat, actions }: Props) {
           Submit motion
         </Button>
         <Button size="sm" variant="secondary" disabled={busy || ready} onClick={() => void send({ type: "floor_pass", seat: mySeat }, { phaseId: state.phaseId })}>
-          {ready ? "Ready ✓" : "I'm done (ready)"}
+          {ready ? "Done ✓" : "No motion — I'm done"}
         </Button>
-        <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "request_extension", seat: mySeat })}>
-          <Timer size={13} className="mr-1" /> +30 s
-        </Button>
+        {!w1(state) && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "request_extension", seat: mySeat })}>
+            <Timer size={13} className="mr-1" /> +30 s
+          </Button>
+        )}
       </div>
       <p className="text-[11px] text-gray-500">
-        The window stays open for its full time unless every online delegate is ready. AI motions never close it early.
+        {w1(state)
+          ? "Moving a motion also counts as your response (you can add another while the window is open). The window closes when every human delegate has responded and the AI delegations are done."
+          : "The window stays open for its full time unless every online delegate is ready. AI motions never close it early."}
       </p>
     </div>
   );
@@ -450,9 +531,11 @@ function VoteControls({ state, mySeat, actions }: Props) {
               {c === "yes" ? "Yes" : c === "no" ? "No" : "Abstain"}
             </Button>
           ))}
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "request_extension", seat: mySeat })}>
-            <Timer size={13} className="mr-1" /> +30 s
-          </Button>
+          {!w1(state) && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "request_extension", seat: mySeat })}>
+              <Timer size={13} className="mr-1" /> +30 s
+            </Button>
+          )}
         </div>
       )}
     </div>

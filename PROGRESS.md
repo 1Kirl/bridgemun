@@ -1,6 +1,6 @@
 # BridgeMUN — progress record
 
-Last updated: 2026-11-25 (second autonomous session). Repository: github.com/1Kirl/bridgemun (private, branch `main`).
+Last updated: 2026-11-27 (meeting UX: W1 response waits + visual room). Repository: github.com/1Kirl/bridgemun (private, branch `main`).
 Production: https://bridgemun.vercel.app — Vercel project `1kirl/bridgemun` (Git-connected, production branch `main`,
 auto-deploy on push, region icn1) · Firebase project `bridgemun` (Firestore asia-northeast3).
 
@@ -23,6 +23,7 @@ Status legend — **real**: verified against the real external service · **mock
 ## App policies in force
 D1 procedural = majority of the electorate fixed at ballot open · D2 substantive = rule 35 with one extension · D3 carry-over with re-validation · D4 enter-voting = simple majority (rule 13 interpretation) · D5 sponsor silence → one extension → "consent not obtained" (distinct from "objected") · D6 time-based end → final voting if resolutions introduced · D7 no quorum → "not held" · D9 defaults configurable, document thresholds satisfiable from 3 seats · D10 no automatic attendance · D11 firebase-tools 13 / Java 17.
 Added: one extension after a failed transcription · **H1** (stop work when every human has left): a deadline passing with no human online puts the forum on hold (no AI calls, one scheduled check); a reconnect resumes it (5 s grace); after `idleHoldMaxSec` (600 s) it closes ("all_humans_left").
+**W1** (2026-11-27, online operating policy — not an HMUN rule): every step that needs specific humans waits for them up to `responseWaitSec` (300 s) from the request, closes as soon as they and the AI are done, and on expiry applies a stated default (not voting ≠ abstain; no attendance chosen; no motion; consent not obtained ≠ objection; turn ended). Time held past a step's normal timer is added back to the session end. H1 takes precedence. Full table: docs/response-wait-policy.md. Start briefing (12 s, server-timed) before roll call; the session clock starts at roll call. Forums created before W1 keep the old timers.
 Rule interpretations added: rule 33 proposals ordered "more parts = more disruptive", ties by submission; division applies to resolutions; reorder is taken before the first resolution is voted; a stale amendment (resolution text changed since drafting) cannot be introduced (app policy).
 
 ## Procedure coverage (engine vs. usable UI)
@@ -43,6 +44,9 @@ Rule interpretations added: rule 33 proposals ordered "more parts = more disrupt
 | Text version locking (ballot carries version + textHash) | yes | yes ("text locked") | yes |
 | Results screen (per-item tallies, votes by country) | yes | yes | local UI |
 | Roll-call votes, right of reply, suspension of rules, crisis rules 37–40 | excluded | — | — |
+
+## Meeting room UI (2026-11-27)
+Stage track (Roll call → Debate & negotiation [loop: general debate / moderated caucus / negotiation & drafting / resolutions, switched by motion] → Final voting → Results; no percentages) · situation card (actor flag, human/AI, action, large server-time countdown, continue condition, details folded) · "my action" card (response needed / done / no action, response countdown, 60 s and 15 s warnings stating the real consequence) · human response tracker (who responded, never how) · general speakers' list with "paused — resumes after the caucus" and separate caucus volunteers · seat grid · vote charts (live: votes-cast progress only; closed: Yes/No/Abstain/Not voted bars, pass line on the correct denominator: electorate for procedural D1, Yes+No for substantive rule 35) · resolution pipeline with signature meters · final results cards · lobby "Based on HMUN 2026" badge with rule-by-rule details · opening briefing overlay (reduced-motion aware).
 
 ## How to run
 - Emulator dev: `npm run emulators` + `npm run dev` (AI = dummy, speech = mock; no paid calls)

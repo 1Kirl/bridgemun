@@ -48,8 +48,11 @@ next-env.d.ts
 
 .claude/
 
-# docs/ was ignored by the previous developer; kept as-is
-docs/
+# docs/ was ignored by the previous developer; kept as-is, except our own documents below
+docs/*
+!docs/response-wait-policy.md
+!docs/position-materials.md
+!docs/production-audio.md
 
 # firebase emulator artefacts
 *-debug.log

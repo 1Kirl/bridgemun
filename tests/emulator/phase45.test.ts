@@ -83,6 +83,7 @@ describe.skipIf(!onEmulator)("Phase 4–5 server pieces on the emulator (mock pr
       countries: COUNTRIES,
       ownerCountry: "us",
       durationMin: 60,
+      timers: { responseWaitSec: 0, briefingSec: 0 }, // AI/provider paths under the pre-W1 timers (W1: engine tests)
     });
     await claimSeat(db, U("u2"), forumId, { code: joinCode, seat: "gb" }, rt.sink);
     await userCommand(db, U("owner"), forumId, { command: { type: "start" } }, rt.sink);
