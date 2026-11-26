@@ -19,9 +19,11 @@ happens if they do not answer. Code: `src/engine/responses.ts` (who is awaited, 
    and do not reset the window (the deadline is a fixed server time).
 5. When the window ends, the step's default below is applied, written to the record (amber "automatic step"
    entry with the time), and the step's normal transition rules (quorum etc.) are evaluated again.
-6. A required human who is **offline** is not awaited past the normal timer (noted in the record as "offline —
-   not awaited"). If someone drops out during a hold and nobody else online is awaited, they get a 20 s grace to
-   return; a quick refresh therefore does not skip anyone.
+6. **Connection does not shorten the window** (revised 2026-11-27): while at least one human is online, a required
+   human who is offline is awaited until their original response deadline, exactly like an online one. A refresh or
+   reconnect restores the same remaining time (the deadline never moves) and they can respond as before. The UI
+   shows "offline" separately from "awaiting response". (The first W1 version skipped offline delegates after the
+   normal timer / a 20 s grace — removed.)
 7. **Precedence:** app policy H1 comes first. If no human is online at all when a timer fires, the forum goes on
    idle hold (no AI calls); the response window is frozen during the hold and shifted, not reset, on reconnect.
    After 10 min without anyone, the forum closes ("all_humans_left").
@@ -34,14 +36,27 @@ happens if they do not answer. Code: `src/engine/responses.ts` (who is awaited, 
 | Recognised speaker (prep) | that speaker only | **Start speech** | turn ends without a speech, recorded as no response; next speaker or floor |
 | Speech | — (speaking time runs, not the window) | End speech / text speech | normal speaking time applies |
 | Transcript confirmation | that speaker only | Confirm / type text / skip | automatic transcript entered if ready, else "no transcript" |
-| Floor open for motions | present humans | submit a motion **or** "No motion — I'm done" | treated as no motion |
+| Floor open for motions | present humans | submit a motion **or** "No motion — I'm done" (stands while nothing changes, see below) | treated as no motion |
 | Motion / substantive vote (voting stage) | humans eligible for that ballot (electorate fixed at opening) | cast a vote | recorded as **not voting** — never yes/no/abstain |
-| Moderated caucus volunteering | present humans | Volunteer **or** "Not this round" | treated as not volunteering |
+| Moderated caucus volunteering | present humans | Volunteer **or** "Pass this turn only" **or** "Pass for the rest of this caucus" | treated as not volunteering this turn |
 | Amendment sponsor response | human sponsors of the target resolution | Accept / Object | friendly consent **not obtained** (distinct from an objection) → 2/3 vote |
 | Voting procedure motions (reorder / divide) | present humans | submit **or** "No motion — I'm done" | treated as no motion |
 | Division proposals | present humans | submit a proposal **or** "No proposal — I'm done" | treated as no proposal |
 | Unmoderated caucus (negotiation) | — (informational: "Ready to resume") | Ready to resume | caucus ends at the length adopted by motion (no extra hold) |
 | Reading time, AI speech, DR presentation/Q&A, suspension | nobody | — | normal timer |
+
+## No repeated confirmations
+
+* **Standing "no motion".** A delegate's explicit "No motion — I'm done" stands for later floor windows as long as
+  nothing meaningful has changed: no new confirmed statement, no change to the speakers' list, to any document's
+  status/version, to any amendment's status, or to the speaking time. Such a window does not ask them again
+  ("no motion stands"), but it still stays open for its normal timer so they can move a motion at any time.
+  Moving a motion makes them "active" again (asked normally next time). Any meaningful change asks everyone again.
+  A new motion is always voted, and every eligible human is asked to vote on it.
+* **Caucus volunteering.** "Pass this turn only" applies to the current speaking turn; they are asked again next
+  turn. "Pass for the rest of this caucus" is an explicit choice that ends with the caucus; they can still volunteer
+  in any turn (which cancels it) or choose "Ask me every turn again". Nobody is ever excluded from speaking, and no
+  answer is made up for anyone.
 
 Actions in one step never complete another step's response (e.g. joining the speakers' list does not answer a
 floor window; a vote does not answer a later floor window).

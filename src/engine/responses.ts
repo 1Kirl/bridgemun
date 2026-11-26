@@ -6,7 +6,7 @@
  * (who is still awaited), so both always agree. Ballot choices are never needed: only who has voted.
  */
 import { isPresent } from "@/engine/voting";
-import type { DocumentState, Amendment, Phase, ResponseWait, Seat, SeatId, SeatKind } from "@/engine/types";
+import type { DocumentState, Amendment, CaucusState, Phase, ResponseWait, Seat, SeatId, SeatKind } from "@/engine/types";
 
 export type ResponseKind =
   | "attendance"
@@ -29,6 +29,8 @@ export type ResponseView = {
   /** true: the engine holds the phase for pending (online) humans up to the response deadline. */
   holds: boolean;
   wait?: ResponseWait;
+  /** Responded through an earlier, still-valid choice (standing "no motion", pass for the rest of the caucus). */
+  standing: SeatId[];
 };
 
 type StateLike = {
@@ -37,14 +39,15 @@ type StateLike = {
   ballots: Record<string, { eligible: Record<SeatId, { kind: SeatKind }> }>;
   documents: Record<string, DocumentState>;
   amendments: Record<string, Amendment>;
+  activeCaucus?: CaucusState | null;
 };
 
 const humans = (s: StateLike) => Object.values(s.seats).filter((x) => x.kind === "human");
 const presentHumans = (s: StateLike) => humans(s).filter(isPresent).map((x) => x.id);
 
-function view(kind: ResponseKind, required: SeatId[], responded: SeatId[], holds: boolean, wait?: ResponseWait): ResponseView {
-  const done = required.filter((x) => responded.includes(x));
-  return { kind, required, responded: done, pending: required.filter((x) => !done.includes(x)), holds, wait };
+function view(kind: ResponseKind, required: SeatId[], responded: SeatId[], holds: boolean, wait?: ResponseWait, standing: SeatId[] = []): ResponseView {
+  const done = required.filter((x) => responded.includes(x) || standing.includes(x));
+  return { kind, required, responded: done, pending: required.filter((x) => !done.includes(x)), holds, wait, standing: required.filter((x) => standing.includes(x) && !responded.includes(x)) };
 }
 
 /** voted(ballotId) → seats that have cast a vote (engine: keys of votes; public view: `voted`). */
@@ -64,7 +67,7 @@ export function responseView(s: StateLike, voted: (ballotId: string) => SeatId[]
     case "SPEECH_CONFIRM":
       return view("confirm_transcript", [p.seat], [], true, p.wait);
     case "FLOOR_OPEN":
-      return view("motion", presentHumans(s), p.readySeats, true, p.wait);
+      return view("motion", presentHumans(s), p.readySeats, true, p.wait, p.standingSeats ?? []);
     case "VP_FLOOR":
       return view("voting_motion", presentHumans(s), p.readySeats, true, p.wait);
     case "DIVISION_PROPOSALS":
@@ -80,7 +83,7 @@ export function responseView(s: StateLike, voted: (ballotId: string) => SeatId[]
       return view("vote", eligibleHumans, voted(p.ballotId), true, p.wait);
     }
     case "MOD_CAUCUS":
-      return view("volunteer", presentHumans(s), [...p.volunteers, ...(p.passed ?? [])], true, p.wait);
+      return view("volunteer", presentHumans(s), [...p.volunteers, ...(p.passed ?? [])], true, p.wait, s.activeCaucus?.passAll ?? []);
     case "AMENDMENT_SPONSOR_RESPONSE": {
       const a = s.amendments[p.amendmentId];
       const doc = a ? s.documents[a.targetDocId] : undefined;
@@ -104,7 +107,7 @@ export const EXPIRY_ACTION: Record<ResponseKind, string> = {
   voting_motion: "you are treated as having no motion; voting continues",
   division: "you are treated as having no proposal; voting continues",
   vote: "you are recorded as not voting (not as abstaining) and the vote is counted",
-  volunteer: "you are treated as not volunteering this round",
+  volunteer: "you are treated as not volunteering this turn (you are asked again next turn)",
   sponsor: "friendly consent is not obtained (this is not an objection) and the amendment goes to a 2/3 vote",
   caucus_ready: "the caucus ends at its adopted time",
 };
@@ -118,7 +121,7 @@ export const RESPONSE_ACTION: Record<ResponseKind, string> = {
   voting_motion: "Move a voting-procedure motion, or say you have none",
   division: "Propose a division, or say you have none",
   vote: "Cast your vote",
-  volunteer: "Volunteer to speak, or pass this round",
+  volunteer: "Volunteer to speak, or pass this turn",
   sponsor: "Accept or reject the amendment as a sponsor",
   caucus_ready: "Click “Ready to resume” when you are done",
 };

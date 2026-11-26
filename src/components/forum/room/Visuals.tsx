@@ -213,13 +213,24 @@ export function ResponseTracker({ state, rv, mySeat }: { state: PublicForumState
               <Flag code={id} className="h-3 w-4" />
               {s.countryName}
               {id === mySeat && <span className="text-[9px] uppercase">(you)</span>}
-              {ok ? <Check size={12} aria-label="responded" /> : off ? <WifiOff size={12} aria-label="offline" /> : <Hourglass size={12} aria-label="awaiting response" />}
-              <span className="sr-only">{ok ? "responded" : off ? "offline — not awaited past the step timer" : "awaiting response"}</span>
+              {ok ? <Check size={12} aria-label="responded" /> : <Hourglass size={12} aria-label="awaiting response" />}
+              {off && <WifiOff size={12} aria-label="offline" />}
+              {rv.standing.includes(id) && <span className="text-[9px] font-black uppercase">{rv.kind === "volunteer" ? "passing this caucus" : "no motion stands"}</span>}
+              <span className="sr-only">{ok ? "responded" : "awaiting response"}{off ? ", currently offline (still has the full response time)" : ""}</span>
             </li>
           );
         })}
       </ul>
-      {rv.pending.some((id) => state.seats[id].connection === "offline") && <p className="mt-1.5 text-[11px] text-gray-500">Offline delegates are not awaited past the normal step timer.</p>}
+      {rv.pending.some((id) => state.seats[id].connection === "offline") && (
+        <p className="mt-1.5 text-[11px] text-gray-500">A delegate who is offline keeps the full response time: the step waits until their deadline (a refresh or reconnect does not reset or shorten it).</p>
+      )}
+      {rv.standing.length > 0 && (
+        <p className="mt-1.5 text-[11px] text-gray-500">
+          {rv.kind === "volunteer"
+            ? "“Passing this caucus” was chosen by the delegate; they can volunteer in any turn."
+            : "“No motion stands”: the delegate said they had no motion and nothing has changed since, so they are not asked again. They can still move a motion."}
+        </p>
+      )}
     </section>
   );
 }

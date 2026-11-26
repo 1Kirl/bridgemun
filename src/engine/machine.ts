@@ -231,8 +231,6 @@ const WAIT_PHASES = new Set<Phase["type"]>([
   "MOD_CAUCUS",
   "AMENDMENT_SPONSOR_RESPONSE",
 ]);
-/** Seconds a delegate who went offline during a hold is given to come back before the phase continues without them. */
-const OFFLINE_GRACE_MS = 20_000;
 
 function newWait(ctx: Ctx, baseDeadlineMs: number): ResponseWait {
   return {
@@ -307,20 +305,20 @@ function waitGate(ctx: Ctx): "held" | "go" {
     if (text) record(ctx, { source: "chair", substantive: false, kind: "response_timeout", text: `Response time expired (app policy W1): ${text}` });
     return "go";
   }
-  const online = v.pending.filter((id) => s.seats[id].connection === "online");
-  if (online.length) {
-    w.holding = true;
-    setPhaseDeadline(p, w.responseDeadlineMs);
-    schedule(ctx, w.responseDeadlineMs);
-    ctx.notes.push(`held for ${online.join(",")}`);
-    return "held";
-  }
-  const fresh = v.pending.filter((id) => !(w.notedOffline ?? []).includes(id));
-  if (fresh.length) {
-    w.notedOffline = [...(w.notedOffline ?? []), ...fresh];
-    record(ctx, { source: "chair", substantive: false, kind: "not_awaited", text: `${names(s, fresh)} offline — not awaited (app policy W1).` });
-  }
-  return "go";
+  // Pending humans keep their whole window whether or not they are connected right now (a dropped connection
+  // or a refresh never shortens it). Only H1 (nobody online at all) stops the meeting, and it is checked first.
+  w.holding = true;
+  setPhaseDeadline(p, w.responseDeadlineMs);
+  schedule(ctx, w.responseDeadlineMs);
+  ctx.notes.push(`held for ${v.pending.join(",")}`);
+  return "held";
+}
+
+/** What counts as "the same situation" for a standing "no motion": statements, speakers, documents, amendments, speaking time. */
+export function floorContextKey(s: ForumEngineState): string {
+  const docs = Object.values(s.documents).map((d) => `${d.id}:${d.status}:${d.version}`).sort().join(",");
+  const am = Object.values(s.amendments).map((a) => `${a.id}:${a.status}`).sort().join(",");
+  return `${s.contextSeq}|${s.speakersList.join(",")}|${docs}|${am}|${s.speakingTimeSec}|${s.debateClosed}`;
 }
 
 /** Every AI delegation has finished its part of the current phase (if not, the phase's normal timer applies). */
@@ -353,6 +351,8 @@ function maybeAdvanceOnResponse(ctx: Ctx) {
   const v = responseView(s, engineVoted(s));
   if (!v || v.pending.length > 0) return;
   if (!(aiDone(s) || ctx.now >= w.baseDeadlineMs)) return;
+  // Humans answered only through a standing choice: keep the window open for its normal time (they can still act).
+  if (v.standing.length > 0 && ctx.now < w.baseDeadlineMs) return;
   endPhase(ctx);
 }
 
@@ -464,6 +464,13 @@ function openFloor(ctx: Ctx, origin: Extract<Phase, { type: "FLOOR_OPEN" }>["ori
     }
   }
   ctx.s.carriedMotionIds = [];
+  if (W(ctx.s) && ctx.s.standingNoMotion) {
+    const key = floorContextKey(ctx.s);
+    const standing = Object.values(ctx.s.seats)
+      .filter((x) => x.kind === "human" && isPresent(x) && ctx.s.standingNoMotion![x.id] === key)
+      .map((x) => x.id);
+    if (standing.length) p.standingSeats = standing;
+  }
   ctx.effects.push({ type: "ai_floor_decision_needed", windowId: p.windowId, contextSeq: ctx.s.contextSeq });
 }
 
@@ -1170,12 +1177,12 @@ function endPhase(ctx: Ctx) {
     }
     case "SPEECH_PREP": {
       const st = s.seats[p.seat];
-      if (st.connection === "offline" || !isPresent(st)) {
+      if (!W(s) && (st.connection === "offline" || !isPresent(st))) {
         record(ctx, { source: "human_forfeit", seat: p.seat, substantive: false, text: `${st.countryName} was absent when recognised; time forfeited (rule 16).` });
         return endSpeechSlot(ctx, p.seat, p.context);
       }
       if (W(s)) {
-        // W1: the speaker starts the speech; the response window has expired without that.
+        // W1 (reached only after the whole response window, connected or not): the speech was never started.
         record(ctx, { source: "human_forfeit", seat: p.seat, substantive: false, text: `${st.countryName} did not start the speech; the turn ended without a speech (no response).` });
         return endSpeechSlot(ctx, p.seat, p.context);
       }
@@ -1585,6 +1592,7 @@ function dispatch(ctx: Ctx, c: Command) {
       if (mine.length >= s.settings.limits.maxMotionsPerSeatPerWindow) reject("motion_limit", "Motion limit for this window reached (app policy)");
       const id = newId(ctx, "m");
       s.motions[id] = { id, params: c.params, mover: c.seat, submittedAtMs: ctx.now, windowId: fp.windowId, contentKey: key, status: "pending" };
+      if (W(s) && st.kind === "human" && s.standingNoMotion?.[c.seat]) delete s.standingNoMotion[c.seat]; // active again
       if (W(s) && st.kind === "human" && (p.type === "FLOOR_OPEN" || p.type === "VP_FLOOR")) {
         // W1: moving a motion is this delegate's response for the window (they may still add another while it is open).
         const rp = p as { readySeats: SeatId[] };
@@ -1601,6 +1609,7 @@ function dispatch(ctx: Ctx, c: Command) {
       const list = st.kind === "ai" ? fp.aiDoneSeats : fp.readySeats;
       if (list.includes(c.seat)) throw new Duplicate();
       list.push(c.seat);
+      if (W(s) && st.kind === "human" && p.type === "FLOOR_OPEN") (s.standingNoMotion ??= {})[c.seat] = floorContextKey(s);
       return W(s) ? maybeAdvanceOnResponse(ctx) : maybeCloseWindowEarly(ctx);
     }
     case "request_extension":
@@ -1634,6 +1643,8 @@ function dispatch(ctx: Ctx, c: Command) {
       if (mp.volunteers.includes(c.seat)) throw new Duplicate();
       mp.volunteers.push(c.seat);
       if (mp.passed?.includes(c.seat)) mp.passed = mp.passed.filter((x) => x !== c.seat);
+      const ac = s.activeCaucus;
+      if (ac?.passAll?.includes(c.seat)) ac.passAll = ac.passAll.filter((x) => x !== c.seat); // engaged again: asked every turn
       return maybeAdvanceOnResponse(ctx);
     }
     case "volunteer_pass": {
@@ -1641,7 +1652,20 @@ function dispatch(ctx: Ctx, c: Command) {
       const p = s.phase;
       if (p.type !== "MOD_CAUCUS") reject("no_caucus", "No moderated caucus is taking volunteers", true);
       const mp = p as Extract<Phase, { type: "MOD_CAUCUS" }>;
-      if (mp.volunteers.includes(c.seat)) reject("already_volunteered", "You already volunteered in this round");
+      const ac = s.activeCaucus!;
+      const scope = c.scope ?? "turn";
+      if (scope === "resume") {
+        if (!ac.passAll?.includes(c.seat)) throw new Duplicate();
+        ac.passAll = ac.passAll.filter((x) => x !== c.seat);
+        return; // asked again from this turn on (if they have not answered this turn, they are now awaited)
+      }
+      if (mp.volunteers.includes(c.seat)) reject("already_volunteered", "You already volunteered in this turn");
+      if (scope === "caucus") {
+        ac.passAll ??= [];
+        if (ac.passAll.includes(c.seat)) throw new Duplicate();
+        ac.passAll.push(c.seat); // ends with this caucus; volunteering in any turn cancels it
+        return maybeAdvanceOnResponse(ctx);
+      }
       mp.passed ??= [];
       if (mp.passed.includes(c.seat)) throw new Duplicate();
       mp.passed.push(c.seat);
@@ -1797,16 +1821,7 @@ function dispatch(ctx: Ctx, c: Command) {
       st.connection = v; // never changes an open ballot's electorate
       if (c.online && st.kind === "human" && s.paused?.reason === "no_humans") return resume(ctx, "reconnect");
       if (W(s)) {
-        // W1: a delegate who drops out during a hold gets a short grace to return; it never resets anyone's window.
-        const w = (s.phase as { wait?: ResponseWait }).wait;
-        if (!c.online && w?.holding && !s.paused) {
-          const v = responseView(s, engineVoted(s));
-          if (v && !v.pending.some((id) => s.seats[id].connection === "online")) {
-            const at = Math.min(w.responseDeadlineMs, ctx.now + OFFLINE_GRACE_MS);
-            setPhaseDeadline(s.phase, at);
-            schedule(ctx, at);
-          }
-        }
+        // W1: connection changes never shorten or reset anyone's response window (the deadline is fixed server time).
         if (!c.online && s.phase.type === "UNMOD_CAUCUS") return maybeEndUnmodEarly(ctx);
         return;
       }

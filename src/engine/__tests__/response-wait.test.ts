@@ -186,38 +186,63 @@ describe("W1 floor windows", () => {
   });
 });
 
-describe("W1 reconnects and leaving", () => {
-  it("refresh/reconnect never resets the response deadline", () => {
-    const sim = started(2, 3);
+describe("W1 reconnects and leaving (connection never shortens a response window)", () => {
+  /** 3 humans: h1 and h3 answer, h2 is awaited on the floor (held past the normal timer). */
+  function heldForH2() {
+    const sim = started(3, 3);
     aiPass(sim);
     sim.do(human("owner"), { type: "floor_pass", seat: "h1" });
-    sim.expire(); // held for h2
+    sim.do(human("u3"), { type: "floor_pass", seat: "h3" });
+    sim.expire(); // normal timer → held for h2
+    expect(view(sim.s)!.pending).toEqual(["h2"]);
+    return sim;
+  }
+
+  it("1 of 3 humans disconnects while awaited → the ORIGINAL deadline is kept (no early skip)", () => {
+    const sim = heldForH2();
     const due = wait(sim).responseDeadlineMs;
+    const w0 = (sim.phase as { windowId: string }).windowId;
     sim.advance(30_000);
     sim.do(system, { type: "connection", seat: "h2", online: false });
-    sim.advance(5_000);
-    sim.do(system, { type: "connection", seat: "h2", online: true });
-    expect(wait(sim).responseDeadlineMs).toBe(due);
-    // the grace tick finds h2 online again → keeps holding until the ORIGINAL deadline
-    sim.expire();
-    expect(sim.phase.type).toBe("FLOOR_OPEN");
     expect(deadline(sim)).toBe(due);
+    sim.advance(60_000); // well past any old grace period
+    expect(sim.do(system, { type: "tick" }, { phaseId: sim.s.phaseId }).duplicate).toBe(true);
+    expect((sim.phase as { windowId: string }).windowId).toBe(w0);
+    expect(view(sim.s)!.pending).toEqual(["h2"]);
+    expect(sim.records().some((r) => r.kind === "not_awaited")).toBe(false);
   });
 
-  it("a human who leaves does not stall the others: offline → 20 s grace → continue (noted in the record)", () => {
-    const sim = started(2, 3);
-    aiPass(sim);
-    sim.do(human("owner"), { type: "floor_pass", seat: "h1" });
-    sim.expire(); // held for h2
-    const w0 = (sim.phase as { windowId: string }).windowId;
+  it("reconnecting before the deadline: same remaining time, and the delegate can still respond", () => {
+    const sim = heldForH2();
+    const due = wait(sim).responseDeadlineMs;
     sim.do(system, { type: "connection", seat: "h2", online: false });
-    expect(deadline(sim)).toBe(sim.now + 20_000);
-    sim.expire();
-    expect((sim.phase as { windowId?: string }).windowId).not.toBe(w0);
-    expect(sim.records().some((r) => r.kind === "not_awaited" && /H2 offline — not awaited/.test(r.text))).toBe(true);
+    sim.advance(90_000);
+    sim.do(system, { type: "connection", seat: "h2", online: true });
+    expect(wait(sim).responseDeadlineMs).toBe(due); // remaining = due - now, not reset to 5 min
+    sim.do(human("u2"), { type: "submit_motion", seat: "h2", params: { type: "unmod_caucus", totalSec: 300 } });
+    expect(sim.phase.type).toBe("MOTION_VOTE");
   });
 
-  it("H1 takes precedence: nobody online → idle hold; the response window does not run during it", () => {
+  it("still offline at the deadline → the step's normal automatic handling (no motion)", () => {
+    const sim = heldForH2();
+    sim.do(system, { type: "connection", seat: "h2", online: false });
+    sim.expire();
+    expect(sim.records().some((r) => r.kind === "response_timeout" && /H2 did not respond within 5 min; treated as having no motion/.test(r.text))).toBe(true);
+  });
+
+  it("an offline voter keeps the vote window too; at expiry they are recorded as not voting", () => {
+    const sim = started(3, 2);
+    const b = toMotionVote(sim);
+    for (const id of [...aiIds(sim), "h1", "h3"]) sim.do(actorOf(id), { type: "cast_vote", seat: id, ballotId: b, choice: "yes" });
+    sim.do(system, { type: "connection", seat: "h2", online: false });
+    sim.expire(); // normal 45 s → held although h2 is offline
+    expect(sim.s.ballots[b].status).toBe("open");
+    sim.expire();
+    expect(sim.s.ballots[b].result!.notVoted).toEqual(["h2"]);
+    expect(sim.s.ballots[b].result!.notVotedOffline).toEqual(["h2"]);
+  });
+
+  it("H1 is separate: nobody online → idle hold at the deadline; the window is shifted on return, not reset", () => {
     const sim = started(2, 3);
     aiPass(sim);
     const due = wait(sim).responseDeadlineMs;
@@ -228,7 +253,76 @@ describe("W1 reconnects and leaving", () => {
     sim.advance(100_000);
     sim.do(system, { type: "connection", seat: "h2", online: true });
     expect(sim.s.paused).toBeNull();
-    expect(wait(sim).responseDeadlineMs).toBe(due + 100_000); // shifted by the hold, not reset
+    expect(wait(sim).responseDeadlineMs).toBe(due + 100_000);
+  });
+
+  it("H1 close still applies after 10 min with nobody back", () => {
+    const sim = started(2, 3);
+    aiPass(sim);
+    sim.do(system, { type: "connection", seat: "h1", online: false });
+    sim.do(system, { type: "connection", seat: "h2", online: false });
+    sim.expire();
+    sim.expire();
+    expect(sim.phase.type).toBe("CLOSED");
+    expect((sim.phase as { reason: string }).reason).toBe("all_humans_left");
+  });
+});
+
+describe("W1 standing “no motion” (no repeated confirmations)", () => {
+  /** Empty speakers' list, no motions: the floor reopens with nothing changed. */
+  function emptyLoop() {
+    const sim = started(2, 3);
+    aiPass(sim);
+    sim.do(human("owner"), { type: "floor_pass", seat: "h1" });
+    sim.do(human("u2"), { type: "floor_pass", seat: "h2" });
+    expect(sim.phase.type).toBe("FLOOR_OPEN"); // next window, same situation
+    return sim;
+  }
+
+  it("unchanged situation → earlier “no motion” stands: nobody is asked again, the window keeps its normal time", () => {
+    const sim = emptyLoop();
+    const v = view(sim.s)!;
+    expect(v.pending).toEqual([]);
+    expect(v.standing.sort()).toEqual(["h1", "h2"]);
+    aiPass(sim);
+    expect(sim.phase.type).toBe("FLOOR_OPEN"); // not closed early: humans may still move a motion
+    const w0 = (sim.phase as { windowId: string }).windowId;
+    sim.expire(); // normal 45 s
+    expect((sim.phase as { windowId: string }).windowId).not.toBe(w0);
+    expect(sim.records().some((r) => r.kind === "response_timeout")).toBe(false);
+  });
+
+  it("a standing delegate can still move a motion whenever they want", () => {
+    const sim = emptyLoop();
+    sim.do(human("u2"), { type: "submit_motion", seat: "h2", params: { type: "unmod_caucus", totalSec: 300 } });
+    aiPass(sim);
+    sim.expire();
+    expect(sim.phase.type).toBe("MOTION_VOTE");
+    expect(sim.s.standingNoMotion?.h2).toBeUndefined(); // active again → asked normally next time
+  });
+
+  it("a meaningful change (new speaker on the list) asks everyone again", () => {
+    const sim = started(2, 3);
+    aiPass(sim);
+    sim.do(human("owner"), { type: "floor_pass", seat: "h1" });
+    sim.do(ai("a1"), { type: "add_to_speakers_list", seat: "a1" });
+    sim.do(human("u2"), { type: "floor_pass", seat: "h2" });
+    // a1 speaks, then the floor reopens after a new statement
+    expect(sim.phase.type).toBe("AI_SPEECH_PENDING");
+    sim.do(ai("a1"), { type: "ai_speech_ready", seat: "a1", text: "Statement", contextSeq: sim.s.contextSeq });
+    sim.expire();
+    expect(sim.phase.type).toBe("FLOOR_OPEN");
+    expect(view(sim.s)!.pending.sort()).toEqual(["h1", "h2"]);
+  });
+
+  it("a new motion in the next window: the motion is voted (everyone takes part) and the window after it asks again", () => {
+    const sim = emptyLoop();
+    sim.do(ai("a0"), { type: "submit_motion", seat: "a0", params: { type: "unmod_caucus", totalSec: 120 } });
+    aiPass(sim);
+    sim.expire();
+    expect(sim.phase.type).toBe("MOTION_VOTE");
+    sim.expire();
+    expect(view(sim.s)!.pending.sort()).toEqual(["h1", "h2"]); // the vote needs both humans
   });
 });
 
@@ -298,6 +392,57 @@ describe("W1 moderated caucus volunteering", () => {
     sim.do(human("u2"), { type: "volunteer_pass", seat: "h2" });
     expect(sim.phase.type).toBe("AI_SPEECH_PENDING");
     expect((sim.phase as { seat: string }).seat).toBe("a1");
+  });
+});
+
+describe("W1 caucus pass scopes", () => {
+  function inCaucus() {
+    const sim = started(2, 3);
+    sim.do(ai("a0"), { type: "submit_motion", seat: "a0", params: { type: "mod_caucus", topic: "T", speakingSec: 30, totalSec: 300 } });
+    aiPass(sim);
+    for (const h of ["h1", "h2"]) sim.do(actorOf(h), { type: "floor_pass", seat: h });
+    sim.expire();
+    const b = (sim.phase as { ballotId: string }).ballotId;
+    for (const id of [...aiIds(sim), "h1", "h2"]) sim.do(actorOf(id), { type: "cast_vote", seat: id, ballotId: b, choice: "yes" });
+    expect(sim.phase.type).toBe("MOD_CAUCUS");
+    return sim;
+  }
+  /** a1 volunteers each turn, its speech ends → next volunteer turn. */
+  function nextTurn(sim: Sim) {
+    sim.do(ai("a1"), { type: "volunteer", seat: "a1" });
+    sim.expire();
+    sim.do(ai("a1"), { type: "ai_speech_ready", seat: "a1", text: "x", contextSeq: sim.s.contextSeq });
+    sim.expire();
+    expect(sim.phase.type).toBe("MOD_CAUCUS");
+  }
+
+  it("“Pass this turn” is for this turn only: asked again next turn", () => {
+    const sim = inCaucus();
+    sim.do(human("owner"), { type: "volunteer_pass", seat: "h1" });
+    sim.do(human("u2"), { type: "volunteer_pass", seat: "h2", scope: "turn" });
+    nextTurn(sim);
+    expect(view(sim.s)!.pending.sort()).toEqual(["h1", "h2"]);
+  });
+
+  it("“Pass for the rest of this caucus” is not asked again, can be undone, and never blocks volunteering", () => {
+    const sim = inCaucus();
+    sim.do(human("owner"), { type: "volunteer_pass", seat: "h1", scope: "caucus" });
+    sim.do(human("u2"), { type: "volunteer_pass", seat: "h2" });
+    nextTurn(sim);
+    expect(view(sim.s)!.pending).toEqual(["h2"]);
+    expect(view(sim.s)!.standing).toEqual(["h1"]);
+    sim.do(human("owner"), { type: "volunteer", seat: "h1" }); // still free to speak
+    expect(sim.s.activeCaucus!.passAll).toEqual([]);
+    expect(sim.try(human("owner"), { type: "volunteer_pass", seat: "h1", scope: "caucus" }).ok).toBe(false); // already volunteered this turn
+  });
+
+  it("the caucus-wide pass ends with the caucus (next caucus asks again)", () => {
+    const sim = inCaucus();
+    sim.do(human("owner"), { type: "volunteer_pass", seat: "h1", scope: "caucus" });
+    expect(sim.s.activeCaucus!.passAll).toEqual(["h1"]);
+    sim.do(human("u2"), { type: "volunteer_pass", seat: "h2" });
+    sim.expire(); // nobody volunteers → caucus ends
+    expect(sim.s.activeCaucus).toBeNull();
   });
 });
 

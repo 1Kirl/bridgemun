@@ -261,7 +261,7 @@ export type ResponseWait = {
   responseDeadlineMs: number;
   /** True once the base timer passed and the phase is held for humans. */
   holding: boolean;
-  /** Seats already noted as "offline — not awaited" (avoids repeated record lines). */
+  /** Legacy field from the first W1 version (offline seats were not awaited); no longer written. */
   notedOffline?: SeatId[];
 };
 
@@ -307,6 +307,12 @@ export type Phase =
       aiDoneSeats: SeatId[];
       extensionUsedSec: number;
       wait?: ResponseWait;
+      /**
+       * W1: present humans whose explicit "no motion" from an earlier window still stands because nothing meaningful
+       * changed since (no new statement, speaker, document or amendment state). They are not asked again; the window
+       * still stays open for its normal timer so they can move a motion if they want.
+       */
+      standingSeats?: SeatId[];
     }
   | {
       type: "MOTION_VOTE";
@@ -372,6 +378,8 @@ export type CaucusState = {
   usedSec: number;
   spokenSeats: SeatId[];
   isExtension: boolean;
+  /** W1: humans who chose "pass for the rest of this caucus" (they may still volunteer in any turn). */
+  passAll?: SeatId[];
 };
 
 export type ForumEngineState = {
@@ -409,6 +417,8 @@ export type ForumEngineState = {
   divisionProposals?: Record<string, DivisionProposal>;
   votingOrder?: string[];
   reorderAdopted?: boolean;
+  /** W1: a human's explicit "no motion" and the floor context it was given in (see FLOOR_OPEN.standingSeats). */
+  standingNoMotion?: Record<SeatId, string>;
 
   /**
    * reason "owner": app pause by the room owner. reason "no_humans": idle hold (app policy H1) entered when a
@@ -441,7 +451,8 @@ export type Command =
   | { type: "request_extension"; seat: SeatId }
   | { type: "cast_vote"; seat: SeatId; ballotId: string; choice: VoteChoice }
   | { type: "volunteer"; seat: SeatId }
-  | { type: "volunteer_pass"; seat: SeatId }
+  /** turn: this volunteer round only · caucus: every remaining round of this caucus · resume: be asked every round again */
+  | { type: "volunteer_pass"; seat: SeatId; scope?: "turn" | "caucus" | "resume" }
   | { type: "caucus_ready"; seat: SeatId }
   | {
       type: "submit_document";

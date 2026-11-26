@@ -34,6 +34,7 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
   const rv = publicResponseView(state);
   const mine = !!rv?.required.includes(mySeat);
   const myDone = !!rv?.responded.includes(mySeat);
+  const myStanding = !!rv?.standing.includes(mySeat);
   const speaking = p.type === "SPEECH" && p.seat === mySeat && p.speakerKind === "human";
   const status: "needed" | "optional" | "done" | "speaking" | "waiting" | "none" = speaking
     ? "speaking"
@@ -60,7 +61,14 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
   const head = {
     needed: { cls: "border-amber-300 bg-amber-50", icon: <Hand size={18} className="text-amber-700" />, title: "Your response is needed", sub: rv ? RESPONSE_ACTION[rv.kind] : "" },
     optional: { cls: "border-brand/30 bg-brand-light", icon: <CircleDashed size={18} className="text-brand" />, title: "Negotiation in progress", sub: "Optional: click “Ready to resume” when you are done. The caucus ends at its adopted time, or earlier once every human is ready." },
-    done: { cls: "border-emerald-200 bg-emerald-50", icon: <CheckCircle2 size={18} className="text-emerald-700" />, title: "Done — waiting for others", sub: rv && rv.pending.length ? `${rv.pending.length} other delegate${rv.pending.length > 1 ? "s" : ""} still to respond` : "Waiting for the AI delegations / step timer" },
+    done: myStanding
+      ? {
+          cls: "border-emerald-200 bg-emerald-50",
+          icon: <CheckCircle2 size={18} className="text-emerald-700" />,
+          title: rv?.kind === "volunteer" ? "You are passing for the rest of this caucus" : "Your “no motion” still stands",
+          sub: rv?.kind === "volunteer" ? "Not asked each turn. You can still volunteer in any turn, or ask to be asked again." : "Nothing has changed since you said you had no motion, so you are not asked again. You can still move a motion below while the window is open.",
+        }
+      : { cls: "border-emerald-200 bg-emerald-50", icon: <CheckCircle2 size={18} className="text-emerald-700" />, title: "Done — waiting for others", sub: rv && rv.pending.length ? `${rv.pending.length} other delegate${rv.pending.length > 1 ? "s" : ""} still to respond` : "Waiting for the AI delegations / step timer" },
     speaking: { cls: "border-red-200 bg-red-50", icon: <Mic size={18} className="text-red-700" />, title: "You have the floor", sub: "Speak now; end your speech when you are finished" },
     waiting: { cls: "border-gray-200 bg-gray-50", icon: <CircleDashed size={18} className="text-gray-500" />, title: "No action needed from you", sub: "Waiting for other delegates to respond" },
     none: { cls: "border-gray-200 bg-gray-50", icon: <UserCheck size={18} className="text-gray-500" />, title: "No action needed right now", sub: "You can still use the optional actions below" },
@@ -102,15 +110,37 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
       {present && p.type === "DIVISION_PROPOSALS" && <DivisionControls state={state} mySeat={mySeat} actions={actions} />}
       {present && (p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && <VoteControls state={state} mySeat={mySeat} actions={actions} />}
       {present && p.type === "MOD_CAUCUS" && (
-        <div className="flex flex-wrap gap-2" data-testid="volunteer-controls">
-          <Button size="md" disabled={busy || p.volunteers.includes(mySeat)} onClick={() => void send({ type: "volunteer", seat: mySeat }, { phaseId: state.phaseId })}>
-            <Hand size={14} className="mr-1" /> {p.volunteers.includes(mySeat) ? "Volunteered ✓" : "Volunteer to speak"}
-          </Button>
-          {!p.volunteers.includes(mySeat) && (
-            <Button size="md" variant="secondary" disabled={busy || (p.passed ?? []).includes(mySeat)} onClick={() => void send({ type: "volunteer_pass", seat: mySeat }, { phaseId: state.phaseId })}>
-              {(p.passed ?? []).includes(mySeat) ? "Passed ✓" : "Not this round"}
+        <div className="space-y-2" data-testid="volunteer-controls">
+          <p className="text-xs text-gray-600">
+            Speaking turn {(state.activeCaucus?.spokenSeats.length ?? 0) + 1} of this moderated caucus · topic “{state.activeCaucus?.topic}”.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="md" disabled={busy || p.volunteers.includes(mySeat)} onClick={() => void send({ type: "volunteer", seat: mySeat }, { phaseId: state.phaseId })}>
+              <Hand size={14} className="mr-1" /> {p.volunteers.includes(mySeat) ? "Volunteered ✓" : "Volunteer for this turn"}
             </Button>
-          )}
+            {!p.volunteers.includes(mySeat) && !(state.activeCaucus?.passAll ?? []).includes(mySeat) && (
+              <Button size="md" variant="secondary" disabled={busy || (p.passed ?? []).includes(mySeat)} onClick={() => void send({ type: "volunteer_pass", seat: mySeat, scope: "turn" }, { phaseId: state.phaseId })}>
+                {(p.passed ?? []).includes(mySeat) ? "Passed this turn ✓" : "Pass this turn only"}
+              </Button>
+            )}
+          </div>
+          {!p.volunteers.includes(mySeat) &&
+            ((state.activeCaucus?.passAll ?? []).includes(mySeat) ? (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                You are passing for the rest of this caucus.
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "volunteer_pass", seat: mySeat, scope: "resume" })}>
+                  Ask me every turn again
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "volunteer_pass", seat: mySeat, scope: "caucus" }, { phaseId: state.phaseId })}>
+                  Pass for the rest of this caucus
+                </Button>
+                <span className="text-[11px] text-gray-500">Not asked again in this caucus; you can still volunteer in any turn. Ends with the caucus.</span>
+              </div>
+            ))}
+          <p className="text-[11px] text-gray-500">“Pass this turn only” means you are asked again in the next speaking turn.</p>
         </div>
       )}
       {present && p.type === "AMENDMENT_SPONSOR_RESPONSE" && mine && !myDone && (
@@ -452,6 +482,11 @@ function FloorControls({ state, mySeat, actions }: Props) {
   return (
     <div className="space-y-2 rounded-xl border border-brand/20 bg-brand/5 p-3">
       <p className="text-sm font-black text-brand">Floor is open — move a motion</p>
+      {(p.standingSeats ?? []).includes(mySeat) && !ready && (
+        <p className="rounded-lg bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800" data-testid="standing-no-motion">
+          Your earlier “no motion” still stands — nothing has changed, so you do not need to answer again. Move a motion if you want; otherwise this window simply runs its normal time.
+        </p>
+      )}
       <select value={type} onChange={(e) => setType(e.target.value as MotionType)} className="w-full rounded-lg border border-gray-200 p-2 text-sm">
         {MOTION_CHOICES.map((m) => (
           <option key={m} value={m}>
