@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Logo } from "@/components/brand/Logo";
 import { Mail, Lock, User, UserPlus, ChevronRight } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { Input } from "../ui/Input";
@@ -54,6 +55,7 @@ export const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }: RegisterModa
       <form onSubmit={handleSubmit} className="flex flex-col space-y-6">
         {/* Content Heading */}
         <div className="text-center">
+          <Logo className="mb-3 justify-center" />
           <p className="text-sm text-gray-400 mt-1">
             Join our platform to participate in Model UN forums
           </p>

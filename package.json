@@ -17,6 +17,7 @@
     "firebase:deploy-rules": "firebase deploy --only firestore:rules,firestore:indexes --project bridgemun"
   },
   "dependencies": {
+    "@phosphor-icons/react": "2.1.10",
     "@types/jsrsasign": "^10.5.15",
     "@zoom/videosdk": "^2.3.15",
     "clsx": "^2.1.1",

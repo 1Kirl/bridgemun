@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
 import { HMUN_RULES } from "@/engine/ruleset/hmun-ga-2026";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -43,6 +45,11 @@ export function Lobby({ uid, mySeat, meta, state, actions }: ForumViewProps) {
     <div className="min-h-screen bg-[#f1f5f9] px-4 py-8">
       <div className="mx-auto max-w-4xl space-y-5">
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <Link href="/" aria-label="BridgeMUN home">
+              <Logo size="sm" />
+            </Link>
+          </div>
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-brand">Waiting room</p>
           <h1 className="mt-1 text-2xl font-black text-gray-900">{meta.title}</h1>
           <p className="mt-1 text-sm text-gray-600">

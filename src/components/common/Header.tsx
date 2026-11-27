@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LogOut, User } from "lucide-react";
 import { Button } from "../ui/Button";
 import { useAuth } from "@/context/AuthContext";
+import { Logo } from "@/components/brand/Logo";
 
 interface HeaderProps {
   onLoginClick: () => void;
@@ -17,13 +18,10 @@ export const Header = ({ onLoginClick }: HeaderProps) => {
     <header className="fixed top-0 left-0 right-0 z-50 flex h-16 items-center justify-between border-b border-gray-100 bg-white/80 px-6 backdrop-blur-md">
       <Link
         href="/"
-        className="flex items-center gap-2 rounded-md outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#0088cc]/30"
-        aria-label="Mock UN Platform home"
+        className="rounded-md outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[#1580d8]/30"
+        aria-label="BridgeMUN home"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded bg-[#0088cc] font-bold text-white">
-          UN
-        </div>
-        <span className="text-lg font-bold text-[#0088cc]">Mock UN Platform</span>
+        <Logo />
       </Link>
       <div className="flex items-center gap-4">
         {user ? (

@@ -1,0 +1,536 @@
+{
+  "collectedOn": "2026-11-27",
+  "agenda": "climate-adaptation-finance",
+  "docs": [
+    {
+      "id": "paris-agreement-art9",
+      "country": "intl",
+      "type": "intl_background",
+      "title": "Paris Agreement (Article 9)",
+      "publisher": "UNFCCC",
+      "url": "https://unfccc.int/files/essential_background/convention/application/pdf/english_paris_agreement.pdf",
+      "date": "2015-12",
+      "location": "Article 9, paragraphs 1-5",
+      "quote": "Developed country Parties shall provide financial resources to assist developing country Parties with respect to both mitigation and adaptation in continuation of their existing obligations under the Convention.",
+      "points": [
+        "Art. 9.1: developed countries have an obligation ('shall') to provide finance for both mitigation and adaptation; Art. 9.2: other Parties are encouraged to contribute voluntarily.",
+        "Art. 9.3: developed countries should continue to take the lead in mobilising finance from a wide variety of sources, noting the significant role of public funds; mobilisation should progress beyond previous efforts.",
+        "Art. 9.4: scaled-up finance should aim at a balance between adaptation and mitigation, considering the need for public and grant-based resources for adaptation, especially for LDCs and SIDS.",
+        "Art. 9.5: developed countries must communicate indicative finance information every two years."
+      ],
+      "caveats": "Treaty text, adopted 12 Dec 2015. Basis for all later finance decisions; the US withdrawal took effect 27 Jan 2026 (see us-cn-71-2025).",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "glasgow-1-cma3-para18",
+      "country": "intl",
+      "type": "intl_background",
+      "title": "Decision 1/CMA.3 Glasgow Climate Pact (in FCCC/PA/CMA/2021/10/Add.1)",
+      "publisher": "UNFCCC",
+      "url": "https://unfccc.int/sites/default/files/resource/cma2021_10_add1_adv.pdf",
+      "date": "2022-03-08",
+      "location": "Decision 1/CMA.3, para. 18 (and para. 19)",
+      "quote": "Urges developed country Parties to at least double their collective provision of climate finance for adaptation to developing country Parties from 2019 levels by 2025",
+      "points": [
+        "Para 18 urges developed countries to at least double collective adaptation finance from 2019 levels by 2025, in the context of balancing mitigation and adaptation, recalling Art. 9.4.",
+        "Para 19 calls on MDBs, other financial institutions and the private sector to enhance mobilisation, particularly for adaptation."
+      ],
+      "caveats": "Adopted Nov 2021 at COP26; document dated 8 March 2022 (advance version). The doubling target year (2025) has now passed; reaffirmed in 1/CMA.7 para 53. UNEP's 2025 report expects it to be missed (see unep-agr-2025).",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "ncqg-1-cma6",
+      "country": "intl",
+      "type": "intl_background",
+      "title": "Decision 1/CMA.6 New collective quantified goal on climate finance (FCCC/PA/CMA/2024/17/Add.1)",
+      "publisher": "UNFCCC",
+      "url": "https://unfccc.int/sites/default/files/resource/cma2024_17a01_adv.pdf",
+      "date": "2025-03-27",
+      "location": "Decision 1/CMA.6, paras 7-10, 14, 16-18, 27",
+      "quote": "decides to set a goal, in extension of the goal referred to in paragraph 53 of decision 1/CP.21, with developed country Parties taking the lead, of at least USD 300 billion per year by 2035",
+      "points": [
+        "Para 7: calls on all actors to scale up finance to developing countries from all public and private sources to at least USD 1.3 trillion per year by 2035.",
+        "Para 8: sets a goal of at least USD 300 billion per year by 2035, developed countries taking the lead, from a wide variety of sources (public/private, bilateral/multilateral, alternative), with Parties able to voluntarily count all climate-related MDB outflows.",
+        "Para 9: encourages developing countries to contribute voluntarily, including via South-South cooperation; para 10: this does not affect any Party's development or recipient status.",
+        "Para 14: acknowledges the need for public, grant-based and highly concessional finance, particularly for adaptation and loss and damage.",
+        "Para 16: pursue efforts to at least triple annual outflows from the GCF/GEF, Adaptation Fund, LDCF and SCCF from 2022 levels by 2030.",
+        "Para 17: scaled-up finance should aim at a balance between adaptation and mitigation; para 18: recognises the need to dramatically scale up adaptation finance.",
+        "Para 27: launches the 'Baku to Belém Roadmap to 1.3T', with a report due by CMA 7 (Nov 2025)."
+      ],
+      "caveats": "Adopted at COP29 Baku (11-24 Nov 2024); document is the advance version dated 27 March 2025. The 300bn goal covers mitigation and adaptation together; no separate adaptation sub-goal.",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "mutirao-1-cma7",
+      "country": "intl",
+      "type": "intl_background",
+      "title": "Decision 1/CMA.7 Global Mutirão: Uniting humanity in a global mobilization against climate change (FCCC/PA/CMA/2025/19/Add.1)",
+      "publisher": "UNFCCC",
+      "url": "https://unfccc.int/sites/default/files/resource/cma2025_19a01E.pdf",
+      "date": "2026-03-30",
+      "location": "Decision 1/CMA.7, paras 48-54",
+      "quote": "Reaffirms the doubling by 2025 in paragraph 18 of decision 1/CMA.3, calls for efforts to at least triple adaptation finance by 2035 in the context of decision 1/CMA.6",
+      "points": [
+        "Para 48: decides to urgently advance actions toward USD 1.3 trillion per year by 2035 and stresses staying on the pathway to the USD 300 billion goal, developed countries taking the lead.",
+        "Para 49: emphasises the need for public, grant-based and highly concessional finance particularly for adaptation in LDCs and SIDS.",
+        "Para 51: recalls tripling outflows of the GCF/GEF/AF/LDCF/SCCF from 2022 levels by 2030.",
+        "Para 52: convenes a high-level ministerial round table on NCQG implementation.",
+        "Para 53: reaffirms the Glasgow doubling, calls for efforts to at least triple adaptation finance by 2035, and urges developed countries to raise the trajectory of their adaptation finance.",
+        "Para 54: establishes a two-year work programme on climate finance, including on Art. 9.1."
+      ],
+      "caveats": "Adopted at COP30 Belém (10-22 Nov 2025); official addendum dated 30 March 2026. Paragraph numbers checked against both the President's proposal (L.24, 22 Nov 2025) and the adopted text. The tripling is phrased as 'calls for efforts', with no baseline figure or dollar amount stated in the text.",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "gga-12-cma7",
+      "country": "intl",
+      "type": "intl_background",
+      "title": "Decision 12/CMA.7 Global goal on adaptation, incl. annex 'Belém Adaptation Indicators' (FCCC/PA/CMA/2025/19/Add.2)",
+      "publisher": "UNFCCC",
+      "url": "https://unfccc.int/sites/default/files/resource/cma2025_19a02E.pdf",
+      "date": "2026-03-30",
+      "location": "Decision 12/CMA.7, paras 5-9; annex paras 3-13 (finance indicator: annex para 12(d))",
+      "quote": "Also emphasizes that the Belém Adaptation Indicators do not create new financial obligations or commitments, nor liability or compensation",
+      "points": [
+        "Para 5-6: concludes the UAE-Belém work programme and adopts the Belém Adaptation Indicators in the annex.",
+        "Our count of the annex (paras 3-13) gives 59 indicators across the thematic targets 9(a)-(g) and dimensional targets 10(a)-(d).",
+        "Para 7: indicators are voluntary, non-prescriptive, non-punitive, country-driven, not a basis for comparing Parties, and may not be used as a condition for developing countries to access funding.",
+        "Para 8: indicators create no new financial obligations or commitments, nor liability or compensation.",
+        "Annex para 12(d): an indicator on the amount of adaptation finance, including international public adaptation finance provided by developed countries and received by developing countries, reported under the transparency framework (decision 18/CMA.1)."
+      ],
+      "caveats": "Adopted 22 Nov 2025 at COP30; secondary reports say several Parties objected after adoption (not verified in an official source). GGA is a standing agenda item through CMA 8 (Nov 2026).",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "unep-agr-2025",
+      "country": "intl",
+      "type": "research",
+      "title": "Adaptation Gap Report 2025: Running on Empty (news release on findings)",
+      "publisher": "UNEP Copenhagen Climate Centre (UNEP-CCC), reporting UNEP's report",
+      "url": "https://unepccc.org/slow-climate-adaptation-threatening-lives-and-economies/",
+      "date": "2025-10-31",
+      "location": "News article, finance findings paragraphs",
+      "quote": "International public adaptation finance flows to developing countries were US$26 billion in 2023, down from US$28 billion the previous year",
+      "points": [
+        "Developing-country adaptation finance needs are estimated at US$310 billion per year by 2035 (modelled costs), rising to US$365 billion when based on needs in NDCs/NAPs.",
+        "International public adaptation finance to developing countries was US$26 billion in 2023, down from US$28 billion in 2022.",
+        "On current trends the Glasgow goal of doubling international public adaptation finance from 2019 levels will not be achieved.",
+        "Realistic private investment potential in national public adaptation priorities is put at about US$50 billion per year.",
+        "Some 172 countries have at least one national adaptation policy, strategy or plan."
+      ],
+      "caveats": "Research finding, not a government position. UNEP's own report page (unep.org) returned 403 and the full PDF was too large to fetch; figures come from the UNEP-CCC article on the report (report launched 29 Oct 2025). Pre-dates the COP30 tripling call.",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "us-eo-14162-paris",
+      "country": "us",
+      "type": "official_position",
+      "title": "Executive Order: Putting America First in International Environmental Agreements",
+      "publisher": "The White House",
+      "url": "https://www.whitehouse.gov/presidential-actions/2025/01/putting-america-first-in-international-environmental-agreements/",
+      "date": "2025-01-20",
+      "location": "Section 3(a), 3(c), 3(e)",
+      "quote": "The U.S. International Climate Finance Plan is revoked and rescinded immediately.",
+      "points": [
+        "Sec. 3(a): orders immediate written notification of US withdrawal from the Paris Agreement.",
+        "Sec. 3(c): orders the US to immediately cease or revoke any purported financial commitment made under the UNFCCC.",
+        "Sec. 3(e): revokes the US International Climate Finance Plan with immediate effect."
+      ],
+      "supports": [
+        "Withdrawing the US from the Paris Agreement and from UNFCCC-related finance commitments.",
+        "Ending the previous administration's international climate finance plan."
+      ],
+      "opposes": [
+        "US financial commitments under the UNFCCC (ordered ceased or revoked)."
+      ],
+      "caveats": "Current US federal policy as of the retrieval date; supersedes the Biden-era climate finance plan and pledges. Further steps followed in Jan-Feb 2026 (GCF exit, UNFCCC withdrawal notice).",
+      "retrieved": "2026-11-27",
+      "redLines": []
+    },
+    {
+      "id": "us-cn-71-2025-paris-withdrawal",
+      "country": "us",
+      "type": "national_context",
+      "title": "Depositary Notification C.N.71.2025.TREATIES-XXVII.7.d: Paris Agreement, United States of America: Withdrawal",
+      "publisher": "UN Secretary-General (Depositary), UN Treaty Collection",
+      "url": "https://treaties.un.org/doc/Publication/CN/2025/CN.71.2025-Eng.pdf",
+      "date": "2025-01-27",
+      "location": "Full notification (1 page)",
+      "quote": "The action shall take effect for the United States of America on 27 January 2026",
+      "points": [
+        "US withdrawal notice was effected on 27 January 2025.",
+        "Under Art. 28(1)-(2) the withdrawal took effect for the US on 27 January 2026."
+      ],
+      "caveats": "Official legal record. As of 2026-11-27 the US is no longer a Party to the Paris Agreement and so is not bound by NCQG decisions taken under the CMA.",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "us-cn-102-2026-unfccc-withdrawal",
+      "country": "us",
+      "type": "national_context",
+      "title": "Depositary Notification C.N.102.2026.TREATIES-XXVII.7: UNFCCC, United States of America: Withdrawal",
+      "publisher": "UN Secretary-General (Depositary), UN Treaty Collection",
+      "url": "https://treaties.un.org/doc/Publication/CN/2026/CN.102.2026-Eng.pdf",
+      "date": "2026-02-27",
+      "location": "Full notification (1 page)",
+      "quote": "The action shall take effect for the United States of America on 27 February 2027",
+      "points": [
+        "US notice of withdrawal from the UNFCCC itself was effected on 27 February 2026.",
+        "Under Convention Art. 25(1)-(2) the withdrawal takes effect on 27 February 2027; until then the US remains a UNFCCC Party."
+      ],
+      "caveats": "As of the retrieval date the UNFCCC withdrawal is pending (effective 27 Feb 2027).",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "us-wh-factsheet-intl-orgs-2026",
+      "country": "us",
+      "type": "official_position",
+      "title": "Fact Sheet: President Donald J. Trump Withdraws the United States from International Organizations that Are Contrary to the Interests of the United States",
+      "publisher": "The White House",
+      "url": "https://www.whitehouse.gov/fact-sheets/2026/01/fact-sheet-president-donald-j-trump-withdraws-the-united-states-from-international-organizations-that-are-contrary-to-the-interests-of-the-united-states/",
+      "date": "2026-01-07",
+      "location": "Fact sheet body",
+      "quote": "By exiting these entities, President Trump is saving taxpayer money and refocusing resources on America First priorities.",
+      "points": [
+        "Announces a memorandum withdrawing the US from 66 international organisations (35 non-UN organisations and 31 UN entities).",
+        "Justifies the move by saying many such bodies promote 'radical climate policies' and waste taxpayer money.",
+        "Recalls that the President initiated withdrawal from the Paris Agreement immediately on returning to office."
+      ],
+      "supports": [
+        "Ending US taxpayer funding for international bodies it characterises as advancing climate and globalist agendas."
+      ],
+      "opposes": [
+        "Participation in and funding of multilateral climate bodies."
+      ],
+      "caveats": "The fact sheet does not itself list the UNFCCC, IPCC or GCF by name; that the UNFCCC was included is shown by the later depositary notice (C.N.102.2026). The memorandum text itself was not opened.",
+      "retrieved": "2026-11-27",
+      "redLines": []
+    },
+    {
+      "id": "us-treasury-gcf-withdrawal",
+      "country": "us",
+      "type": "official_position",
+      "title": "Treasury Announces the United States' Immediate Withdrawal from the Green Climate Fund (press release sb0352)",
+      "publisher": "U.S. Department of the Treasury",
+      "url": "https://home.treasury.gov/news/press-releases/sb0352",
+      "date": "2026-01-08",
+      "location": "Press release body",
+      "quote": "Our nation will no longer fund radical organizations like the GCF",
+      "points": [
+        "Treasury notified the GCF that the US is withdrawing from the Fund and stepping down from its seat on the GCF Board, effective immediately.",
+        "Continued participation was found no longer consistent with the administration's priorities and goals."
+      ],
+      "supports": [
+        "Exiting multilateral climate funds."
+      ],
+      "opposes": [
+        "Funding the Green Climate Fund."
+      ],
+      "caveats": "Current policy as of retrieval. Supersedes earlier US GCF pledges (not reviewed here).",
+      "retrieved": "2026-11-27",
+      "redLines": []
+    },
+    {
+      "id": "uk-icf-strategy-2026",
+      "country": "gb",
+      "type": "official_position",
+      "title": "International Climate Finance Strategy 2026",
+      "publisher": "UK Government (gov.uk)",
+      "url": "https://www.gov.uk/government/publications/international-climate-finance-strategy-2026/international-climate-finance-strategy-2026",
+      "date": "2026-06-22",
+      "location": "Sections: Introduction; 'A system shift: using all UK levers to deliver impact'; Priority 1; Priority 3 'Delivering adaptation at scale'",
+      "quote": "The ODA element of ICF4 will remain balanced between support for action on mitigation and adaptation",
+      "points": [
+        "States the UK has met its third ICF commitment of at least £11.6 billion over FY2021/22-2025/26.",
+        "New ICF4: around £6 billion of ODA from FY2026/27 to FY2028/29, plus £6.7 billion of additional public finance (e.g. UK Export Finance, British International Investment, MDB guarantees).",
+        "Says the package will deliver the UK's commitment under the NCQG and references the international call for efforts to triple adaptation finance by 2035.",
+        "ICF4 ODA to remain balanced between mitigation and adaptation; at least 50% of all adaptation finance directed to the most vulnerable countries.",
+        "Priority 1 includes reforming the global financial architecture (MDBs) and mobilising significantly more private capital."
+      ],
+      "supports": [
+        "Delivering the UK share of the NCQG (USD 300bn by 2035).",
+        "Mitigation-adaptation balance in ODA climate finance; at least half of adaptation finance to the most vulnerable countries.",
+        "MDB reform and private capital mobilisation; using non-ODA public finance instruments."
+      ],
+      "caveats": "Current UK policy (June 2026). ICF4 ODA (~£6bn over 3 years) is lower per year than ICF3 (£11.6bn over 5 years), with non-ODA finance added; the page does not confirm whether the earlier goal of £1.5bn adaptation finance in 2025 was met. The 'triple adaptation finance' reference is to the COP30 collective call, not a UK-specific target.",
+      "retrieved": "2026-11-27",
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "fr-climate-finance-2024",
+      "country": "fr",
+      "type": "official_position",
+      "title": "La France poursuit son engagement financier en faveur de l'action climatique mondiale en 2024",
+      "publisher": "Ministère de l'Europe et des Affaires étrangères (France)",
+      "url": "https://www.diplomatie.gouv.fr/fr/presse-et-ressources/decouvrir-et-informer/actualites/la-france-poursuit-son-engagement-financier-en-faveur-de-l-action-climatique-mondiale-en-2024",
+      "date": "2025-11-07",
+      "location": "Communiqué body",
+      "quote": "la France a fourni 7,2 milliards d'euros de financements pour le climat",
+      "points": [
+        "France reports €7.2 billion of climate finance in 2024, of which €3 billion for adaptation, mostly loans and grants.",
+        "The same page also cites €6 billion for climate in developing countries with at least one third for adaptation, without reconciling it with the €7.2 billion figure.",
+        "Adaptation finance rose from €2.8 billion (2023) to €3 billion (2024).",
+        "Ahead of COP30, France calls for contributions from all countries, actors and sectors and says it is working on innovative sources of finance."
+      ],
+      "supports": [
+        "Continued high levels of climate finance, with a substantial adaptation share.",
+        "Broadening the contributor base ('all countries') and innovative sources of finance."
+      ],
+      "caveats": "Covers 2024 data. The 2021-2025 target (€6bn/yr, one third adaptation) is not stated on this page; a reported 2025 figure (€7.4bn) was not verified. France is largely loan-based; there are two totals (6 vs 7.2 bn) with unclear scope.",
+      "retrieved": "2026-11-27",
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "de-climate-finance-2024",
+      "country": "de",
+      "type": "national_context",
+      "title": "International climate finance 2024: Germany remains reliable partner in global climate policy (joint press release No. 085/25)",
+      "publisher": "BMZ and BMUKN (Germany)",
+      "url": "https://www.bundesumweltministerium.de/PM11479-1",
+      "date": "2025-09-30",
+      "location": "Press release body",
+      "quote": "",
+      "points": [
+        "2024 international climate finance totalled €11.8 billion, of which €6.1 billion from the federal budget (2023: €5.7 billion).",
+        "€5.7 billion mobilised funds, including €4.6 billion KfW/DEG market funds and, for the first time, over €1 billion of mobilised private investment.",
+        "States Germany delivered on its pledge of at least €6 billion a year in budget funds.",
+        "Minister Schneider: as renewables get cheaper, more limited public funds could go to adaptation in future."
+      ],
+      "supports": [
+        "Shifting scarce public funds toward adaptation as mitigation becomes commercially viable (ministerial statement)."
+      ],
+      "caveats": "Superseded by 2025 figures (see de-climate-finance-2025): budget funds fell to €4.7bn in 2025. No separate adaptation amount given.",
+      "retrieved": "2026-11-27",
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "de-climate-finance-2025",
+      "country": "de",
+      "type": "official_position",
+      "title": "Internationale Klimafinanzierung 2025: Starke Mobilisierung öffentlicher und privater Mittel für den Globalen Süden",
+      "publisher": "BMUKN and BMZ (Germany)",
+      "url": "https://www.bundesumweltministerium.de/pressemitteilung/internationale-klimafinanzierung-2025-starke-mobilisierung-oeffentlicher-und-privater-mittel-fuer-den-globalen-sueden",
+      "date": "2026-10-06",
+      "location": "Press release body",
+      "quote": "Aus Haushaltsmitteln stellte die Bundesregierung 2025 insgesamt 4,7 Milliarden Euro für die internationale Klimafinanzierung bereit (2024: 6,1 Milliarden Euro).",
+      "points": [
+        "Budget funds for international climate finance fell to €4.7 billion in 2025 (2024: €6.1 billion); about 85% from BMZ.",
+        "Mobilised funds €6.1 billion: €5.15 billion KfW/DEG market funds (+€570 million vs 2024) and €950 million private; about €652 million in export credit guarantees for climate-friendly projects.",
+        "€1.1 billion for nature and biodiversity (BMZ €834m, BMUKN €247m).",
+        "Ministers say public budgets are shrinking, so Germany relies more on leveraged and private investment.",
+        "2026 figures due in autumn 2027."
+      ],
+      "supports": [
+        "Leveraging private and market finance (KfW/DEG) to offset tighter public budgets."
+      ],
+      "caveats": "Most recent German data. The release does not mention the €6bn/yr budget target, so it does not say the target was missed (that is our inference from the numbers). No separate adaptation amount; no mention of NCQG or COP31.",
+      "retrieved": "2026-11-27",
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "jp-cop26-pm-statement",
+      "country": "jp",
+      "type": "official_position",
+      "title": "COP26 World Leaders Summit Statement by Prime Minister KISHIDA Fumio",
+      "publisher": "Government of Japan (via UNFCCC)",
+      "url": "https://unfccc.int/sites/default/files/resource/JAPAN_cop26cmp16cma3_HLS_EN.pdf",
+      "date": "2021-11-02",
+      "location": "Finance and adaptation paragraphs (pp. 2-3)",
+      "quote": "For adaptation to climate change, Japan will double our assistance to approximately 14.8 billion USD such as in the area of disaster risk reduction.",
+      "points": [
+        "Recalls Japan's June 2021 pledge of USD 60 billion of public and private climate finance over five years.",
+        "Adds up to USD 10 billion over the coming five years, including for an ADB-partnered Innovative Financial Facility for Climate.",
+        "Pledges to double adaptation assistance to about USD 14.8 billion (e.g. disaster risk reduction).",
+        "Calls on other developed countries to help close the USD 100 billion gap."
+      ],
+      "supports": [
+        "Doubling adaptation support (2021-2025) with a disaster-risk-reduction focus.",
+        "Public and private finance combined; Asia-focused decarbonisation finance."
+      ],
+      "caveats": "2021 pledge covering 2021-2025, now expired. MOFA's yen figures (¥6.5 trillion; ¥1.6 trillion for adaptation) could not be opened (403). No successor numerical pledge was found in Japan's COP30 statement.",
+      "retrieved": "2026-11-27",
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "jp-cop30-minister-statement",
+      "country": "jp",
+      "type": "official_position",
+      "title": "COP30 Ministerial Statement by ISHIHARA Hirotaka, Minister of the Environment, Japan",
+      "publisher": "Government of Japan (via UNFCCC)",
+      "url": "https://unfccc.int/sites/default/files/resource/JAPAN_cop30cmp20cma7_HLS_ENG.pdf",
+      "date": "2025-11-18",
+      "location": "Sections '(Adaptation / Loss and Damage)' and '(Climate Finance)', p. 5",
+      "quote": "Based on the situation of limited public sources, it is important to steadily advance expanding climate finance sources for developing countries by all stakeholders, including private capital mobilization.",
+      "points": [
+        "Japan supports adaptation in many countries; Japan's Ministry of the Environment supports early warning systems in the Asia-Pacific through public-private partnerships.",
+        "On the NCQG, stresses limited public sources and the need to expand finance sources from all stakeholders, including private capital.",
+        "Context: new NDC of 60% cuts by FY2035 and 73% by FY2040 vs FY2013; JCM with 31 partner countries; JICA 'MIDORI' initiative for Latin America."
+      ],
+      "supports": [
+        "Expanding the contributor and source base (all stakeholders, private capital) given limited public money.",
+        "Early warning systems as an adaptation priority."
+      ],
+      "caveats": "No new quantified finance or adaptation pledge in the statement. ENB reports from COP31 (not included as a source) describe Japan arguing that tripling-baseline talks belong in the finance negotiations.",
+      "retrieved": "2026-11-27",
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "kr-gcf2-pledge",
+      "country": "kr",
+      "type": "national_context",
+      "title": "The Republic of Korea commits significant increase in support to GCF",
+      "publisher": "Green Climate Fund",
+      "url": "https://www.greenclimate.fund/news/republic-korea-commits-significant-increase-support-gcf",
+      "date": "2023-09-09",
+      "location": "News release body",
+      "quote": "",
+      "points": [
+        "President Yoon Suk Yeol announced a USD 300 million pledge to the GCF's second replenishment (GCF-2) at the G20 summit in New Delhi.",
+        "GCF describes this as a 50 per cent increase on Korea's GCF-1 commitment.",
+        "Korea is the GCF host country, with headquarters in Incheon (Songdo)."
+      ],
+      "caveats": "Published by the GCF, not the Korean government; 2023 pledge. Press reports (not verified) say only part has been paid as of 2026.",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    },
+    {
+      "id": "kr-cop29-statement",
+      "country": "kr",
+      "type": "official_position",
+      "title": "Republic of Korea National Statement at COP29",
+      "publisher": "Government of the Republic of Korea (via UNFCCC)",
+      "url": "https://unfccc.int/sites/default/files/resource/REPUBLIC%20OF%20KOREA_cop29cmp19cma6_HLS_ENG.pdf",
+      "date": "2024-11",
+      "location": "NCQG/finance passage, pp. 3-4",
+      "quote": "Although not an Annex II Party under the Convention, Korea has expanded its voluntary contributions through various bilateral and multilateral collaborations.",
+      "points": [
+        "Korea says the NCQG should foster voluntary and collective participation of all Parties.",
+        "Stresses it is not an Annex II Party, so its contributions are voluntary; commits to further increasing them, including green ODA.",
+        "Highlights national adaptation plans since 2011 and an AI-based flood forecasting system; launched a Korea Climate Transparency Alliance."
+      ],
+      "supports": [
+        "Voluntary participation of all Parties in the NCQG.",
+        "Increasing Korea's voluntary contributions, including green ODA."
+      ],
+      "redLines": [
+        "Korea's contributions are voluntary (not an Annex II Party): it rejects being treated as an obligated contributor."
+      ],
+      "caveats": "Delivered in Nov 2024 (PDF created 21 Nov 2024), before the NCQG was adopted. Korea's COP30 statement (17-18 Nov 2025) contains no finance content (see kr-cop30-statement).",
+      "retrieved": "2026-11-27",
+      "opposes": []
+    },
+    {
+      "id": "kr-cop30-statement",
+      "country": "kr",
+      "type": "national_context",
+      "title": "The Republic of Korea's National Statement at COP30",
+      "publisher": "Government of the Republic of Korea (via UNFCCC)",
+      "url": "https://unfccc.int/sites/default/files/resource/REPUBLICOFKOREA_cop30cmp20cma7_HLS_ENG.pdf",
+      "date": "2025-11",
+      "location": "pp. 1-3",
+      "quote": "Korea will reduce greenhouse gas emissions by 53 to 61 percent from 2018 levels by 2035.",
+      "points": [
+        "Presents Korea's 2035 NDC: 53-61% below 2018 levels by 2035; carbon neutrality by 2050.",
+        "Announces the new Ministry of Climate, Energy and Environment (launched Oct 2025).",
+        "Describes Korea as a 'responsible middle power'; the statement contains no climate finance or adaptation finance commitments."
+      ],
+      "caveats": "Useful as context only: no finance position. PDF created 17 Nov 2025.",
+      "retrieved": "2026-11-27",
+      "supports": [],
+      "opposes": [],
+      "redLines": []
+    }
+  ],
+  "notVerified": [
+    {
+      "claim": "COP31 (Antalya, 9-20 Nov 2026) final outcome on adaptation finance (e.g. adoption of a climate finance work programme; dropping of a separate agenda item on tripling adaptation finance; Adaptation Fund pledges of about USD 50.2 million).",
+      "why": "Only press reports and ENB daily reports up to 19 Nov 2026 were found; no official UNFCCC decision text or summary, and ENB's COP31 page returned 403."
+    },
+    {
+      "claim": "The COP30 tripling target equals about USD 120 billion per year by 2035 (triple a ~USD 40bn 2025 baseline).",
+      "why": "The decision text (1/CMA.7 para 53) gives no baseline or dollar figure; the figure comes only from media."
+    },
+    {
+      "claim": "UK met its earlier goal of £1.5 billion adaptation finance in 2025.",
+      "why": "The 2026 ICF Strategy confirms the £11.6bn total but gives no 2025 adaptation figure."
+    },
+    {
+      "claim": "Japan's 2021-2025 pledge in yen (¥6.5 trillion public/private; ~¥1.6 trillion adaptation) and whether it was met.",
+      "why": "MOFA white paper page returned 403; only the USD figures in the COP26 statement were verified."
+    },
+    {
+      "claim": "France's 2025 climate finance was €7.4bn including €3.2bn adaptation; France's €6bn/yr 2021-2025 target was met every year.",
+      "why": "Seen only in search snippets; the page was not opened."
+    },
+    {
+      "claim": "Korea has paid only USD 70 million of its USD 300m GCF-2 pledge; Korea's Adaptation Fund contributions were KRW 3.6bn in 2023-2025.",
+      "why": "Korean press reports only; no official source opened."
+    },
+    {
+      "claim": "Several Parties objected to the Belém Adaptation Indicators after adoption.",
+      "why": "Reported by TWN/C2ES only; not in the decision text."
+    }
+  ],
+  "failed": [
+    {
+      "url": "https://www.unep.org/resources/adaptation-gap-report-2025",
+      "reason": "HTTP 403; used UNEP-CCC article instead"
+    },
+    {
+      "url": "https://wedocs.unep.org/20.500.11822/48798",
+      "reason": "HTTP 403"
+    },
+    {
+      "url": "https://www.uncclearn.org/wp-content/uploads/library/AGR2025.pdf",
+      "reason": "File exceeded 10 MB fetch limit"
+    },
+    {
+      "url": "https://enb.iisd.org/antalya-un-climate-change-conference-cop31",
+      "reason": "HTTP 403 (COP31 summary not retrieved)"
+    },
+    {
+      "url": "https://www.mofa.go.jp/policy/oda/white/2021/html/topics/topics04.html",
+      "reason": "HTTP 403"
+    },
+    {
+      "url": "https://www.diplomatie.gouv.fr/en/french-foreign-policy/climate-and-environment/news/2025/article/france-continues-its-2024-financial-commitment-to-global-climate-action-06-11",
+      "reason": "Loaded a generic ministry page without the article; used the French-language version"
+    },
+    {
+      "url": "https://unfccc.int/sites/default/files/english_paris_agreement.pdf",
+      "reason": "HTTP 404; used the alternative unfccc.int path"
+    }
+  ]
+}

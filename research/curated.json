@@ -1,0 +1,748 @@
+{
+ "whoIso": {
+  "bangladesh": "bd",
+  "brazil": "br",
+  "china": "cn",
+  "drc": "cd",
+  "france": "fr",
+  "germany": "de",
+  "india": "in",
+  "indonesia": "id",
+  "japan": "jp",
+  "kenya": "ke",
+  "korea": "kr",
+  "mexico": "mx",
+  "nigeria": "ng",
+  "norway": "no",
+  "russia": "ru",
+  "saudi-arabia": "sa",
+  "south-africa": "za",
+  "uk": "gb",
+  "usa": "us"
+ },
+ "names": {
+  "bangladesh": "Bangladesh",
+  "brazil": "Brazil",
+  "china": "China",
+  "drc": "DR Congo",
+  "france": "France",
+  "germany": "Germany",
+  "india": "India",
+  "indonesia": "Indonesia",
+  "japan": "Japan",
+  "kenya": "Kenya",
+  "korea": "Republic of Korea",
+  "mexico": "Mexico",
+  "nigeria": "Nigeria",
+  "norway": "Norway",
+  "russia": "Russia",
+  "saudi-arabia": "Saudi Arabia",
+  "south-africa": "South Africa",
+  "uk": "United Kingdom",
+  "usa": "United States"
+ },
+ "names2": {
+  "cn": "China",
+  "in": "India",
+  "sa": "Saudi Arabia",
+  "ke": "Kenya",
+  "za": "South Africa",
+  "cd": "DR Congo",
+  "ng": "Nigeria",
+  "rw": "Rwanda",
+  "fj": "Fiji",
+  "bd": "Bangladesh"
+ },
+ "iso3": {
+  "AUS": "au",
+  "BRA": "br",
+  "CHL": "cl",
+  "CHN": "cn",
+  "COL": "co",
+  "COD": "cd",
+  "FJI": "fj",
+  "FRA": "fr",
+  "IND": "in",
+  "IDN": "id",
+  "JPN": "jp",
+  "KEN": "ke",
+  "NOR": "no",
+  "KOR": "kr",
+  "RUS": "ru",
+  "RWA": "rw",
+  "SAU": "sa",
+  "ZAF": "za",
+  "GBR": "gb",
+  "USA": "us"
+ },
+ "verCountry": {
+  "usa": "us",
+  "uk": "gb",
+  "france": "fr",
+  "japan": "jp",
+  "korea": "kr",
+  "china": "cn",
+  "india": "in",
+  "saudi-arabia": "sa",
+  "norway": "no",
+  "brazil": "br"
+ },
+ "enb": {
+  "inc52": "https://enb.iisd.org/plastic-pollution-marine-environment-negotiating-committee-inc5.2-summary",
+  "isa31b": "https://enb.iisd.org/international-seabed-authority-isa-council-31-2-summary"
+ },
+ "corrections": [
+  {
+   "country": "germany",
+   "match": "pandemic intelligence hub",
+   "text": "Funding for the WHO Hub for Pandemic and Epidemic Intelligence in Berlin was halved from about €30m a year to €15m, with only one year committed (Health Policy Watch, 8 Jan 2026).",
+   "verification": "partly"
+  },
+  {
+   "country": "brazil",
+   "match": "July 2025 law",
+   "text": "Law 15.471 of 20 July 2026 created a national strategy to produce more vaccines and medicines domestically (Health Economic-Industrial Complex).",
+   "verification": "partly"
+  },
+  {
+   "country": "brazil",
+   "match": "lame duck",
+   "text": "Lula won the 25 Oct 2026 presidential runoff (about 51.8%) and begins a fourth term in January 2027; Flávio Bolsonaro has not conceded and seeks annulment, so continuity is likely but contested.",
+   "verification": "partly"
+  },
+  {
+   "country": "brazil",
+   "match": "Belém Health Action Plan",
+   "text": "Hosted COP30 in Belém (November 2025); its Health Ministry presented the draft Belém Health Action Plan, linking climate and health, in Brasília in July 2025.",
+   "verification": "partly"
+  },
+  {
+   "country": "japan",
+   "match": "Global Fund pledge",
+   "text": "Pledged up to ¥81 billion (about US$515 million) to the Global Fund for 2026–28 — about half its previous pledge in dollar terms (about 20% less in yen).",
+   "verification": "partly"
+  },
+  {
+   "country": "korea",
+   "match": "official development assistance by about 14%",
+   "text": "The Foreign Ministry's 2025 budget proposal cut its ODA by about 22% (KRW 2.81tn to 2.19tn) and humanitarian aid by about 51% (Korea Herald, 29 Aug 2025).",
+   "verification": "partly"
+  },
+  {
+   "country": "usa",
+   "match": "780 million",
+   "text": "Pledged money for the Bundibugyo Ebola response (reported US commitments total about US$886 million including later pledges) and US$50 million to CEPI (confirmed by CEPI).",
+   "verification": "partly"
+  },
+  {
+   "country": "factsheet",
+   "match": "15.?18%",
+   "text": "Before its withdrawal the US provided roughly a fifth of WHO's operational budget (CIDRAP; the share depends on the measure).",
+   "verification": "partly"
+  }
+ ],
+ "whoCaveats": {
+  "usa": [
+   "The provided profile marked the US as an observer for that simulation; BridgeMUN ignores this — seats, attendance and voting are decided by the meeting engine only."
+  ],
+  "brazil": [
+   "Election outcome updated 2026-11-27: Lula won the runoff; treat Brazil's commitments as continuing."
+  ]
+ },
+ "research": [
+  {
+   "id": "res-li2026-double-burden",
+   "file": "co-managing_double_burden.txt",
+   "agenda": "who-health-financing",
+   "title": "Co-managing the double burden: strategies for simultaneously tackling infectious and non-communicable diseases (scoping review)",
+   "publisher": "Infectious Diseases of Poverty 15:85 (2026), Li et al.",
+   "date": "2026",
+   "url": "https://doi.org/10.1186/s40249-026-01477-y",
+   "summary": "A scoping review of 41 systematic reviews/meta-analyses (2000–April 2026) finds two-way links between infectious and non-communicable diseases: infections such as hepatitis B/C, HPV and H. pylori raise specific cancer risks, tuberculosis is linked to chronic lung disease, and diabetes or heart disease worsen outcomes of TB, influenza and COVID-19. It argues for integrated prevention and care instead of separate programmes.",
+   "limits": "Review of reviews; associations, not costed policy options; no country position."
+  },
+  {
+   "id": "res-suhrcke2011-crises",
+   "file": "communicable_transmission_and_control.txt",
+   "agenda": "who-health-financing",
+   "title": "The Impact of Economic Crises on Communicable Disease Transmission and Control: A Systematic Review",
+   "publisher": "PLoS ONE 6(6): e20724 (2011), Suhrcke et al.",
+   "date": "2011",
+   "url": "https://doi.org/10.1371/journal.pone.0020724",
+   "summary": "Of 37 studies included, 30 found worse infectious-disease outcomes during recessions (more contact in poorer living conditions, worse access to and retention in treatment). Migrants, homeless people and prisoners were especially exposed. The size of the effect depended strongly on how governments budgeted for health during the crisis.",
+   "limits": "Mostly pre-2011 high-income settings; observational studies; old evidence."
+  },
+  {
+   "id": "res-lazcano2005-agencies",
+   "file": "contribution_international_agencies.txt",
+   "agenda": "who-health-financing",
+   "title": "The Contribution of International Agencies to the Control of Communicable Diseases",
+   "publisher": "Archives of Medical Research 36 (2005) 731–738, Lazcano-Ponce et al.",
+   "date": "2005",
+   "url": "https://doi.org/10.1016/j.arcmed.2005.07.002",
+   "summary": "A review describing how international agencies (WHO and others) have supported communicable-disease control and how unequal North–South investment in health research and capacity shapes global health inequality.",
+   "limits": "2005 narrative review; predates current WHO funding crisis."
+  },
+  {
+   "id": "res-paison-mrna-lmic",
+   "file": "potential_mRNA_combat_NCDs.txt",
+   "agenda": "who-health-financing",
+   "title": "Exploring the potential of mRNA vaccines in combatting communicable and non-communicable diseases in low-income and lower-middle-income countries",
+   "publisher": "Annals of Medicine & Surgery (review), Paison et al.",
+   "date": "2025",
+   "url": "https://doi.org/10.1097/MS9.0000000000005664",
+   "summary": "A literature review: low- and lower-middle-income countries face a double burden of infectious and non-communicable diseases (WHO projects NCDs at 70% of deaths there by 2050). mRNA platforms are fast and adaptable, but cold-chain storage, stability and delivery logistics limit their use in resource-poor settings without targeted investment.",
+   "limits": "Narrative review; potential, not demonstrated programme results."
+  },
+  {
+   "id": "res-ravensbergen2016-asylum",
+   "file": "prevalence_of_ID_refugees.txt",
+   "agenda": "who-health-financing",
+   "title": "High prevalence of infectious diseases and drug-resistant microorganisms in asylum seekers admitted to hospital",
+   "publisher": "PLoS ONE 11(5): e0154791 (2016), Ravensbergen et al.",
+   "date": "2016",
+   "url": "https://doi.org/10.1371/journal.pone.0154791",
+   "summary": "In 273 asylum seekers seen at a Dutch university hospital, 48% had an infectious disease (mainly malaria or tuberculosis) and 31% carried multi-drug-resistant organisms; screening and infection control on arrival matter.",
+   "limits": "Single hospital, hospital-admitted patients only (not all asylum seekers)."
+  },
+  {
+   "id": "res-sarma2018-surveillance",
+   "file": "ID_in_migrants_mass_accommodations.txt",
+   "agenda": "who-health-financing",
+   "title": "Surveillance on speed: syndromic surveillance of infectious diseases in migrants' mass accommodations, Germany 2016–2017",
+   "publisher": "Eurosurveillance 23(40) (2018), Sarma et al. (Robert Koch Institute)",
+   "date": "2018",
+   "url": "https://doi.org/10.2807/1560-7917.ES.2018.23.40.1700430",
+   "summary": "The Robert Koch Institute describes a simple, flexible syndromic-surveillance toolkit used in German reception centres to detect outbreaks early among newly arrived migrants.",
+   "limits": "Describes a tool and its field use; German national context, not a policy position."
+  },
+  {
+   "id": "res-pan2024-digital-kr",
+   "file": null,
+   "country": "kr",
+   "agenda": "digital-inclusion",
+   "title": "Digital Inclusion among Community Older Adults in the Republic of Korea: Measuring Digital Skills and Health Consequences",
+   "publisher": "European Journal of Investigation in Health, Psychology and Education (2024), Pan, Aung, Nam et al.",
+   "date": "2024",
+   "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11353258/",
+   "summary": "A survey of 434 adults aged 65+ in two Korean cities (plus focus groups): 80.65% had never used the internet or digital technology to access health care and 85.45% never for care services for older persons, even in a highly digital country; digital social skills were positively associated with self-rated health.",
+   "limits": "Two cities, recruited through welfare centres — limited generalisability. A research finding, not Korean government policy.",
+   "note": "provided as a Google Doc card; figures checked against the PMC article on 2026-11-27"
+  }
+ ],
+ "ragFiles": [
+  {
+   "file": "plastics-treaty/unep_inc_overview_2026-10.txt",
+   "id": "unep-inc-overview",
+   "agenda": "plastics-treaty",
+   "sourceType": "intl_background",
+   "as": "background summary",
+   "summaries": [
+    {
+     "text": "UNEA resolution 5/14 (March 2022) launched negotiations on a legally binding instrument on plastic pollution, including in the marine environment, covering the full life cycle (production, design, disposal). Sessions: INC-1 Punta del Este 2022, INC-2 Paris 2023, INC-3 Nairobi 2023, INC-4 Ottawa 2024, INC-5.1 Busan 2024, INC-5.2 Geneva Aug 2025 (no agreement); INC-5.3 (7 Feb 2026) only elected officers after the Chair resigned.",
+     "location": "overview page"
+    }
+   ]
+  },
+  {
+   "file": "plastics-treaty/unep_inc_activities_toward_inc5.4_2026-10.txt",
+   "id": "unep-inc-activities",
+   "agenda": "plastics-treaty",
+   "sourceType": "intl_background",
+   "as": "background summary",
+   "summaries": [
+    {
+     "text": "Before INC-5.4 the new Chair runs informal work: heads-of-delegation meetings in Bangkok (27–30 Sept 2026) and Nairobi (28–30 Jan 2027), an 'Aid to Negotiations' reference document and possible elements for a diplomatic conference of plenipotentiaries (Aug 2026). Industry and environmental groups both submit views.",
+     "location": "activities page, as of Oct 2026"
+    }
+   ]
+  },
+  {
+   "file": "plastics-treaty/enb_inc5.3_highlights_2026-02.txt",
+   "id": "enb-inc53",
+   "agenda": "plastics-treaty",
+   "sourceType": "intl_background",
+   "as": "background summary (consensus vs vote)",
+   "summaries": [
+    {
+     "text": "At INC-5.3 (7 Feb 2026) Kuwait, Saudi Arabia and other oil-producing states pressed for electing the Chair by consensus; most delegations wanted a secret ballot. After two rounds Julio Cordano (Chile) was elected Chair (92 to 53). The episode shows the core procedural split: consensus vs voting.",
+     "location": "highlights, 7 Feb 2026"
+    }
+   ]
+  },
+  {
+   "file": "plastics-treaty/enb_inc5.2_summary_2025-08.txt",
+   "id": "enb-inc52",
+   "agenda": "plastics-treaty",
+   "sourceType": "negotiation_record",
+   "as": "negotiation record (country checks + short excerpts)",
+   "summaries": [],
+   "excerptCountries": {
+    "au": "Australia",
+    "cl": "Chile",
+    "co": "Colombia",
+    "fj": "Fiji",
+    "ke": "Kenya",
+    "rw": "Rwanda",
+    "id": "Indonesia",
+    "ru": "Russian Federation",
+    "za": "South Africa",
+    "cd": "Democratic Republic of the Congo"
+   }
+  },
+  {
+   "file": "critical-minerals/un_sg_critical_energy_transition_minerals.txt",
+   "id": "un-sg-ctm",
+   "agenda": "critical-minerals-deep-sea",
+   "sourceType": "intl_background",
+   "as": "background summary",
+   "summaries": [
+    {
+     "text": "The UN Secretary-General's initiative frames critical energy-transition minerals (copper, lithium, nickel, cobalt, rare earths) as an opportunity for developing countries only if well governed: local value addition, fair benefit to producing communities, transparency and human rights. A Panel report (2024) set principles and recommendations; a UN high-level meeting was held on 14 July 2026.",
+     "location": "initiative page"
+    }
+   ]
+  },
+  {
+   "file": "critical-minerals/unclos_part11_the_area.txt",
+   "id": "unclos-p11",
+   "agenda": "critical-minerals-deep-sea",
+   "sourceType": "intl_background",
+   "as": "treaty articles 136, 137, 140, 145",
+   "articles": [
+    136,
+    137,
+    140,
+    145
+   ]
+  },
+  {
+   "file": "critical-minerals/unclos_part12_marine_environment.txt",
+   "id": "unclos-p12",
+   "agenda": "critical-minerals-deep-sea",
+   "sourceType": "intl_background",
+   "as": "treaty articles 192, 206",
+   "articles": [
+    192,
+    206
+   ]
+  },
+  {
+   "file": "critical-minerals/enb_isa_council31_part1_2026-03.txt",
+   "id": "enb-isa31a",
+   "agenda": "critical-minerals-deep-sea",
+   "sourceType": "negotiation_record",
+   "as": "negotiation record (short excerpts)",
+   "summaries": [],
+   "excerptCountries": {
+    "au": "Australia",
+    "cl": "Chile",
+    "co": "Colombia",
+    "fj": "Fiji",
+    "ke": "Kenya",
+    "id": "Indonesia",
+    "ru": "Russian Federation",
+    "za": "South Africa"
+   }
+  },
+  {
+   "file": "critical-minerals/enb_isa_council31_part2_2026-07.txt",
+   "id": "enb-isa31",
+   "agenda": "critical-minerals-deep-sea",
+   "sourceType": "negotiation_record",
+   "as": "negotiation record (country checks + short excerpts)",
+   "summaries": [
+    {
+     "text": "At the July 2026 ISA Council and Assembly the exploitation regulations (Mining Code) were again not adopted. A group of states supports a moratorium or precautionary pause; others prioritise finishing the regulations. The US, which is not a party to UNCLOS, is licensing seabed mining under its own law, which many delegations called contrary to the Area's common-heritage regime.",
+     "location": "summary report, July 2026"
+    }
+   ],
+   "excerptCountries": {
+    "au": "Australia",
+    "cl": "Chile",
+    "co": "Colombia",
+    "fj": "Fiji",
+    "ke": "Kenya",
+    "rw": "Rwanda",
+    "id": "Indonesia",
+    "ru": "Russian Federation",
+    "za": "South Africa",
+    "cd": "Democratic Republic of the Congo"
+   }
+  },
+  {
+   "file": "critical-minerals/unclos_full.txt",
+   "exclude": "duplicate: superset of the Part XI and Part XII files; mostly unrelated provisions (README also recommends leaving it out)"
+  },
+  {
+   "file": "README.txt",
+   "exclude": "pipeline instructions written for developers, not evidence about countries"
+  },
+  {
+   "file": ".DS_Store",
+   "exclude": "macOS system file"
+  }
+ ],
+ "providedDocs": [
+  {
+   "id": "provided-un-sg-1p5",
+   "title": "Card: 'Humanity Speeding Past 1.5°C Climate Limit' — UN Secretary-General message on the launch of a UNEP report",
+   "url": "https://docs.google.com/document/d/1iEqPF5hh4NgNXUwY-eTCEPkLrodVhjaabaF2cBfPK5M/edit",
+   "sourceUrl": "https://press.un.org/en/2026/sgsm23257.doc.htm",
+   "publisher": "Student card summarising a UN press release (SG/SM/23257)",
+   "date": "2026",
+   "agenda": "climate-adaptation-finance",
+   "sourceType": "student_summary",
+   "verification": "unverified",
+   "status": "used",
+   "as": "intl background card (climate)",
+   "reason": "press.un.org returned a bot challenge to the automated check, so the card's summary could not be confirmed against the original",
+   "chunks": [
+    {
+     "text": "A student card on a 2026 UN Secretary-General message (UNEP report launch) says the 1.5°C limit of the Paris Agreement is almost reached and urges immediate action to limit overshoot. Card notes: based on existing evidence, little new information; useful for an opening statement.",
+     "location": "card"
+    }
+   ]
+  },
+  {
+   "id": "provided-digital-kr",
+   "title": "Card: Digital inclusion among older adults in Korea (RAG task)",
+   "url": "https://docs.google.com/document/d/1fcZKOVfM31-O84ndJIkYLhCXTbRsA_Mnc6pkgduQiCk/edit",
+   "status": "used via research summary res-pan2024-digital-kr",
+   "as": "research (kr, digital-inclusion); assignment instructions in the doc excluded",
+   "chunks": []
+  },
+  {
+   "id": "a-res-79-202",
+   "title": "A/RES/79/202 — Promoting sustainable consumption and production patterns (UN General Assembly, 19 Dec 2024)",
+   "url": "https://docs.google.com/document/d/1w0ZLFRufCkYhghRdE3FZzwUHL7Q9cpWWVcWM9oqEfik/edit",
+   "sourceUrl": "https://docs.un.org/en/A/RES/79/202",
+   "publisher": "United Nations General Assembly",
+   "date": "2024-12-19",
+   "agenda": "sustainable-consumption-production",
+   "sourceType": "intl_background",
+   "verification": "verified",
+   "status": "used",
+   "as": "intl background: six operative paragraphs (short excerpts)",
+   "chunks": [
+    {
+     "text": "8. Acknowledges that sustainable consumption and production practices can be cost-efficient and effective ways to achieve economic development, reduce environmental impacts and advance human well-being, and urges the need to achieve Sustainable Development Goal 12, in order to contribute to the achievement of all Goals;",
+     "location": "operative para 8"
+    },
+    {
+     "text": "12. Recognizes that unsustainable patterns of consumption and production are key drivers of natural resource depletion, climate change, biodiversity loss, pollution, malnutrition and land degradation, and therefore recommits to making fundamental changes in the way that societies produce and consume goods and services through the transition to sustainable economic and business models that promote sustainable consumption and production patterns, as well as through policies, frameworks, partnerships, technological innovation and instruments that improve resource efficiency and…",
+     "location": "operative para 12"
+    },
+    {
+     "text": "17. Acknowledges the link between plastic waste and pollution and sustainable consumption and production patterns, and calls upon all Member States to continue to step up activities across the life cycle of plastic to prevent, reduce and eliminate plastic pollution, including in the marine environment, including through innovative approaches that foster environmentally sound management, including the reduction, repair, reuse and recycling of plastic waste and products;",
+     "location": "operative para 17"
+    },
+    {
+     "text": "20. Urges the international community to continue to support developing countries in strengthening their scientific and technological capacity to move towards more sustainable patterns of consumption and production, and calls for enhanced support to developing countries by providing means of implementation;",
+     "location": "operative para 20"
+    },
+    {
+     "text": "21. Recognizes the need for greater financing, capacity-building, technical assistance and technology transfer on mutually agreed terms for developing countries to harness science, technology and innovation, and information and communication technologies, as well as new and emerging technologies including artificial intelligence, including through scaling up the use of open science, affordable and open-source technology, research and development to accelerate the achievement of the Sustainable Development Goals;",
+     "location": "operative para 21"
+    },
+    {
+     "text": "26. Stresses the urgency of promoting sustainable consumption and production approaches, in which products and materials are designed in such a way that they can be reused, remanufactured, recycled or recovered and therefore retained in the economy for as long as possible, along with the resources of which they are made, the generation of waste is avoided or minimized and greenhouse gas emissions are prevented or reduced;",
+     "location": "operative para 26"
+    }
+   ]
+  }
+ ],
+ "groups": {
+  "LMDC": [
+   "cn",
+   "in",
+   "sa"
+  ],
+  "Arab Group": [
+   "sa"
+  ],
+  "AU/AMCEN": [
+   "ke",
+   "za",
+   "cd",
+   "ng",
+   "rw"
+  ],
+  "AOSIS": [
+   "fj"
+  ],
+  "cma": [
+   "intl"
+  ]
+ },
+ "stanceNotes": [
+  {
+   "country": "sa",
+   "agenda": "plastics-treaty",
+   "text": "In the INC-5.2 record Saudi Arabia speaks for the Arab Group; the Like-Minded statement was Kuwait's. Treat Arab Group lines as group positions."
+  },
+  {
+   "country": "no",
+   "agenda": "critical-minerals-deep-sea",
+   "text": "Norway is not on the moratorium list; it prioritises finishing the regulations (its precautionary wording came via a Pacific Islands Forum statement)."
+  },
+  {
+   "country": "gb",
+   "agenda": "critical-minerals-deep-sea",
+   "text": "The UK is not listed as a moratorium supporter in these reports; it stresses strong science before exploitation."
+  },
+  {
+   "country": "fr",
+   "agenda": "critical-minerals-deep-sea",
+   "text": "France supports a moratorium/precautionary pause and calls unilateral action in the Area contrary to international law — stronger than the student stance."
+  },
+  {
+   "country": "br",
+   "agenda": "critical-minerals-deep-sea",
+   "text": "On deep-sea mining Brazil is precautionary; its sovereignty/development framing applies to land-based minerals."
+  },
+  {
+   "country": "us",
+   "agenda": "critical-minerals-deep-sea",
+   "text": "The US is not a party to UNCLOS, says it is not bound by Part XI and licenses seabed mining under national law."
+  },
+  {
+   "country": "us",
+   "agenda": "plastics-treaty",
+   "text": "ENB records only procedural US interventions at INC-5.2; do not invent substantive US treaty positions."
+  },
+  {
+   "country": "br",
+   "agenda": "plastics-treaty",
+   "text": "ENB records Brazil mainly in facilitation roles at INC-5.2; substantive positions are from the student stance only."
+  }
+ ],
+ "climateProfiles": {
+  "us": {
+   "summary": "The United States has left the Paris Agreement (effective 27 Jan 2026), revoked its international climate finance plan, left the Green Climate Fund and notified withdrawal from the UNFCCC (effective 27 Feb 2027). It rejects new collective finance obligations and multilateral climate funding.",
+   "basis": "official US documents and UN depositary notices (verified 2026-11-27)",
+   "offers": [
+    {
+     "text": "At most bilateral, interest-based cooperation outside UNFCCC finance; no new multilateral pledges.",
+     "evidence": [
+      "us-eo-14162-paris",
+      "us-wh-factsheet-intl-orgs-2026"
+     ]
+    }
+   ],
+   "caveats": [
+    "Still a UNFCCC Party until 27 Feb 2027 but no longer bound by Paris/NCQG decisions."
+   ],
+   "style": "Firm and sovereignty-first; argues taxpayer value and national interest."
+  },
+  "gb": {
+   "summary": "The UK reports it met its £11.6bn climate finance pledge (2021/22–2025/26) and plans about £6bn of aid plus £6.7bn of other public finance over the next three years, with at least half of adaptation finance for the most vulnerable; it leans on MDB reform and private capital.",
+   "basis": "UK International Climate Finance strategy, June 2026 (verified)",
+   "offers": [
+    {
+     "text": "Targeting adaptation money to the most vulnerable and supporting MDB reform / private mobilisation in exchange for ambitious, well-governed plans.",
+     "evidence": [
+      "uk-icf-strategy-2026"
+     ]
+    }
+   ],
+   "partners": [
+    {
+     "text": "Shares the 'mobilise private capital, reform MDBs' line with France, Germany and Japan; differs from LMDC/Arab Group on broadening contributors.",
+     "evidence": [
+      "uk-icf-strategy-2026",
+      "fr-climate-finance-2024"
+     ]
+    }
+   ],
+   "caveats": [
+    "Its tripling reference is the collective COP30 call, not a UK target; new period is lower per year than before."
+   ]
+  },
+  "fr": {
+   "summary": "France reports high climate finance (2024: €7.2bn, about €3bn for adaptation, mostly loans and grants) and wants all countries able to pay to contribute, plus innovative sources.",
+   "basis": "French Foreign Ministry page (2025, verified; two totals not reconciled)",
+   "offers": [
+    {
+     "text": "Keeps a large adaptation share; pushes innovative levies and a broader contributor base.",
+     "evidence": [
+      "fr-climate-finance-2024"
+     ]
+    }
+   ],
+   "partners": [
+    {
+     "text": "Aligned with EU donors on broadening contributors; clashes with LMDC/Arab Group on that point.",
+     "evidence": [
+      "fr-climate-finance-2024",
+      "group-lmdc-cfwp-2026--sa"
+     ]
+    }
+   ]
+  },
+  "de": {
+   "summary": "Germany's budget-funded climate finance fell from €6.1bn (2024) to €4.7bn (2025) while KfW/DEG market and private mobilisation grew; ministers argue scarce public money should shift toward adaptation as mitigation becomes commercially viable.",
+   "basis": "German environment ministry releases 2025–2026 (verified)",
+   "offers": [
+    {
+     "text": "Prioritising public money for adaptation and using development-bank leverage for mitigation.",
+     "evidence": [
+      "de-climate-finance-2024",
+      "de-climate-finance-2025"
+     ]
+    }
+   ],
+   "caveats": [
+    "Whether the €6bn/yr target was missed in 2025 is an inference from the figures, not stated."
+   ]
+  },
+  "jp": {
+   "summary": "Japan's 2021–25 pledges (incl. doubling adaptation support to about USD 14.8bn) have expired; at COP30 it stressed limited public money and widening sources to all stakeholders and private capital, with early-warning systems as an adaptation priority.",
+   "basis": "Japanese COP26/COP30 statements (verified)",
+   "offers": [
+    {
+     "text": "Early-warning systems, disaster-risk reduction and Asia-focused public–private finance.",
+     "evidence": [
+      "jp-cop30-minister-statement",
+      "jp-cop26-pm-statement"
+     ]
+    }
+   ]
+  },
+  "kr": {
+   "summary": "Korea hosts the Green Climate Fund and pledged USD 300m to its second replenishment, but insists its contributions are voluntary because it is not an Annex II Party; its COP30 statement focused on its 2035 NDC (53–61% cut) without new finance commitments.",
+   "basis": "Korean COP29/COP30 statements, GCF page (verified)",
+   "offers": [
+    {
+     "text": "Voluntary contributions (green ODA, GCF host role) and technology such as AI flood forecasting — not obligations.",
+     "evidence": [
+      "kr-cop29-statement",
+      "kr-gcf2-pledge"
+     ]
+    }
+   ],
+   "partners": [
+    {
+     "text": "Bridges donors and developing countries; resists being counted as an obligated contributor (like China) while voluntarily paying (unlike China).",
+     "evidence": [
+      "kr-cop29-statement"
+     ]
+    }
+   ]
+  },
+  "cn": {
+   "summary": "China insists developed countries lead on finance under common but differentiated responsibilities, wants roadmaps to deliver USD 300bn and 1.3T, opposes unilateral trade measures, and presents South-South cooperation as its own voluntary contribution.",
+   "basis": "MEE annual report 2025; COP31 leaders' statement (verified)",
+   "offers": [
+    {
+     "text": "South-South cooperation and early-warning/disaster cooperation, framed as voluntary.",
+     "evidence": [
+      "cn-mee-annual-report-2025",
+      "cn-han-zheng-cop31-leaders"
+     ]
+    }
+   ]
+  },
+  "in": {
+   "summary": "India treats Article 9.1 as a legal obligation of developed countries, wants public (not private) finance at the core and a common definition of climate finance, says adaptation finance must grow about fifteenfold, and opposes unilateral climate trade measures.",
+   "basis": "COP30 statements for BASIC/LMDC and COP31 national statement (verified; the COP30 ones are group statements)",
+   "offers": [
+    {
+     "text": "Support for an adaptation goal if backed by public finance and no extra reporting burden.",
+     "evidence": [
+      "in-cop30-opening-basic-lmdc"
+     ]
+    }
+   ]
+  },
+  "bd": {
+   "summary": "Bangladesh needs about USD 8.5bn a year for adaptation against roughly USD 4bn of flows (mostly its own budget), rising to USD 12–14bn by 2035; it wants grant-based loss-and-damage finance, adaptation-mitigation parity and easier access to the GCF and Adaptation Fund.",
+   "basis": "Bangladesh NDC 3.0, Sept 2025 (verified) + student research on climate displacement",
+   "offers": [
+    {
+     "text": "Shares tested adaptation practice (cyclone shelters, early warning, planned relocation) in exchange for predictable grant finance.",
+     "evidence": [
+      "bd-ndc3-2025",
+      "cl-bd-student-displacement"
+     ]
+    }
+   ]
+  },
+  "br": {
+   "summary": "As COP30 host, Brazil wants a delivery plan for the USD 300bn and 1.3T goals, at least tripling adaptation finance by 2035 without adding debt, grant-equivalent accounting and reform of the international financial architecture.",
+   "basis": "Brazil submission to the climate finance work programme, Apr 2026 (verified)",
+   "offers": [
+    {
+     "text": "Practical bridging tools (harmonised access criteria, positive incentives) between donors and developing countries.",
+     "evidence": [
+      "br-cfwp-submission-2026"
+     ]
+    }
+   ]
+  },
+  "sa": {
+   "summary": "Saudi Arabia's NDC is not contingent on international finance; it insists on nationally determined pathways, economic diversification relying on hydrocarbons, and rejects unilateral measures such as CBAM and the EU due-diligence directive. Through the Arab Group and LMDC it rejects widening the contributor base.",
+   "basis": "Saudi second NDC, Dec 2025 (verified); Arab Group/LMDC group positions",
+   "offers": [
+    {
+     "text": "Support for adaptation language for arid countries and response measures, in exchange for no trade measures or contributor expansion.",
+     "evidence": [
+      "sa-ndc2-2025"
+     ]
+    }
+   ]
+  },
+  "ke": {
+   "summary": "Kenya needs USD 56bn for 2031–35 (adaptation USD 17.7bn), would fund 19% itself and needs 81% from international support; it counts loans as its own effort and wants grant-like finance and access to the loss-and-damage fund.",
+   "basis": "Kenya second NDC, Apr 2025 (verified); AU/AMCEN statement at COP31",
+   "offers": [
+    {
+     "text": "Co-funding about a fifth domestically if the rest comes as grant-like support.",
+     "evidence": [
+      "ke-ndc2-2025"
+     ]
+    }
+   ]
+  },
+  "za": {
+   "summary": "South Africa needs ZAR 250bn for adaptation (2026–35), seeks about USD 8bn a year of international finance by 2030 and a fair share from the loss-and-damage fund; the low end of its 2035 mitigation target depends on developed-country support.",
+   "basis": "South Africa second NDC, Oct 2025 (verified)",
+   "offers": [
+    {
+     "text": "Higher mitigation ambition conditional on finance (just energy transition model).",
+     "evidence": [
+      "za-ndc2-2025"
+     ]
+    }
+   ]
+  },
+  "fj": {
+   "summary": "Fiji's own position was not collected; the AOSIS group position (grant-based, non-debt adaptation finance; private finance covers only a small share of small-island needs) is available as a group record.",
+   "basis": "AOSIS submission, July 2026 (group position, verified)"
+  }
+ },
+ "gaps": {
+  "climate-adaptation-finance": [
+   "COP31 (Antalya, Nov 2026) outcome text not verified — the newest decision used is COP30 (1/CMA.7).",
+   "No national documents for Fiji, Indonesia, Mexico, Nigeria, Russia, Norway, DR Congo on climate finance.",
+   "UNEP Adaptation Gap Report figures come from a UNEP centre article (full report blocked)."
+  ],
+  "who-health-financing": [
+   "Country profiles are team research; only 33 key claims were sample-checked (20 verified, 9 partly, 3 corrected, 1 unverified)."
+  ],
+  "plastics-treaty": [
+   "Student stances for 20 countries; ENB checks for 10. Official national submissions (e.g. INC written submissions) not collected.",
+   "UNEA 5/14 original text not downloadable (UNEP server 403)."
+  ],
+  "critical-minerals-deep-sea": [
+   "Student stances for 20 countries; ENB checks for 10. Land-based mineral policies (e.g. Indonesia nickel export ban, DRC cobalt) not documented from official sources."
+  ],
+  "digital-inclusion": [
+   "Only one study (Korea, older adults); no country positions."
+  ],
+  "sustainable-consumption-production": [
+   "Only GA resolution 79/202 (common background); no country positions."
+  ]
+ },
+ "otherExclusions": {}
+}

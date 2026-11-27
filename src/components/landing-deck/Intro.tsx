@@ -1,0 +1,130 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+const MOTTO = "Making Model UN possible for everyone around the globe.";
+const NAME = "BridgeMUN";
+
+/* Floating circles: each pops in at its own moment and drifts at its own pace. */
+const BLOBS = [
+  { background: "var(--sun)", left: "8%", top: "14%", width: "9rem", "--delay": "0ms", "--d": "3.4s", "--fx": "6px" },
+  { background: "var(--cyan)", right: "10%", top: "22%", width: "6rem", "--delay": "120ms", "--d": "2.9s", "--fx": "-8px" },
+  { background: "var(--coral)", left: "16%", bottom: "16%", width: "5rem", "--delay": "240ms", "--d": "3.8s", "--fx": "10px" },
+  { background: "var(--mint)", right: "14%", bottom: "12%", width: "8rem", "--delay": "360ms", "--d": "3.1s", "--fx": "-6px" },
+  { background: "var(--violet)", left: "34%", top: "8%", width: "2.5rem", "--delay": "480ms", "--d": "2.6s", "--fx": "12px" },
+  { background: "var(--sun)", right: "30%", bottom: "8%", width: "3rem", "--delay": "600ms", "--d": "3.6s", "--fx": "-10px" },
+];
+
+
+/* BridgeMUN: plays once per browser session, on the first full load of the landing page (never on client-side
+   navigation, e.g. coming back from a meeting room). Original note: plays once each time the home page is opened or reloaded. An inline script in the layout sets
+   data-intro on <html> before the first paint, which locks scrolling and hides the header logo.
+   Here the circles pop in, the bridge draws itself, the letters hop in, the motto types itself out, and the logo flies to its place in the header.
+   Any click, key or scroll skips ahead. */
+export default function Intro() {
+  const [typed, setTyped] = useState(0);
+  const [fly, setFly] = useState<string | null>(null);
+  const [gone, setGone] = useState(false);
+  const logoRef = useRef<HTMLDivElement>(null);
+  const flyingRef = useRef(false);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (root.dataset.intro !== "on") return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let typing: ReturnType<typeof setInterval> | undefined;
+
+    const finish = () => {
+      delete root.dataset.intro;
+      setGone(true);
+    };
+
+    const takeOff = () => {
+      if (flyingRef.current) return;
+      flyingRef.current = true;
+      if (typing) clearInterval(typing);
+      setTyped(MOTTO.length);
+      const from = logoRef.current?.getBoundingClientRect();
+      const to = document.querySelector("[data-header-logo]")?.getBoundingClientRect();
+      if (from && to && root.dataset.motion === "full") {
+        const s = to.width / from.width;
+        setFly(`translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${s})`);
+        timers.push(setTimeout(finish, 950));
+      } else {
+        // Reduced motion: the screen simply fades away.
+        setFly("none");
+        timers.push(setTimeout(finish, 650));
+      }
+    };
+
+    timers.push(
+      setTimeout(() => {
+        let n = 0;
+        typing = setInterval(() => {
+          n += 1;
+          setTyped(n);
+          if (n >= MOTTO.length) {
+            clearInterval(typing);
+            timers.push(setTimeout(takeOff, 900));
+          }
+        }, 45);
+      }, 800),
+    );
+
+    const skip = () => takeOff();
+    window.addEventListener("pointerdown", skip);
+    window.addEventListener("keydown", skip);
+    window.addEventListener("wheel", skip, { passive: true });
+    window.addEventListener("touchmove", skip, { passive: true });
+    return () => {
+      delete root.dataset.intro; // leaving the page mid-intro must not leave scrolling locked
+      timers.forEach(clearTimeout);
+      if (typing) clearInterval(typing);
+      window.removeEventListener("pointerdown", skip);
+      window.removeEventListener("keydown", skip);
+      window.removeEventListener("wheel", skip);
+      window.removeEventListener("touchmove", skip);
+    };
+  }, []);
+
+  if (gone) return null;
+
+  return (
+    <div className="intro" aria-hidden="true" data-flying={fly ? "true" : "false"}>
+      <div className="intro-bg">
+        {BLOBS.map((b, i) => (
+          <span key={i} className="intro-blob" style={b as React.CSSProperties} />
+        ))}
+      </div>
+      <div className="intro-stage">
+        <div
+          ref={logoRef}
+          className="intro-logo"
+          style={fly ? { transform: fly } : undefined}
+        >
+          <div className="intro-pop flex items-center gap-[0.4em] font-display text-5xl font-bold tracking-tight sm:text-7xl">
+            <svg viewBox="0 0 64 64" className="intro-draw size-[1.4em]" aria-hidden="true">
+              <rect width="64" height="64" rx="15" fill="#1580d8" />
+              <path d="M17 45V17M47 45V17" stroke="#fff" strokeWidth="5" strokeLinecap="round" fill="none" pathLength={1} />
+              <path d="M17 22C23 35 41 35 47 22" fill="none" stroke="#fff" strokeWidth="4" strokeLinecap="round" pathLength={1} />
+              <path d="M8 45h48" stroke="#fff" strokeWidth="5.5" strokeLinecap="round" fill="none" pathLength={1} />
+              <circle cx="32" cy="31.8" r="5.2" fill="#f7c948" stroke="#1580d8" strokeWidth="1.6" pathLength={1} />
+            </svg>
+            <span translate="no" aria-label={NAME}>
+              {NAME.split("").map((ch, i) => (
+                <span key={i} className={`intro-letter ${i >= 6 ? "text-accent" : ""}`} style={{ "--i": i } as React.CSSProperties}>
+                  {ch}
+                </span>
+              ))}
+            </span>
+          </div>
+        </div>
+        <p className="intro-motto font-display text-xl font-semibold sm:text-3xl">
+          {MOTTO.slice(0, typed)}
+          <span className="intro-caret" />
+        </p>
+      </div>
+    </div>
+  );
+}

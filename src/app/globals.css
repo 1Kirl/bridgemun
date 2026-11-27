@@ -18,6 +18,20 @@
   --text-2xl: 1.5625rem;  /* 24 → 25px */
 }
 
+/* Landing-page tokens (values are defined only inside .bm-landing; see components/landing-deck/landing.css). */
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-sunk: var(--surface-sunk);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-danger: var(--danger);
+  --font-display: var(--font-head);
+}
+
 :root {
   --background: #f8fafc;
   --foreground: #1e293b;

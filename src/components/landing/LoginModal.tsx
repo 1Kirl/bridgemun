@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Logo } from "@/components/brand/Logo";
 import { Mail, Lock, LogIn, ChevronRight } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { Input } from "../ui/Input";
@@ -54,6 +55,7 @@ export const LoginModal = ({ isOpen, onClose, onSwitchToRegister }: LoginModalPr
       <form onSubmit={handleSubmit} className="flex flex-col space-y-8">
         {/* Content Heading */}
         <div className="text-center">
+          <Logo className="mb-3 justify-center" />
           <h3 className="text-lg font-bold text-gray-900">Log in to Account</h3>
           <p className="text-sm text-gray-400 mt-1">
             Enter your credentials to access the platform

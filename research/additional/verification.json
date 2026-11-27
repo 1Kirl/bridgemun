@@ -1,0 +1,442 @@
+{
+  "checkedOn": "2026-11-27",
+  "method": "WHO claims checked by fetching cited URLs (WebFetch) and, where a site returned 403/502, by web search of official or news originals. Plastics/deep-sea stances checked against local ENB texts only (INC-5.2 summary; INC-5.3 highlights used for context; ISA Council-31 parts 1 and 2). Page markers refer to the PDF pages in each ENB file. 'p1' = enb_isa_council31_part1_2026-03.txt, 'p2' = enb_isa_council31_part2_2026-07.txt.",
+  "who": [
+    {
+      "country": "usa",
+      "claim": "Formally rejected the 2024 IHR amendments in July 2025.",
+      "status": "verified",
+      "evidence": "Cited HHS URL returned 403; the HHS/State joint statement (Kennedy and Rubio) and Reuters/Al Jazeera coverage confirm the rejection was transmitted on 18 July 2025.",
+      "url": "https://hhs.gov/press-room/secretary-kennedy-rubio-reject-ihr-amendments-joint-statement.html"
+    },
+    {
+      "country": "usa",
+      "claim": "Congress appropriated US$9.42 billion for global health in FY2026, down from US$12.4 billion; PEPFAR survives under State.",
+      "status": "verified",
+      "evidence": "Health Policy Watch (4 Feb 2026) reports the $9.42bn package vs $12.4bn in 2024 and 2025. PEPFAR gets about $4.5-4.6bn and must move toward national-government self-reliance.",
+      "url": "https://healthpolicy-watch.news/9-42-billion-for-global-health-as-us-foreign-aid-bill-passes/"
+    },
+    {
+      "country": "usa",
+      "claim": "Pledged over US$780 million for the Bundibugyo Ebola response plus US$50 million to CEPI.",
+      "status": "partly",
+      "evidence": "Cited state.gov release returned 403. CEPI confirms the $50m commitment (June 2026). News reports of the 24 Sep 2026 pledge give an extra $267m and a total US commitment of about $886m including $107m from HHS. No source gives $780m, and it is unclear whether the CEPI $50m is inside or on top of that total. Use 'about US$886 million in total (reported)'.",
+      "url": "https://cepi.net/us-department-state-commits-50-million-cepi-fast-track-bundibugyo-virus-medical-countermeasures"
+    },
+    {
+      "country": "usa",
+      "claim": "36 America First MOUs signed by Oct 2026, including with the DRC, Nigeria and Kenya.",
+      "status": "partly",
+      "evidence": "KFF tracker confirms 36 signed MOUs as of 8 Oct 2026 and lists Nigeria and Kenya. KFF totals are $26.7bn overall and $15.9bn from the US, slightly below the State Department's $27.2bn/$16.1bn used in the fact sheet. The fetched page did not confirm the DRC.",
+      "url": "https://www.kff.org/global-health-policy/kff-tracker-america-first-mou-bilateral-global-health-agreements/"
+    },
+    {
+      "country": "uk",
+      "claim": "Aid cut from 0.5% to 0.3% of GNI by 2027 to fund defence; about £9.2bn in 2027.",
+      "status": "verified",
+      "evidence": "Cited developmentaid URL returned 403. CGD, Bond and others confirm the 25 Feb 2025 announcement, the lowest level since 1999. CGD estimates £9.2bn at 0.3% vs about £15.4bn at 0.5% in 2027. £9.2bn is an OBR-based projection, not a fixed budget.",
+      "url": "https://www.cgdev.org/blog/breaking-down-prime-minister-starmers-aid-cut"
+    },
+    {
+      "country": "uk",
+      "claim": "Pledged £1.25 billion to Gavi for 2026-30.",
+      "status": "verified",
+      "evidence": "GOV.UK release of 25 June 2025 states £1.25bn for 2026 to 2030. The £850m Global Fund figure was not checked.",
+      "url": "https://www.gov.uk/government/news/uk-partners-with-gavi-to-help-save-up-to-eight-million-lives-by-2030"
+    },
+    {
+      "country": "uk",
+      "claim": "Andy Burnham became Prime Minister in July 2026.",
+      "status": "verified",
+      "evidence": "GOV.UK publishes 'Andy Burnham's first speech as Prime Minister: 20 July 2026'. Starmer resigned the same day, and Burnham was declared Labour leader on 17 July.",
+      "url": "https://www.gov.uk/government/speeches/andy-burnhams-first-speech-as-prime-minister-20-july-2026"
+    },
+    {
+      "country": "uk",
+      "claim": "Nigeria and Ghana were the UK's 2nd and 3rd largest sources of new nurses in 2025-26.",
+      "status": "not_verified",
+      "evidence": "Cited Nursing in Practice URL returned 403. A search found NMC data for Apr-Sep 2025 showing Nigeria down 27.8% and Ghana down 9%, but no 2025-26 ranking. Nigeria and Ghana are on the WHO red list.",
+      "url": "https://www.nursinginpractice.com/latest-news/two-of-uks-top-three-sources-of-international-nurses-are-red-list-countries/"
+    },
+    {
+      "country": "france",
+      "claim": "2026 budget cut aid by about €800 million (-18%).",
+      "status": "verified",
+      "evidence": "Franceinfo (3 Feb 2026) reports cuts of roughly €700-800m, -18% year on year and -38% vs 2024. Not confirmed from this source: the 'without a parliamentary vote' (49.3) detail and the €12.9bn / 0.42% 2025 figure.",
+      "url": "https://www.franceinfo.fr/economie/budget/budget-2026-la-baisse-de-l-aide-publique-au-developpement-aura-des-incidences-sur-les-populations-concernees-denoncent-plusieurs-ong_7780979.html"
+    },
+    {
+      "country": "france",
+      "claim": "Cut its Global Fund pledge for 2026-28 by 58%.",
+      "status": "verified",
+      "evidence": "Focus 2030 (12 Feb 2026) cites a cut of about 58%, from €1,596m (2022 pledge) to €660m. The source does not mention the 22% Unitaid cut, which was not verified.",
+      "url": "https://focus2030.org/impact-potentiel-des-coupes-de-la-france-au-fonds-mondial-de-lutte-contre-le-sida-la-tuberculose-et-le-paludisme/"
+    },
+    {
+      "country": "france",
+      "claim": "Macron hosted the One Health Summit in Lyon in April 2026.",
+      "status": "verified",
+      "evidence": "WHO news item confirms the One Health Summit in Lyon, hosted by France, on 7 April 2026 (event 5-7 April).",
+      "url": "https://www.who.int/news/item/07-04-2026-who-and-france-shift-one-health-vision-to-action-with-new-high-impact-initiatives"
+    },
+    {
+      "country": "germany",
+      "claim": "Says it is WHO's largest financial contributor after the US exit; pledged an extra €25 million at WHA79.",
+      "status": "verified",
+      "evidence": "German Health Ministry release (18 May 2026) gives the extra €25m for cross-border outbreaks and calls Germany WHO's main financial contributor. Health Policy Watch notes Germany was the largest donor in 2020-21 and second largest since then, so 'largest' is Germany's own claim.",
+      "url": "https://www.bundesgesundheitsministerium.de/en/press/press-release/federal-minister-of-health-nina-warken-wha-18-05-26"
+    },
+    {
+      "country": "germany",
+      "claim": "Funding for the WHO pandemic intelligence hub in Berlin cut from about €30m to €20m.",
+      "status": "contradicted",
+      "evidence": "The cited Health Policy Watch article (8 Jan 2026) says funding was halved from €30m a year to €15m, with only one year committed. It does not support the 'one third of 2024 pledge budgeted' detail.",
+      "url": "https://healthpolicy-watch.news/germany-cuts-pandemic-surveillance-hub/"
+    },
+    {
+      "country": "germany",
+      "claim": "Pledged €1 billion to the Global Fund for 2026-28; dropped the 0.7% target; ended bilateral health cooperation; 2027 budget grows almost 6%, mostly for defence.",
+      "status": "partly",
+      "evidence": "Health Policy Watch (9 Oct 2026) confirms the €1bn pledge, the dropped 0.7% target, the end of bilateral health cooperation and almost 6% budget growth mostly for defence. It gives no BMZ totals (€12.4bn 2021 / €9.9bn 2026), so those and the '23% less' figure are unverified.",
+      "url": "https://healthpolicy-watch.news/germany-hosts-the-world-health-summit-but-has-no-plan-for-the-worlds-health/"
+    },
+    {
+      "country": "japan",
+      "claim": "FY2026 defence budget is a record ¥9.04 trillion, about 2% of GDP.",
+      "status": "verified",
+      "evidence": "Cited Naval News URL returned 403. AP/Jiji and others confirm cabinet approval on 26 Dec 2025 of about ¥9.04tn (about US$58bn), a record. It still needed Diet approval, and '2% of GDP' is the target path (with related spending) rather than the core budget alone.",
+      "url": "https://www.nbcnews.com/world/asia/japans-cabinet-oks-record-defense-budget-aims-deter-china-rcna250992"
+    },
+    {
+      "country": "japan",
+      "claim": "Cut its Global Fund pledge for 2026-28 roughly in half (up to ¥81 billion, about US$515 million).",
+      "status": "partly",
+      "evidence": "Global Fund profile confirms up to JPY 81bn. The 7th pledge was US$1.08bn, so the cut is about 52% in dollars but about 20% in yen. Say 'about half in dollar terms'.",
+      "url": "https://www.theglobalfund.org/en/government/profiles/japan/"
+    },
+    {
+      "country": "korea",
+      "claim": "Cut ODA by about 14% in 2026 from a record KRW 6.5 trillion; humanitarian aid fell 51%.",
+      "status": "partly",
+      "evidence": "Korea Herald (29 Aug 2025) covers the Foreign Ministry's proposed budget: its ODA falls 22.2% (KRW 2.81tn to 2.19tn) and humanitarian aid falls 51.4% (KRW 670.2bn to 325.5bn). The government-wide 14% / KRW 6.5tn figures are not in this source. These were budget proposals.",
+      "url": "https://www.koreaherald.com/article/10564716"
+    },
+    {
+      "country": "korea",
+      "claim": "President Lee ordered a review of whether aid serves 'national prestige and diplomatic goals' amid a probe involving the former first lady.",
+      "status": "verified",
+      "evidence": "Korea Herald reports Lee Jae Myung ordered a comprehensive ODA review after the special-prosecutor probe into Kim Keon Hee's alleged influence on Cambodia ODA projects.",
+      "url": "https://www.koreaherald.com/article/10564716"
+    },
+    {
+      "country": "korea",
+      "claim": "Funded the JW Lee Strategic Situation Room (opened May 2026); pledged US$100 million to the Global Fund for 2026-28.",
+      "status": "verified",
+      "evidence": "WHO DG remarks of 20 May 2026 thank Korea for making the facility possible (amount not stated). The Global Fund profile shows a US$100m 8th-replenishment pledge, with US$30m contributed so far.",
+      "url": "https://www.who.int/news-room/speeches/item/who-director-general-s-remarks-at-the-inauguration-of-the-jw-lee-strategic-situation-room---20-may-2026"
+    },
+    {
+      "country": "china",
+      "claim": "Pledged US$500 million to WHO over five years in May 2025, becoming its largest state donor.",
+      "status": "verified",
+      "evidence": "Caixin (23 May 2025): Vice Premier Liu Guozhong announced $500m over five years at WHA78 and calls China the largest state donor. Cited Axios URL returned 403. How much has been disbursed remains unverified.",
+      "url": "https://www.caixinglobal.com/2025-05-23/500-million-pledge-makes-china-top-who-donor-after-us-withdrawal-102322304.html"
+    },
+    {
+      "country": "china",
+      "claim": "In Feb 2025 China was one of only two states opposing the 20% assessed-contribution increase; its share rises from about 15% to 20%.",
+      "status": "verified",
+      "evidence": "Health Policy Watch (10 Feb 2025): China spoke against the increase at the Executive Board and was one of only two states to do so. Its share rises from 15% (2025) to 20% (2026).",
+      "url": "https://healthpolicy-watch.news/chinas-2026-assessed-contribution-to-who-would-reach-levels-of-united-states-today-but-beijing-is-balking-at-increase/"
+    },
+    {
+      "country": "china",
+      "claim": "Voted against WHA79/11 (health impact of Russia's war in Ukraine).",
+      "status": "verified",
+      "evidence": "UN Watch database: China voted No (tally 62 Yes, 9 No, 37 Abstain, 72 Absent).",
+      "url": "https://unwatch.org/database/resoltions/wha79-11/"
+    },
+    {
+      "country": "india",
+      "claim": "Health ministry 2026-27 budget about ₹1.02 lakh crore = 1.96% of central spending, under 0.3% of GDP.",
+      "status": "partly",
+      "evidence": "South First confirms ₹1,01,709.21 crore and 1.96% of total expenditure. The GDP share it gives (0.29%) is for 2025-26, not 2026-27.",
+      "url": "https://thesouthfirst.com/health/union-budget-2026-₹1-lakh-crore-for-health-is-just-1-96-of-total-spending/"
+    },
+    {
+      "country": "india",
+      "claim": "At the Sept 2026 UN high-level meeting, India said the Pandemic Agreement's credibility depends on a fair PABS system.",
+      "status": "verified",
+      "evidence": "Cavalier report: on 25 Sep 2026 Health Secretary Punya Salila Srivastava said the Agreement's credibility depends on a fair PABS system and that the declaration should not prejudge the PABS talks. Secondary source, not an official transcript.",
+      "url": "https://www.cavalier.in/cds-ota-current-affairs/2026-09-26/who-pandemic-agreement-pabs-un-high-level-meeting-2026"
+    },
+    {
+      "country": "india",
+      "claim": "Oct 2025 WHO alert after contaminated Indian cough syrups killed more than 20 children in Madhya Pradesh.",
+      "status": "partly",
+      "evidence": "Onmanorama (14 Oct 2025) confirms the WHO alert on Coldrif, Respifresh TR and ReLife (diethylene glycol) and child deaths in Madhya Pradesh, but says only 'several' deaths. The '>20' figure is unverified from the cited source.",
+      "url": "https://www.onmanorama.com/news/india/2025/10/14/adulterated-cough-syrup-who-alert-coldrif.html"
+    },
+    {
+      "country": "india",
+      "claim": "Abstained on WHA79/11.",
+      "status": "verified",
+      "evidence": "UN Watch database lists India as Abstain.",
+      "url": "https://unwatch.org/database/resoltions/wha79-11/"
+    },
+    {
+      "country": "brazil",
+      "claim": "A July 2025 law created a national strategy for domestic vaccine/medicine production (Health Economic-Industrial Complex).",
+      "status": "contradicted",
+      "evidence": "The law was signed on 20 July 2026, not 2025: Law 15.471 (PL 2.583/2020), published in the Diário Oficial on 21 July 2026 (Agência Brasil, Tribune India 22 Jul 2026). The content of the claim is correct; only the year is wrong.",
+      "url": "https://agenciabrasil.ebc.com.br/saude/noticia/2026-07/lei-cria-politica-para-fortalecer-industria-da-saude"
+    },
+    {
+      "country": "brazil",
+      "claim": "Lula may be a lame duck; if Bolsonaro wins the runoff, Brazil's position could reverse on 1 January 2027.",
+      "status": "contradicted",
+      "evidence": "Outdated. Lula won the 25 Oct 2026 runoff against Flávio Bolsonaro with about 51.8% and begins a fourth term (inauguration reported for 5 Jan 2027). Bolsonaro has not conceded and seeks annulment. Remove the 'reversal' nuance.",
+      "url": "https://aljazeera.com/news/2026/10/26/lula-holds-off-far-right-with-victory-in-brazil-presidential-election"
+    },
+    {
+      "country": "brazil",
+      "claim": "Launched the Belém Health Action Plan at COP30 (Nov 2025); abstained on WHA79/11.",
+      "status": "partly",
+      "evidence": "COP30 site: the Belém Health Action Plan was presented as a draft by Brazil's Health Ministry in Brasília in July 2025, ahead of COP30, so the launch place and date differ. UN Watch confirms Brazil abstained on WHA79/11.",
+      "url": "https://cop30.br/en/news-about-cop30/belem-health-action-plan-proposes-climate-response-with-a-focus-on-justice-and-equity"
+    },
+    {
+      "country": "saudi-arabia",
+      "claim": "On 25 June 2026 suspended all visas for travellers from the DRC, Uganda and South Sudan due to Ebola and banned citizens from travelling there.",
+      "status": "verified",
+      "evidence": "Saudi MOH news item of 25 June 2026: all visa types suspended, entry barred (including 21-day transit) and citizen travel suspended for the three countries.",
+      "url": "https://www.moh.gov.sa/en/Ministry/MediaCenter/News/Pages/news-2026-06-25-002.aspx"
+    },
+    {
+      "country": "saudi-arabia",
+      "claim": "KSrelief gave US$19.4 million to WHO for Yemen, Sudan and Syria in 2024.",
+      "status": "verified",
+      "evidence": "Cited EMRO page returned 502. Search results (WHO EMRO title, The National, Borgen) confirm agreements of about $19.4m signed at WHA77 in May 2024. Some outlets give $19.5m.",
+      "url": "https://www.emro.who.int/media/news/who-welcomes-funding-support-from-ksrelief-for-critical-health-response-operations-in-sudan-syria-and-yemen.html"
+    },
+    {
+      "country": "saudi-arabia",
+      "claim": "Co-sponsored with Egypt, Nigeria and Russia a failed 2024 amendment to delete 'gender-responsive'; led objections to 'sexual orientation' in WHO's 2022 HIV strategy.",
+      "status": "partly",
+      "evidence": "Health Policy Watch confirms the WHA77 (May 2024) natural-hazards amendment by Egypt, Nigeria, Russia and Saudi Arabia, defeated 27-67-9. The cited source says nothing about the 2022 HIV-strategy objection, which remains unverified.",
+      "url": "https://healthpolicy-watch.news/gender-conservatives-defeated-in-resolution-on-natural-hazards-at-world-health-assembly/"
+    },
+    {
+      "country": "saudi-arabia",
+      "claim": "Abstained on WHA79/11.",
+      "status": "verified",
+      "evidence": "UN Watch database lists Saudi Arabia as Abstain. The profile does not state this; it is added for completeness.",
+      "url": "https://unwatch.org/database/resoltions/wha79-11/"
+    }
+  ],
+  "factSheet": [
+    {
+      "country": "intl",
+      "claim": "US withdrawal effective 22 Jan 2026; roughly US$260-280 million in unpaid 2024-25 dues.",
+      "status": "verified",
+      "evidence": "CIDRAP reports the formal withdrawal one year after the January 2025 notice, with about $278m in unpaid 2024-25 dues, and says WHO considers withdrawal incomplete until debts are paid.",
+      "url": "https://www.cidrap.umn.edu/public-health/us-formally-withdraws-world-health-organization-leaving-debt"
+    },
+    {
+      "country": "intl",
+      "claim": "The US had provided about 15-18% of WHO's funding.",
+      "status": "partly",
+      "evidence": "The cited CIDRAP article says the US provided about 20% of WHO's operational budget, not 15-18%. The share depends on the measure (total vs base budget, by biennium).",
+      "url": "https://www.cidrap.umn.edu/public-health/us-formally-withdraws-world-health-organization-leaving-debt"
+    },
+    {
+      "country": "intl",
+      "claim": "WHO 2026-27 base budget is US$4.2bn, 21% below the US$5.3bn first proposed and about 15% below 2024-25; WHA78 approved a further 20% assessed-contribution increase.",
+      "status": "partly",
+      "evidence": "WHO daily update (20 May 2025) confirms $4.2bn vs $5.3bn (about 21%) and a second gradual 20% increase in assessed contributions. The 'about 15% below 2024-25' comparison is not in the source.",
+      "url": "https://www.who.int/news/item/20-05-2025-seventy-eighth-world-health-assembly---daily-update--20-may-2025"
+    },
+    {
+      "country": "intl",
+      "claim": "Pandemic Agreement adopted 20 May 2025 after a committee vote of 124-0-11 (abstainers incl. Russia, Italy, Israel, the Netherlands, Poland, Iran).",
+      "status": "partly",
+      "evidence": "Cited IISD URL returned 403. TWN, CIDRAP and others confirm a Committee A vote of 124-0-11 on 19 May and consensus adoption in plenary on 20 May. Sources name Poland, Israel, Italy, Russia, Slovakia and Iran; the Netherlands was not confirmed in these results.",
+      "url": "https://www.cidrap.umn.edu/pandemic-influenza/world-health-assembly-adopts-pandemic-agreement-ups-funding-who"
+    },
+    {
+      "country": "intl",
+      "claim": "PABS annex not agreed at WHA79; deadline extended to WHA80 (May 2027) or a special session.",
+      "status": "verified",
+      "evidence": "Health Policy Watch: the draft annex was not presented at WHA79; it goes to WHA80, or to a special session if agreed earlier; the IGWG was to reconvene in July.",
+      "url": "https://healthpolicy-watch.news/member-states-support-extended-deadline-for-talks-on-pandemic-agreement-annex/"
+    },
+    {
+      "country": "intl",
+      "claim": "UNGA adopted the pandemic political declaration on 12 Oct 2026 by 153-3-2 (US, Israel, Argentina against; New Zealand, Paraguay abstaining).",
+      "status": "verified",
+      "evidence": "Cited ANI URL returned 403. Health Policy Watch, AllAfrica, PINA and the UN press release (GA/12770) all report 153-3-2 with the same countries.",
+      "url": "https://healthpolicy-watch.news/un-adopts-political-declaration-on-pandemic-preparedness/"
+    },
+    {
+      "country": "intl",
+      "claim": "WHA79 agreed by consensus to suspend US voting rights from WHA80 if about US$280m in arrears remains unpaid.",
+      "status": "partly",
+      "evidence": "Health Policy Watch reports member states agreed to suspend US voting rights from May 2027 if about $280m stays unpaid (WHA79.2 / A79/17). The 'by consensus' detail was not confirmed. The fact sheet already marks this as uncertain.",
+      "url": "https://healthpolicy-watch.news/who-iran-voting-rights-us-faces-suspension/"
+    }
+  ],
+  "plastics": [
+    {
+      "country": "usa",
+      "studentStance": "Practical cooperation on waste/recycling and innovation; national flexibility; no inflexible production targets.",
+      "status": "no_record",
+      "enb": "On a point of order, the US requested clarification regarding the agenda item under consideration... The US called to \"gavel that through now.\" [Page 11]",
+      "note": "INC-5.2 records only procedural US interventions, with no substantive stance on production, products or finance. In INC-5.3 (Feb 2026) the US backed a time-limited suspension but said the Committee must vote by secret ballot if no consensus. The stance may be plausible but is not evidenced by the local ENB texts."
+    },
+    {
+      "country": "uk",
+      "studentStance": "Legally binding, full-lifecycle treaty; measurable, enforceable commitments; not voluntary-only.",
+      "status": "supported",
+      "enb": "NORWAY... with CANADA and the UK, reiterated their \"steadfast commitment\"... treaty must \"at a minimum\" address the full plastic life cycle... [Page 8]",
+      "note": "A joint statement with Norway and Canada, not a UK-only or HAC-labelled statement. On its own the UK said 'we cannot afford to waste a minute' and wants to build on the session's work [Page 9]."
+    },
+    {
+      "country": "france",
+      "studentStance": "Ambitious binding lifecycle treaty with global rules on problematic plastics/chemicals; not waste-only.",
+      "status": "nuanced",
+      "enb": "FRANCE stressed that the revised text constituted progress and underlined that they were \"disappointed and enraged\" that... no tangible results had been obtained [Page 9]",
+      "note": "ENB shows France's frustration and support for the revised text, but records no French statement on chemicals, production or lifecycle. France negotiates mainly through the EU, which was among those disappointed with the Chair's Draft Text [Page 8]. The substance is consistent but comes from the EU/group, not France alone."
+    },
+    {
+      "country": "japan",
+      "studentStance": "Practical lifecycle rules, recycling, innovation; measurable, science-based implementation.",
+      "status": "nuanced",
+      "enb": "JAPAN noted it is \"regrettable\" that the results of the small group meeting were not adequately reflected in the revised draft text [Page 9]",
+      "note": "ENB shows Japan mainly as bridge-builder: it co-chaired the small group with Chile on production, finance, products and decision-making [Page 8], facilitated informals and co-chaired Contact Group 4. Its substantive positions are not recorded, so model it as a compromise broker rather than from the student stance alone."
+    },
+    {
+      "country": "korea",
+      "studentStance": "Circular-economy innovation, product standards; technically achievable obligations; avoid abrupt costs.",
+      "status": "nuanced",
+      "enb": "REPUBLIC OF KOREA lamented that the momentum from Busan had not produced consensus at INC-5.2, but underlined that the revised text should be the basis of negotiations [Page 9]",
+      "note": "Korea endorsed the Chair's 15 Aug revised text as the negotiating basis, which Arab Group and Like-Minded countries rejected. ENB says nothing on industrial-transition red lines. Korea hosted INC-5 in Busan."
+    },
+    {
+      "country": "china",
+      "studentStance": "Cooperation on waste/recycling; national circumstances; avoid inflexible obligations and production restrictions.",
+      "status": "supported",
+      "enb": "CHINA stressed that plastic pollution is far more complex than expected, with great disparity among economies in terms of plastic dependencies... and waste management capabilities. [Page 10]",
+      "note": "China, speaking for itself, also backed the Chair's proposed way forward together with India [Page 8]. The text had no provisions on scope or sustainable production. ENB has no explicit Chinese statement on production caps."
+    },
+    {
+      "country": "india",
+      "studentStance": "Waste management, national circumstances, developed-country finance; oppose uniform restrictions.",
+      "status": "supported",
+      "enb": "INDIA stressed the importance of consensus... MEAs should be guided by the principles of equity, CBDR, historical responsibility, and consideration of national circumstances [Page 11]",
+      "note": "India spoke for itself. It also called the Chair's draft (which had no production or scope article) a 'good enough' starting point [Page 8]. It insists on consensus decision-making, a point the student stance omits."
+    },
+    {
+      "country": "saudi-arabia",
+      "studentStance": "Waste management/recycling focus; protect petrochemical-based diversification; nationally appropriate obligations.",
+      "status": "nuanced",
+      "enb": "Saudi Arabia, for the ARAB GROUP... stressed that the text circulated on 15 August was rejected... lamenting that... recycling and waste management, were not given equal treatment. [Page 10]",
+      "note": "Every substantive INC-5.2 record is Saudi Arabia speaking FOR THE ARAB GROUP, not nationally, including the request to move Article 6 (supply/sustainable production) to informals [Page 4]. The Like-Minded statement was delivered by Kuwait [Page 9]; Saudi Arabia is not named in it. The substance matches the student stance but should be attributed to the group. In INC-5.3, Saudi Arabia nationally insisted the Chair be selected by consensus."
+    },
+    {
+      "country": "norway",
+      "studentStance": "Legally binding treaty covering production, design, chemicals, waste; transparent monitoring; not voluntary-only.",
+      "status": "supported",
+      "enb": "NORWAY thanked the Chair for a \"more balanced\" revised iteration... treaty must \"at a minimum\" address the full plastic life cycle, unsustainable consumption and production trends... [Page 8]",
+      "note": "Norway spoke with Canada and the UK. It was also among those disappointed with the 13 Aug Chair's Draft [Page 8]. ENB does not label any statement as from the High Ambition Coalition, so do not attribute HAC positions from this text. Norway's ministry funded ENB coverage [Page 1], which is not a stance."
+    },
+    {
+      "country": "brazil",
+      "studentStance": "Flexible framework; national policy autonomy; avoid identical obligations; implementation support.",
+      "status": "no_record",
+      "enb": "In response to a request for clarification by BRAZIL, INC Chair Vayas confirmed that neither the Chair's Draft Text Proposal... would be annexed [Page 8]",
+      "note": "Only procedural and facilitation roles are recorded (co-chaired Contact Group 1; co-facilitated informals on several articles and on health [Pages 4-5, 7]). In INC-5.3 Brazil supported Kuwait's (oil-producer-aligned) call to suspend the session and seek a Chair by acclamation, which hints at consensus-leaning procedure but is not a substantive position."
+    }
+  ],
+  "deepSea": [
+    {
+      "country": "usa",
+      "studentStance": "Diversified supply chains, environmental standards, science and monitoring to inform deep-sea decisions.",
+      "status": "nuanced",
+      "enb": "for the US, responsible seabed mineral development is a strategic national security and economic priority... diversified supply chains are necessary [Page 26, p2]",
+      "note": "The student stance leaves out the central fact. The US is not a party to UNCLOS, says it is 'not bound by Part XI' [Page 26, p2] and is processing applications under its 1980 Deep Seabed Hard Mineral Resources Act (e.g. TMC USA), which most ISA members call unilateral. It says no applications have yet been approved [Page 33, p2]. At ISA it is not a member (seat arrangement 'if the US becomes an ISA member', Page 31, p2) and speaks as an observer."
+    },
+    {
+      "country": "uk",
+      "studentStance": "Robust environmental standards; deep-sea mining governed by international law and credible science.",
+      "status": "supported",
+      "enb": "The UK called for robust environmental provisions and high environmental standards. [Page 24, p2]",
+      "note": "The UK also stressed strong scientific foundations before exploitation, with others [Page 31, p2], and backed the LTC compliance inquiry [Page 6, p1]. The UK is NOT on the ENB list of moratorium or precautionary-pause supporters [Page 25, p2], so do not present it as a moratorium state from these texts. It spoke for WEOG on a nomination only [Page 21, p2]."
+    },
+    {
+      "country": "france",
+      "studentStance": "Strict safeguards and scientific evidence for seabed exploitation; also secure access to transition minerals.",
+      "status": "nuanced",
+      "enb": "Numerous countries, including PANAMA, SWITZERLAND, THE BAHAMAS, FRANCE, FIJI, GERMANY... reaffirmed their support for a moratorium or precautionary pause on deepsea mining. [Page 25, p2]",
+      "note": "France goes further than the student stance: it supports a moratorium or precautionary pause and says any unilateral action in the Area is contrary to international law [Page 4, p1; Page 25, p2]. Treat France as precautionary, not 'conditional development'."
+    },
+    {
+      "country": "japan",
+      "studentStance": "Responsible sourcing, recycling; rigorous science-based assessment of deep-sea mining; secure supplies.",
+      "status": "nuanced",
+      "enb": "JAPAN said development of the exploitation regulations is a clear requirement under UNCLOS, to provide contractors with legal certainty to pursue activities within the ISA framework. [Page 24, p2]",
+      "note": "Japan leans 'conditional development'. It prioritises finishing the Mining Code and promotes new low-impact technologies [Page 24, p2]. With China, India and Russia it argued the periodic review would divert resources from the regulations [Page 29, p2]. It is not on the moratorium list."
+    },
+    {
+      "country": "korea",
+      "studentStance": "Responsible sourcing, battery recycling; predictable science-based standards; supply-chain stability.",
+      "status": "nuanced",
+      "enb": "The REPUBLIC OF KOREA drew attention to a workshop to advance the REMP for the North-West Pacific Ocean held in Busan in May 2026. [Page 25, p2]",
+      "note": "ENB records mostly governance, finance and capacity-building interventions, with no stated position on a moratorium or timing. Korea holds an ISA exploration contract for cobalt-rich crusts (relinquishing one third, Page 4, p2) and sits in the major-investor Council group [Page 31, p2]. That fits 'predictable standards' but is not an explicit stance."
+    },
+    {
+      "country": "china",
+      "studentStance": "Science-based international rules for deep-sea mining through multilateral institutions; secure mineral access.",
+      "status": "supported",
+      "enb": "CHINA underscored that \"since the first day, the ISA is upholding multilateralism...\" and that pursuing unilateral exploitation plans undermines the ISA. [Page 11, p2]",
+      "note": "China also said early adoption of the regulations is essential [Page 4, p1], wants the Mining Code prioritised [Page 24, p2] and criticised the US Executive Order [Page 4, p1]. That makes it 'resource development through the ISA'. It also backs Africa Group benefit-sharing proposals."
+    },
+    {
+      "country": "india",
+      "studentStance": "Responsible development, technology and finance for developing countries; equitable access; national authority.",
+      "status": "supported",
+      "enb": "INDIA looked forward to a common heritage framework, stressing that the equitable sharing of benefits is essential. [Page 24, p2]",
+      "note": "India is an ISA contractor (polymetallic sulphides contract in force 15 Sep 2025, Page 4, p1). It wants region-specific thresholds [Page 7, p1] and Indian Ocean data in the financial model [Page 8, p1]. It opposed starting the periodic review now [Page 29, p2]. India held the Council presidency (Mayank Joshi), which is an office, not a national stance."
+    },
+    {
+      "country": "saudi-arabia",
+      "studentStance": "Mining standards, investment in minerals for diversification; national control; practical regulation.",
+      "status": "no_record",
+      "enb": "No mention of Saudi Arabia in either ISA Council-31 report.",
+      "note": "The student stance concerns land-based minerals and Vision 2030 diversification. The ENB records cannot confirm or deny it. Do not invent Saudi deep-sea positions."
+    },
+    {
+      "country": "norway",
+      "studentStance": "Stringent requirements; full science and monitoring before deep-sea mining is authorized; precaution.",
+      "status": "nuanced",
+      "enb": "Tonga, for the PACIFIC ISLANDS FORUM (PIF), supported by INDONESIA and NORWAY, called for a strong, comprehensive, and fit-for-purpose regulatory framework... in line with the precautionary principle. [Page 24, p2]",
+      "note": "Norway is not on the moratorium or pause list [Page 25, p2]. It works on building the rules: it facilitated the environmental management IWG [Pages 14, 16, p2], introduced 'parent company liability' [Page 19, p1] and called finalising the regulations 'the priority' [Page 29, p2]. Endorsing the PIF statement is support for a group statement, not Norway's own words. 'Precaution before authorization' overstates its recorded stance."
+    },
+    {
+      "country": "brazil",
+      "studentStance": "Sovereignty over resources, development benefits, Indigenous rights (land-mining framing).",
+      "status": "nuanced",
+      "enb": "Numerous countries, including... FRANCE, FIJI, GERMANY, GREECE, BRAZIL, GUATEMALA, FINLAND, and COSTA RICA reaffirmed their support for a moratorium or precautionary pause on deepsea mining. [Page 25, p2]",
+      "note": "On deep-sea mining Brazil is clearly precautionary, which the student stance does not say. It wants the precautionary approach to guide thresholds [Page 4, p2], opposes unilateral mining [Page 8, p1] and wants benefit-sharing rules agreed before mining begins [Page 9, p2]. The sovereignty and resource-development framing only fits land-based minerals."
+    }
+  ],
+  "embeddedInstructions": [
+    "folderA/fact-sheet.json 'instructions' field: these facts are 'ground truth for this simulation', and AI delegates and the Chair must not contradict them. Includes 'Never invent figures beyond these'. Several of these 'ground truth' facts are partly wrong or unconfirmed (see factSheet).",
+    "folderA/usa.json review.notes: 'Status set to observer for this simulation.' This is a procedural setting hidden in a research review note (the profile's 'status' field carries it).",
+    "folderA/committee.json 'procedure': UNA-USA rules, 60 s default speaking time, simple majority, two-thirds closure of debate, draft resolution needs 20% signatories, observersCanVote=false. Combined with the USA observer status, the US cannot vote.",
+    "folderA/committee.json 'setting': the simulation is fixed to 'real events as of 17 October 2026', so later events (e.g. Lula's 25 Oct 2026 runoff win) are outside the simulation's frame.",
+    "folderB student doc header: 'Please submit your work to [e-mail redacted]' (an email routing instruction) and a pasted 'cloudflared tunnel --url https://localhost:8001' command with a trycloudflare.com URL ('Only works when my app.py is running'). These are not research content; exclude them from RAG.",
+    "folderB student doc 'Important note for Agenda B': a framework telling debaters to sort deep-sea positions into precautionary / conditional development / resource-development, and saying the ISA is central.",
+    "folderB student doc Korean file table and rag-data/README.txt: pipeline directions. The stance files are 'the standard for making AI countries speak in their country's position'. Exclude README from RAG search. Initially leave unclos_full.txt out of search. Search ENB by country name for real statements.",
+    "rag-data/README.txt characterises INC-5.3 as an 'oil-producer group (Kuwait, Saudi, etc.) demanding consensus'. This is an editorial label, not ENB wording; ENB lists Kuwait supported by Brazil, Iran, Saudi Arabia, Malaysia, Qatar, UAE, Argentina, Bahrain, Oman and Russia."
+  ]
+}

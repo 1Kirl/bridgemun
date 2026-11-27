@@ -1,0 +1,193 @@
+/*
+ * Landing page styles, ported from the reference landing (Willahn12/bridgemun app/globals.css).
+ * EVERYTHING here is scoped to .bm-landing (or to html[data-deck]/[data-intro], which only the landing sets),
+ * so the meeting room and the other pages are never restyled — even after client-side navigation, when this
+ * stylesheet stays loaded.
+ */
+
+/* The home-page palette of the reference (its base :root values with the softer "deck/intro" overrides). */
+.bm-landing {
+  color-scheme: light;
+  --background: #fbfdff;
+  --surface: #ffffff;
+  --surface-sunk: #eaf5ff;
+  --ink: #0c2b4b;
+  --muted: #4c6580;
+  --line: #d3e6f8;
+  --accent: #1580d8;
+  --accent-ink: #ffffff;
+  --danger: #b4321f;
+  --sky-glow: #e2f0fd;
+  --sky: #d3e8fb;
+  --sun: #f7cf63;
+  --cyan: #6ccaef;
+  --coral: #f6998a;
+  --mint: #78d5b3;
+  --violet: #b0a4f5;
+  --shadow: 0 1px 2px rgb(11 107 194 / 0.05), 0 10px 28px -16px rgb(11 107 194 / 0.25);
+  --radius-ui: 12px;
+  --font-head: var(--font-bric);
+  min-height: 100vh;
+  background: radial-gradient(72rem 26rem at 80% -7rem, var(--sky-glow), transparent 72%) no-repeat, var(--background);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+.bm-landing :is(h1, h2, h3) { text-wrap: balance; font-family: var(--font-head), var(--font-body), system-ui, sans-serif; letter-spacing: -0.02em; }
+.bm-landing :is(button, a, summary, select, [role="button"]) { touch-action: manipulation; }
+.bm-landing :where(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@layer components {
+  .bm-landing .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+    border-radius: 999px;
+    padding: 0.6rem 1.15rem;
+    font-size: 0.925rem;
+    font-weight: 600;
+    line-height: 1.25;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), background-color 150ms, border-color 150ms;
+    cursor: pointer;
+  }
+  .bm-landing .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .bm-landing .btn:active:not(:disabled) { transform: translateY(2px); }
+  .bm-landing .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .bm-landing .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: 0 3px 0 color-mix(in srgb, var(--accent) 55%, black);
+  }
+  .bm-landing .btn-primary:hover:not(:disabled) { border-color: var(--accent); filter: brightness(1.08); }
+  .bm-landing .btn-primary:active:not(:disabled) { box-shadow: 0 1px 0 color-mix(in srgb, var(--accent) 55%, black); }
+  .bm-landing .btn-live { border-color: var(--danger); color: var(--danger); }
+  .bm-landing .field {
+    width: 100%;
+    border-radius: var(--radius-ui);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0.65rem 0.8rem;
+    font-size: 0.975rem;
+    line-height: 1.5;
+  }
+  .bm-landing .field::placeholder { color: var(--muted); }
+  .bm-landing .label { display: block; margin-bottom: 0.4rem; font-size: 0.85rem; font-weight: 500; color: var(--ink); }
+  .bm-landing .helper { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+}
+
+/* Full animations unless the visitor chose "Reduce motion" (data-motion="full" is set by the landing's inline script). */
+html[data-motion="full"]:not([data-intro]) .bm-landing .slide[data-state="active"] .deal { animation: bm-deal 720ms cubic-bezier(0.34, 1.35, 0.5, 1) backwards; animation-delay: var(--delay, 0ms); }
+@keyframes bm-deal { from { opacity: 0; transform: translate(0, 70px) rotate(0deg); } }
+html[data-motion="full"] .bm-landing .flip { transform-origin: 50% 0; animation: bm-flip 460ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes bm-flip { from { opacity: 0.2; transform: perspective(700px) rotateX(-75deg); } }
+html[data-motion="full"] .bm-landing .pulse-ring { animation: bm-pulse-ring 1.4s ease-out infinite; }
+@keyframes bm-pulse-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+
+/* While the intro plays: no scrolling, no header logo (it lands there at the end). */
+html[data-intro] { overflow: hidden; }
+html[data-intro] .bm-landing [data-header-logo] { visibility: hidden; }
+
+.bm-landing .intro { display: none; }
+html[data-intro] .bm-landing .intro { position: fixed; inset: 0; z-index: 60; display: block; }
+.bm-landing .intro-bg { position: absolute; inset: 0; background: radial-gradient(60rem 40rem at 50% 45%, #ffffff, var(--sky) 90%); transition: opacity 700ms ease 150ms; }
+.bm-landing .intro[data-flying="true"] .intro-bg { opacity: 0; }
+.bm-landing .intro-blob { position: absolute; aspect-ratio: 1; border-radius: 9999px; opacity: 0.85; }
+.bm-landing .intro-stage { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; padding: 0 1rem; text-align: center; }
+.bm-landing .intro-logo { transform-origin: 0 0; transition: transform 900ms cubic-bezier(0.7, 0, 0.2, 1); }
+.bm-landing .intro-motto { min-height: 2.5rem; color: var(--ink); transition: opacity 300ms; }
+.bm-landing .intro[data-flying="true"] .intro-motto { opacity: 0; }
+.bm-landing .intro-caret { display: inline-block; width: 3px; height: 1em; margin-left: 3px; vertical-align: -0.12em; background: var(--accent); animation: bm-caret 0.9s steps(1) infinite; }
+@keyframes bm-caret { 50% { opacity: 0; } }
+html[data-motion="full"] .bm-landing .intro-pop { animation: bm-intro-pop 700ms cubic-bezier(0.34, 1.56, 0.5, 1) both; }
+@keyframes bm-intro-pop { from { opacity: 0; transform: scale(0.5) translateY(30px); } }
+html[data-motion="full"] .bm-landing .intro-blob { animation: bm-intro-blob-in 800ms cubic-bezier(0.34, 1.56, 0.5, 1) var(--delay, 0ms) backwards, bm-intro-float var(--d, 3.4s) ease-in-out calc(var(--delay, 0ms) + 800ms) infinite alternate; }
+@keyframes bm-intro-blob-in { from { opacity: 0; transform: scale(0.2); } }
+@keyframes bm-intro-float { to { transform: translate(var(--fx, 0px), -16px) scale(1.06); } }
+/* The bridge in the logo draws itself, and the letters hop in one by one. */
+html[data-motion="full"] .bm-landing .intro-draw :is(path, circle) { stroke-dasharray: 1; animation: bm-intro-draw 900ms cubic-bezier(0.6, 0, 0.2, 1) 250ms backwards; }
+@keyframes bm-intro-draw { from { stroke-dashoffset: 1; } }
+.bm-landing .intro-letter { display: inline-block; }
+html[data-motion="full"] .bm-landing .intro-letter { animation: bm-intro-letter 650ms cubic-bezier(0.34, 1.56, 0.5, 1) calc(var(--i) * 45ms + 250ms) backwards; }
+@keyframes bm-intro-letter { from { opacity: 0; transform: translateY(0.7em) rotate(-10deg); } }
+html:not([data-motion="full"]) .bm-landing .intro-logo { transition: opacity 400ms; }
+html:not([data-motion="full"]) .bm-landing .intro[data-flying="true"] .intro-logo { opacity: 0; }
+
+/* A folded country card, like the ones delegates raise in committee. */
+.bm-landing .placard {
+  border: 3px solid var(--ink);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 8px 8px 0 var(--cyan);
+  overflow: hidden;
+  transform: translate(var(--x, 0), var(--y, 0)) rotate(var(--rot, 0deg));
+  transition: transform 320ms cubic-bezier(0.34, 1.35, 0.5, 1);
+}
+.bm-landing .stage:hover .placard-a { --rot: -9deg; --x: -22px; }
+.bm-landing .stage:hover .placard-b { --rot: 8deg; --x: 22px; }
+
+.bm-landing .bubble-left { border-radius: 24px 24px 24px 6px; }
+.bm-landing .bubble-right { border-radius: 24px 24px 6px 24px; }
+
+/* ---------- The deck: full-screen scenes that swap instead of scrolling ---------- */
+html[data-deck] { overflow: hidden; overscroll-behavior: none; }
+
+.bm-landing .deck { position: fixed; inset: 4rem 0 0 0; overflow: hidden; overflow: clip; }
+.bm-landing .slide {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 600ms ease, transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 900ms;
+}
+.bm-landing .slide[data-state="before"] { transform: translateY(-7vh); }
+.bm-landing .slide[data-state="after"] { transform: translateY(7vh); }
+.bm-landing .slide[data-state="active"] { opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+
+.bm-landing .slide [data-anim] {
+  opacity: 0;
+  transform: translateY(34px) scale(0.98);
+  transition: opacity 700ms ease, transform 900ms var(--ease, cubic-bezier(0.2, 0.8, 0.2, 1)), filter 700ms ease;
+}
+.bm-landing .slide[data-state="active"] [data-anim] { filter: none; opacity: 1; transform: none; transition-delay: calc(var(--i, 0) * 120ms + 250ms); }
+.bm-landing .slide[data-state="before"] [data-anim] { transform: translateY(-46px) scale(0.96); transition: opacity 450ms ease, transform 600ms cubic-bezier(0.5, 0, 0.75, 0); transition-delay: calc(var(--i, 0) * 60ms); }
+.bm-landing .slide[data-state="after"] [data-anim] { transform: translateY(46px) scale(0.96); transition: opacity 450ms ease, transform 600ms cubic-bezier(0.5, 0, 0.75, 0); transition-delay: calc(var(--i, 0) * 60ms); }
+
+.bm-landing .slide:not([data-state="active"]) [data-anim="left"] { transform: translateX(-120px); }
+.bm-landing .slide:not([data-state="active"]) [data-anim="right"] { transform: translateX(120px); }
+.bm-landing .slide:not([data-state="active"]) [data-anim="zoom"] { transform: scale(0.5); --ease: cubic-bezier(0.34, 1.56, 0.5, 1); }
+.bm-landing .slide:not([data-state="active"]) [data-anim="drop"] { transform: translateY(-110px); --ease: cubic-bezier(0.34, 1.7, 0.5, 1); }
+.bm-landing .slide:not([data-state="active"]) [data-anim="flip"] { transform: perspective(900px) rotateX(-70deg) translateY(50px); transform-origin: 50% 100%; }
+.bm-landing .slide:not([data-state="active"]) [data-anim="blur"] { transform: scale(0.92); filter: blur(14px); }
+.bm-landing .slide[data-state="active"] [data-anim="zoom"], .bm-landing .slide[data-state="active"] [data-anim="drop"] { --ease: cubic-bezier(0.34, 1.56, 0.5, 1); }
+
+.bm-landing .slide[data-fx="zoom"][data-state="before"] { transform: scale(1.12); }
+.bm-landing .slide[data-fx="zoom"][data-state="after"] { transform: scale(0.9); }
+.bm-landing .slide[data-fx="side"][data-state="before"] { transform: translateX(-9vw); }
+.bm-landing .slide[data-fx="side"][data-state="after"] { transform: translateX(9vw); }
+
+.bm-landing .slide [data-pop] { transition: transform 650ms cubic-bezier(0.5, 0, 0.75, 0), opacity 450ms ease; }
+.bm-landing .slide:not([data-state="active"]) [data-pop] { transform: scale(0.15); opacity: 0; }
+.bm-landing .slide[data-state="active"] [data-pop] {
+  transform: none;
+  opacity: 0.8;
+  transition: transform 900ms cubic-bezier(0.34, 1.56, 0.5, 1) calc(var(--i, 0) * 110ms + 400ms), opacity 500ms ease calc(var(--i, 0) * 110ms + 400ms);
+}
+html[data-intro] .bm-landing .slide[data-state="active"] [data-pop] { transform: scale(0.15); opacity: 0; transition-delay: 0s; }
+html[data-intro] .bm-landing .slide[data-state="active"] [data-anim] { opacity: 0; transform: translateY(34px) scale(0.98); transition-delay: 0s; }
+
+/* Reduced motion: scenes and their contents only fade. */
+html:not([data-motion="full"]) .bm-landing .slide,
+html:not([data-motion="full"]) .bm-landing .slide[data-state] { transform: none; transition-duration: 350ms; }
+html:not([data-motion="full"]) .bm-landing .slide [data-anim],
+html:not([data-motion="full"]) .bm-landing .slide [data-pop] { transform: none !important; filter: none !important; transition-duration: 350ms !important; transition-delay: 0s !important; }
+
+html[data-motion="full"] .bm-landing .nudge { animation: bm-nudge 1.6s ease-in-out infinite; }
+@keyframes bm-nudge { 50% { transform: translateY(8px); } }

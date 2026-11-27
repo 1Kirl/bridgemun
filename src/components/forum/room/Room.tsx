@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { LogoSymbol } from "@/components/brand/Logo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MediaSession, type MediaHandle } from "@/components/forum/MediaSession";
 import { FilePlus2 } from "lucide-react";
@@ -73,8 +75,11 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f1f5f9]">
-      <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-5">
-        <div className="min-w-0">
+      <header className="flex h-14 items-center justify-between gap-3 border-b border-gray-200 bg-white px-5">
+        <Link href="/" aria-label="BridgeMUN home" className="shrink-0" title="BridgeMUN home">
+          <LogoSymbol className="h-8 w-8" />
+        </Link>
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-black text-gray-900">{meta.title}</p>
           <p className="truncate text-[11px] text-gray-500">
             {state.committeeId.replace("_HMUN", "")} · {meta.agenda} · rules {state.rulesetId}

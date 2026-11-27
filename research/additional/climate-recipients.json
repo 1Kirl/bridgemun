@@ -1,0 +1,492 @@
+{
+  "collectedOn": "2026-11-27",
+  "agenda": "climate-adaptation-finance",
+  "docs": [
+    {
+      "id": "bd-ndc3-2025",
+      "country": "bd",
+      "type": "official_position",
+      "title": "Bangladesh's Third Nationally Determined Contribution (NDC 3.0)",
+      "publisher": "Ministry of Environment, Forest and Climate Change, Government of Bangladesh (submitted to UNFCCC NDC registry)",
+      "url": "https://unfccc.int/sites/default/files/2025-09/Bangladesh%20Third%20Nationally%20Determined%20Contribution%20%28NDC%203.0%29.pdf",
+      "date": "2025-09",
+      "retrieved": "2026-11-27",
+      "location": "Executive summary (printed p. i); 'International Climate Justice and State Obligations' (p. 3); s.5.1 & 5.1.1 Adaptation Support Needs (p. 33-34); s.5.2 Loss and Damage (p. 34-35); s.8.1-8.2 Investment Needs / Climate Finance (p. 53, Table 23)",
+      "quote": "Average annual adaptation climate finance flow in Bangladesh is 4 billion USD whereas Bangladesh needs 8.5 billion USD per year to implement the adaptation priorities.",
+      "points": [
+        "National context: the NAP (2023-2050) identifies 113 adaptation interventions across 8 thematic sectors; 65 of them are included in NDC 3.0 as implementable by 2035 (s.5.1).",
+        "Adaptation need: Bangladesh needs USD 8.5 billion per year for adaptation priorities against an average annual adaptation finance flow of USD 4 billion; about 88% of adaptation finance comes from the government budget; international sources provided about USD 0.4 billion a year on average (2021-2023); annual adaptation finance gap about USD 4.5 billion (53%) (s.8.2).",
+        "Based on NAP and sectoral estimates, annual adaptation investment requirement will reach USD 12-14 billion by 2035 (s.5.1.1).",
+        "Mitigation: NDC 3.0 needs USD 116.18 billion in total, of which USD 25.95 billion domestic (unconditional) and USD 90.23 billion from international climate finance (conditional) (s.8.1, Table 23).",
+        "Loss and damage: around USD 3 billion in annual climate damages (around 1% of GDP) (exec. summary); loss-and-damage actions are 100% conditional on grant-based support from 'polluter countries', including the Fund for Responding to Loss and Damage (s.5.2).",
+        "Asks: enhanced access to GCF and Adaptation Fund; fulfilment of the Paris commitment to bring adaptation finance to parity with mitigation; technology transfer, South-South cooperation and capacity building (s.5.1.1).",
+        "Invokes the 2025 ICJ Advisory Opinion as reaffirming developed countries' duty to provide adequate, predictable and accessible climate finance (p. 3) and states that historically polluting countries are responsible for addressing loss and damage (s.5.2)."
+      ],
+      "supports": [
+        "developed-country obligation to provide finance (citing ICJ 2025 AO)",
+        "adaptation finance parity with mitigation",
+        "grant-based loss and damage finance via FRLD",
+        "easier access to GCF and Adaptation Fund"
+      ],
+      "opposes": [],
+      "redLines": [],
+      "caveats": "NDC is a national submission, not a negotiating text. The 113-intervention NAP itself (and its widely reported USD 230 billion total) could not be opened; NAP figures here are only as restated in the NDC. Physical PDF page numbers differ slightly from printed page numbers."
+    },
+    {
+      "id": "in-cop30-opening-basic-lmdc",
+      "country": "in",
+      "type": "official_position",
+      "title": "India Reaffirms Commitment to Equity, Climate Justice and Multilateralism at CoP30, in Belém, Brazil",
+      "publisher": "High Commission of India, Pretoria (Government of India mission website)",
+      "url": "https://www.hcipretoria.gov.in/section/news/2india-reaffirms-commitment-to-equity-climate-justice-and-multilateralism-at-cop30-in-bel-m-brazil/",
+      "date": "2025-11-12",
+      "retrieved": "2026-11-27",
+      "location": "Full news item (single page; paragraphs on climate finance, adaptation, Article 9.1 and trade measures)",
+      "quote": "unilateral climate-related trade measures risk becoming instruments of protectionism",
+      "points": [
+        "At the COP30 opening plenary India delivered statements on behalf of BASIC (Brazil, South Africa, India, China) and of the LMDC group; the page does not attribute each paragraph to one group.",
+        "Climate finance described as the key barrier to raised ambition; calls for a universally agreed definition of climate finance and stronger public finance for adaptation.",
+        "States that adaptation finance needs to exceed nearly fifteen times current flows.",
+        "Calls for implementation of Article 9.1 of the Paris Agreement, described as a legal obligation of developed countries to provide finance to developing countries.",
+        "Says unilateral climate-related trade measures contradict the spirit of UNFCCC Article 3.5 and undermine multilateral cooperation.",
+        "Supports a strong Global Goal on Adaptation outcome without additional reporting requirements; reaffirms equity and CBDR-RC."
+      ],
+      "supports": [
+        "Art. 9.1 as legal obligation of developed countries",
+        "public adaptation finance scale-up",
+        "agreed definition of climate finance",
+        "CBDR-RC"
+      ],
+      "opposes": [
+        "unilateral climate-related trade measures (e.g. CBAM-type measures; CBAM not named)",
+        "additional GGA reporting burdens"
+      ],
+      "redLines": [],
+      "caveats": "GROUP statements (BASIC and LMDC) delivered by India, so they bind the groups' common line rather than being India's standalone national statement. The original PIB release could not be opened (HTTP 403); this is a Government of India mission reproduction. Superseded in time by India's COP31 (Nov 2026) statements, which are consistent."
+    },
+    {
+      "id": "in-cop31-opening-air",
+      "country": "in",
+      "type": "official_position",
+      "title": "India urges developed nations to fulfil climate finance obligations (report of India's COP31 opening statement)",
+      "publisher": "All India Radio News (newsonair.gov.in, Prasar Bharati public broadcaster)",
+      "url": "https://newsonair.gov.in/india-urges-developed-nations-to-fulfil-climate-finance-obligations/",
+      "date": "2026-11-11",
+      "retrieved": "2026-11-27",
+      "location": "Article body (single page)",
+      "quote": "developed countries must meet their obligations under Article 9.1 of the Paris Agreement",
+      "points": [
+        "Environment Ministry Secretary Narendra Bhooshan delivered India's national opening statement at COP31 in Antalya.",
+        "Stated that public funding from developed countries remains crucial for climate action in developing nations.",
+        "Highlighted adaptation needs of developing countries, particularly in the Global South (no India-specific cost figure given).",
+        "Related national statement by Minister Bhupender Yadav on 2026-11-18 (https://newsonair.gov.in/india-calls-for-equity-climate-justice-and-fulfilment-of-climate-finance-obligations-at-un-climate-conference-cop31/) stressed historical responsibility and said equitable access to the remaining carbon budget is non-negotiable."
+      ],
+      "supports": [
+        "Art. 9.1 developed-country obligation",
+        "public (not private) finance as core"
+      ],
+      "opposes": [],
+      "redLines": [
+        "Yadav (2026-11-18): equitable access to the remaining carbon budget is described as non-negotiable"
+      ],
+      "caveats": "Secondary report by a state broadcaster, not the statement text; the PIB original (PRID 2334571) returned HTTP 403. The quoted wording is as reported by AIR. The 'USD 305 billion/yr adaptation need by 2035' figure in the article is attributed to a 2026 UNEP report, not to India."
+    },
+    {
+      "id": "cn-mee-annual-report-2025",
+      "country": "cn",
+      "type": "official_position",
+      "title": "China's Policies and Actions for Addressing Climate Change 2025 Annual Report",
+      "publisher": "Ministry of Ecology and Environment of the People's Republic of China",
+      "url": "https://english.mee.gov.cn/Resources/Reports/reports/202511/P020251105496730575050.pdf",
+      "date": "2025-10",
+      "retrieved": "2026-11-27",
+      "location": "Ch. VII s.iv 'Continuously deepening South-South cooperation' (printed p. 68-69); Ch. VIII 'China's basic positions and propositions for UNFCCC COP30' (printed p. 71-75)",
+      "quote": "Developed countries should earnestly fulfil their obligations under the Convention and the Paris Agreement, to provide developing countries with adequate finance, technology and capacity-building support",
+      "points": [
+        "Position for COP30: COP30 should make progress on a roadmap for mobilizing US$1.3 trillion and on a roadmap for developed countries to contribute at least US$300 billion a year by 2035, and promote substantive outcomes on global adaptation goals (Ch. VIII, third proposition).",
+        "Expects developed countries to continue taking the lead in cutting emissions and providing finance; calls for upholding equity and CBDR-RC and the differences between developed and developing countries (Ch. VIII, second and third propositions).",
+        "Says unilateralism and protectionism undermine trade relations and supply chains and would substantially increase NDC implementation costs, especially for developing countries; asks COP30 to give this high priority (Ch. VIII, fourth proposition).",
+        "National context: since 2016 China has provided and mobilized over RMB177 billion in project funding for other developing countries; by end-2024 it had signed 54 South-South climate cooperation agreements with 42 developing countries and run over 300 capacity-building projects training more than 10,000 people from over 120 countries (Ch. VII s.iv)."
+      ],
+      "supports": [
+        "developed-country finance obligations",
+        "USD 300bn delivery roadmap and 1.3T roadmap",
+        "CBDR-RC",
+        "South-South cooperation as China's own (voluntary-framed) contribution"
+      ],
+      "opposes": [
+        "unilateralism and protectionism, including carbon-related trade measures (CBAM not named in the extracted passages)"
+      ],
+      "redLines": [],
+      "caveats": "Pre-COP30 position; COP30 is now concluded. The report does not describe China as a contributor obligated under Art. 9.1; South-South funding is presented as China's own cooperation. 'Voluntary' wording for China's own role was not found verbatim in this document."
+    },
+    {
+      "id": "cn-han-zheng-cop31-leaders",
+      "country": "cn",
+      "type": "official_position",
+      "title": "Remarks by Vice President Han Zheng at the 31st Conference of the Parties to the UNFCCC Antalya Leaders' Summit",
+      "publisher": "Ministry of Foreign Affairs of the People's Republic of China",
+      "url": "https://www.mfa.gov.cn/eng/xw/zyjh/202611/t20261112_12058202.html",
+      "date": "2026-11-11",
+      "retrieved": "2026-11-27",
+      "location": "Full speech (single page; first and second proposals and closing pledges)",
+      "quote": "Developed countries should take the lead in emission reduction and honor their commitment of climate finance.",
+      "points": [
+        "Delivered by Han Zheng as special representative of President Xi Jinping on 11 November 2026 (page updated 12 November 2026).",
+        "Calls for following the principle of common but differentiated responsibilities and for all parties to fully deliver their NDCs.",
+        "Says it is important to be committed to both mitigation and adaptation; proposes cooperation on disaster prevention, early warning and rescue.",
+        "China will continue South-South climate cooperation projects such as the Africa Solar Belt and will roll out a Global South Climate Action Leadership Program; no funding amounts given.",
+        "China's stated 2030 goals cited in the speech: non-fossil share of power generation 50% and electricity share of final energy consumption 35%."
+      ],
+      "supports": [
+        "developed countries honouring finance commitments",
+        "CBDR",
+        "adaptation incl. early warning",
+        "South-South cooperation"
+      ],
+      "opposes": [],
+      "redLines": [],
+      "caveats": "Leaders'-segment speech; brief and general. Does not mention unilateral trade measures or contributor-base broadening. Most recent China position collected."
+    },
+    {
+      "id": "br-cfwp-submission-2026",
+      "country": "br",
+      "type": "official_position",
+      "title": "Federative Republic of Brazil - Submission on the Work Programme on Climate Finance, including on Article 9, paragraph 1, of the Paris Agreement in the context of Article 9 of the Paris Agreement as a whole",
+      "publisher": "Government of Brazil (UNFCCC submission)",
+      "url": "https://unfccc.int/sites/default/files/resource/BRAZIL_CFWP.pdf",
+      "date": "2026-04-29",
+      "retrieved": "2026-11-27",
+      "location": "p. 1 (framing); p. 2 (expected outputs); p. 3 (Art. 9.1-9.4 topics); p. 4 (Art. 9.5/9.7, 9.9, 2.1(c)); p. 5 (organization)",
+      "quote": "Steps to at least triple adaptation finance by 2035, in line with decision 1/CMA.6, including discussions on methodological tools to measure the scale up of adaptation finance.",
+      "points": [
+        "As COP30 host, Brazil calls the work programme one of the most strategic debates before COP31 and says it must be grounded in equity and CBDR-RC and in Article 9's provision of finance by developed countries (p. 1).",
+        "Focus should be implementation of Art. 9.1 within Article 9 as a whole, including predictability and concessionality, and taking into account the 'Baku to Belém Roadmap to 1.3T' (p. 2).",
+        "Proposes practical non-prescriptive tools: harmonized eligibility/access criteria, positive incentives for Art. 9.1 implementation including 'positive lists of donors', exchanges on country platforms, and a UNFCCC Climate Finance portal (p. 2-3).",
+        "Wants a delivery plan for the USD 300 billion goal and for scaling to at least USD 1.3 trillion per year by 2035, in line with Article 9 obligations (p. 3).",
+        "Adaptation: more grant-based and concessional finance, better adaptation-mitigation balance, steps to at least triple adaptation finance by 2035, and measures so tripling does not increase debt burdens (p. 3).",
+        "Transparency: agreed UNFCCC methodologies for reporting finance on a grant-equivalent basis, avoiding double counting (p. 4).",
+        "Flags middle-income countries' access problems (graduation thresholds, credit ratings, debt) and links Article 9 to Article 2.1(c) as a topic, without making 2.1(c) a substitute for 9.1 (p. 4)."
+      ],
+      "supports": [
+        "Art. 9.1 implementation by developed countries",
+        "delivery plan for USD 300bn and 1.3T",
+        "tripling adaptation finance by 2035",
+        "grant-equivalent accounting",
+        "IFA/MDB reform",
+        "Art. 2.1(c) discussed alongside Art. 9"
+      ],
+      "opposes": [
+        "adaptation finance that increases debt burdens"
+      ],
+      "redLines": [],
+      "caveats": "Brazil's national submission (not BASIC/G77). The Baku to Belém Roadmap report itself (cop30.br) could not be opened (HTTP 401), so its contents are not represented here beyond Brazil's references to it."
+    },
+    {
+      "id": "intl-1-cma7-global-mutirao",
+      "country": "group:cma",
+      "type": "intl_background",
+      "title": "Decision 1/CMA.7 'Global Mutirão: Uniting humanity in a global mobilization against climate change' (in FCCC/PA/CMA/2025/19/Add.1)",
+      "publisher": "UNFCCC - Conference of the Parties serving as the meeting of the Parties to the Paris Agreement (CMA 7, Belém)",
+      "url": "https://unfccc.int/sites/default/files/resource/cma2025_19a01E.pdf",
+      "date": "2025-11-22",
+      "retrieved": "2026-11-27",
+      "location": "Decision 1/CMA.7 paras 45-57 (document pp. 7-8); document issued 2026-03-30",
+      "quote": "calls for efforts to at least triple adaptation finance by 2035 in the context of decision 1/CMA.6, including paragraph 16 thereof, and urges developed country Parties to increase the trajectory of their collective provision of climate finance for adaptation",
+      "points": [
+        "Para 45: reaffirms that developed country Parties shall provide financial resources to developing countries for mitigation and adaptation, and that other Parties are encouraged to provide support voluntarily.",
+        "Para 47-48: reaffirms the call to scale financing for developing countries from all public and private sources to at least USD 1.3 trillion per year by 2035, takes note of the 'Baku to Belém Roadmap to 1.3T', and stresses staying on a pathway to the goal of at least USD 300 billion per year by 2035 with developed countries taking the lead.",
+        "Para 49: urgent need for public, grant-based and highly concessional finance, particularly for adaptation in especially vulnerable countries such as LDCs and SIDS.",
+        "Para 53: reaffirms the doubling of adaptation finance by 2025 (1/CMA.3 para 18) and calls for efforts to at least triple adaptation finance by 2035.",
+        "Para 54: establishes a two-year work programme on climate finance including Article 9.1 in the context of Article 9 as a whole (footnote: without prejudging NCQG implementation).",
+        "Para 56-57: measures to combat climate change, including unilateral ones, should not be arbitrary or unjustifiable discrimination or disguised trade restrictions; SB dialogues on trade at SB64, SB66 (June 2027) and SB68 (June 2028) plus a 2028 high-level event."
+      ],
+      "supports": [],
+      "opposes": [],
+      "redLines": [],
+      "caveats": "Consensus decision text, not any one country's position. 'Triple by 2035' has no stated baseline in para 53. COP31 (Antalya, Nov 2026) outcomes were not verified and may add to or modify this."
+    },
+    {
+      "id": "group-lmdc-cfwp-2026",
+      "country": "group:LMDC",
+      "type": "official_position",
+      "title": "LMDC Submission on Work Programme on Article 9.1",
+      "publisher": "Like-Minded Developing Countries (UNFCCC submission)",
+      "url": "https://unfccc.int/sites/default/files/resource/LMDC_0.pdf",
+      "date": "2026-09",
+      "retrieved": "2026-11-27",
+      "location": "p. 1 (process objections, objective); p. 2 paras 4-9 (Antalya-COP33 Action Plan); p. 3 (thematic scope); p. 4 (procedural scope)",
+      "quote": "The Action Plan would operationalize the obligation of developed-country Parties to provide financial resources to assist developing-country Parties, including, inter alia, by setting out fair burden-sharing arrangements amongst developed country Parties included in Annex II of the Convention.",
+      "points": [
+        "LMDC aligns with the G77+China submission and rejects the co-chairs' work plan; says the June 2026 Bonn workshops were not CMA-mandated and the work programme only begins once CMA8 decides modalities and scope (p. 1).",
+        "Proposes that CMA8 launch an 'Antalya-COP33 Action Plan' on implementing Art. 9.1 as the work programme's key deliverable, including fair burden-sharing among Annex II Parties (p. 2, para 4).",
+        "Wants four technical dialogues in 2027, at least one high-level roundtable, and annual SCF reports on needs, gaps, quality and quantity of Art. 9.1 finance (p. 2, paras 7-9).",
+        "Thematic scope includes the 'legal character of Article 9.1 as a mandatory provision' and Art. 9.1's role in fund replenishments (p. 3).",
+        "Warns that broadening participation beyond the Art. 9.1 frame risks diluting the developed-country obligation into a voluntary discourse (p. 4)."
+      ],
+      "supports": [
+        "Art. 9.1 as mandatory developed-country obligation",
+        "Annex II burden-sharing",
+        "Party-driven process",
+        "SCF reporting on finance gaps"
+      ],
+      "opposes": [
+        "co-chairs' work plan",
+        "broadening the contributor base / diluting Art. 9.1 into voluntary contributions"
+      ],
+      "redLines": [
+        "Work under the programme cannot start until Parties decide modalities and scope at CMA8 (p. 1)"
+      ],
+      "caveats": "GROUP position. LMDC members include China, India and Saudi Arabia, but this is not automatically each member's national position. Date taken from PDF metadata (17 Sept 2026); the document itself is undated."
+    },
+    {
+      "id": "group-arab-ncqg-hlmd-2024",
+      "country": "group:Arab Group",
+      "type": "official_position",
+      "title": "Statement of the Chair of the Arab Group for the High-Level Ministerial Dialogue on the New Collective Quantified Goal on Climate Finance",
+      "publisher": "Arab Group (UNFCCC; posted on unfccc.int)",
+      "url": "https://unfccc.int/sites/default/files/resource/20242810_Statement_Arab_Group_HLMD.pdf",
+      "date": "2024-10-28",
+      "retrieved": "2026-11-27",
+      "location": "p. 1, paras 2-3 (obligations, donor base), para 5 (quantum), para 6 (instruments), para 7 (disenablers)",
+      "quote": "The claim that changing economic realities necessitate an expansion of the donor base is unfounded and contradicts the principles of the Convention and Paris Agreement.",
+      "points": [
+        "States that the obligation to provide climate finance rests on developed countries under the UNFCCC and Paris Agreement, and that differentiation is not open for discussion.",
+        "Rejects shifting climate finance responsibility onto developing countries or diluting developed-country obligations by shifting them to the private sector.",
+        "Proposed NCQG: developed countries mobilize USD 1.1 trillion per year from 2025 to 2029, with a minimum provision of USD 441 billion per year.",
+        "Support should exclude non-concessional loans, market-rate loans, export credits and instruments with net-negative outcomes for recipients.",
+        "Lists unilateral trade measures among 'disenablers' alongside high transaction costs and overestimation of risk."
+      ],
+      "supports": [
+        "developed-country-only obligation",
+        "large public provision quantum",
+        "concessional-only counting"
+      ],
+      "opposes": [
+        "expanding the donor/contributor base",
+        "shifting obligations to private sector",
+        "unilateral trade measures"
+      ],
+      "redLines": [
+        "Differentiation and developed-country obligations are 'not open for discussion'"
+      ],
+      "caveats": "OLD and SUPERSEDED in part: pre-COP29 position (Oct 2024); the NCQG was adopted at COP29 as USD 300bn/yr by 2035 plus a 1.3T call. GROUP position; the statement does not name the chair country, so it cannot be attributed to Saudi Arabia from this text."
+    },
+    {
+      "id": "sa-ndc2-2025",
+      "country": "sa",
+      "type": "official_position",
+      "title": "Kingdom of Saudi Arabia - Second Nationally Determined Contribution, 2025 submission to UNFCCC",
+      "publisher": "Kingdom of Saudi Arabia (UNFCCC NDC registry)",
+      "url": "https://unfccc.int/sites/default/files/2026-01/2nd%20KSA%20NDC%20Document%20Final%20Document%20%2828122025%29_DNA.pdf",
+      "date": "2025-12-28",
+      "retrieved": "2026-11-27",
+      "location": "Preamble (p. i); Introduction (PDF p. 3); passage before s.4 'Dynamic Baselines' (PDF p. 5); s.8 Means of Implementation and s.8.2 Finance (printed p. 11, PDF p. 13-14)",
+      "quote": "However, the implementation of this NDC is not contingent on receiving international financial support.",
+      "points": [
+        "Target: reduce, avoid and remove GHG emissions by 335 million tons CO2eq annually by 2040 against a dynamic baseline (base year 2019); described as a 20.5% progression over the updated first NDC (Introduction).",
+        "Ambition is contingent on sustained economic growth and diversification supported by a robust contribution from hydrocarbon export revenues (Introduction).",
+        "Frames itself as a developing country facing desertification, water scarcity and sandstorms; adaptation and response-measures management are presented as co-benefits of economic diversification (preamble, s.5.2).",
+        "NDC implementation is not contingent on international financial support; finance is to come from investments, including international investment, which the Kingdom presents as responding to Article 2.1(c) in a nationally determined manner; cites its first sovereign green bond (s.8, 8.2).",
+        "Names CBAM and the EU CSDDD as trade-restrictive unilateral measures and cross-border directives that could be barriers to NDC implementation and distort investment signals (PDF p. 5)."
+      ],
+      "supports": [
+        "nationally determined pathways",
+        "Art. 2.1(c) in a nationally determined manner",
+        "economic diversification approach (decision 24/CP.18)"
+      ],
+      "opposes": [
+        "CBAM",
+        "CSDDD and other cross-border directives",
+        "barriers undermining just transition principles"
+      ],
+      "redLines": [
+        "States that nationally determined pathways shall be respected and that no barriers should be imposed to undermine agreed just-transition principles (Introduction, PDF p. 5)"
+      ],
+      "caveats": "National NDC; does not state Saudi Arabia's own adaptation cost or a position on who must pay under Art. 9.1. For Art. 9.1 / donor-base views see the Arab Group and LMDC group documents, which are group positions."
+    },
+    {
+      "id": "ke-ndc2-2025",
+      "country": "ke",
+      "type": "official_position",
+      "title": "Kenya's Second Nationally Determined Contribution (2031-2035)",
+      "publisher": "Republic of Kenya, Ministry of Environment, Climate Change and Forestry (UNFCCC NDC registry)",
+      "url": "https://unfccc.int/sites/default/files/2025-05/KENYAS%20SECOND%20NATIONALLY%20DETERMINED%20CONTRIBUTION%202031_2035.pdf",
+      "date": "2025-04",
+      "retrieved": "2026-11-27",
+      "location": "Adaptation Goal box (printed p. 18); s.3.2 adaptation budget (printed p. 18-19); fairness section (printed p. 31); Means of implementation (printed p. 32)",
+      "quote": "Since all loans have a repayment consequence to the Kenyan taxpayer, Kenya will consider climate finance support received in loan instruments as part of her domestic contribution.",
+      "points": [
+        "Total need: USD 56 billion for mitigation and adaptation from 1 Jan 2031 to 31 Dec 2035: 40% (USD 22.5 billion) mitigation, about 32% (USD 17.7 billion) adaptation, 28% (USD 15.8 billion) dual-benefit projects (p. 32).",
+        "Kenya aims to mobilize about 19% domestically (USD 10.5 billion, USD 2.1 billion/yr); about USD 45.36 billion (81%) requires international support (p. 32).",
+        "Adaptation and loss-and-damage aversion budget 2031-2035: USD 17.7 billion; Kenya to bear 19% (USD 3.36 billion), with USD 14.34 billion (81%) subject to international support (s.3.2).",
+        "Domestic contribution raised from 13% to 19% of NDC cost compared with the previous NDC.",
+        "Loss and damage: plans needs assessment to request Santiago Network technical assistance and FRLD support.",
+        "Fairness: Kenya's share of current and historical global emissions is described as negligible (less than 0.1%); per-capita emissions under 2.09 tCO2eq vs global 6.76 in 2022 (p. 31)."
+      ],
+      "supports": [
+        "international support for 81% of costs",
+        "FRLD and Santiago Network access",
+        "grant-like support (loans counted as domestic effort)"
+      ],
+      "opposes": [
+        "counting loans as donor support"
+      ],
+      "redLines": [],
+      "caveats": "National NDC (Kenya's own figures). Does not address CBAM/trade or Art. 9.1 wording directly. For the AGN/AU line see the AMCEN/AU Commission statement (group/regional)."
+    },
+    {
+      "id": "group-au-amcen-cop31",
+      "country": "group:AU/AMCEN",
+      "type": "official_position",
+      "title": "Statement by H.E. Moses Vilakati, AMCEN meeting on the margins of UNFCCC COP31",
+      "publisher": "African Union Commission",
+      "url": "https://au.int/sites/default/files/speeches/AMCEN-STATEMENT-15-NOVEMBER-2026.pdf",
+      "date": "2026-11-15",
+      "retrieved": "2026-11-27",
+      "location": "paras 2-5",
+      "quote": "we must safeguard our core priorities on adaptation finance, operationalize the Loss and Damage Fund at scale, secure a fair and equitable Just Transition work programme, and ensure that unilateral trade measures never become punitive barriers",
+      "points": [
+        "Delivered on behalf of the African Union Commission to African environment ministers (AMCEN) during COP31 in Antalya.",
+        "Calls for the era of unfulfilled pledges to give way to binding delivery (para 2).",
+        "Describes the CAHOSCC-AMCEN-AGN three-tier structure as Africa's diplomatic asset (para 4).",
+        "Reports that African Heads of State (CAHOSCC meeting convened by Kenya's President William Ruto at UNGA81) demanded predictable, grant-based public finance rather than debt-creating instruments to close adaptation and resilience gaps (para 5)."
+      ],
+      "supports": [
+        "grant-based public adaptation finance",
+        "Loss and Damage Fund at scale",
+        "just transition work programme"
+      ],
+      "opposes": [
+        "debt-creating instruments",
+        "unilateral trade measures as barriers to African industrialization"
+      ],
+      "redLines": [],
+      "caveats": "Regional (AU Commission) political statement, not an AGN negotiating submission and not Kenya's national position. AGN's own COP31 submissions were not found/opened."
+    },
+    {
+      "id": "za-ndc2-2025",
+      "country": "za",
+      "type": "official_position",
+      "title": "South Africa's Second Nationally Determined Contribution under the Paris Agreement",
+      "publisher": "Government of the Republic of South Africa (UNFCCC NDC registry)",
+      "url": "https://unfccc.int/sites/default/files/2025-10/South%20Africa%27s%20second%20Nationally%20Determined%20Contribution_2025.pdf",
+      "date": "2025-10",
+      "retrieved": "2026-11-27",
+      "location": "s.3 mitigation-support link (printed p. 19-20); s.4(e) Funding of loss and damage (p. 16); s.6 Support and means of implementation, Table 3 (p. 22-23); s.7 equity (p. 24)",
+      "quote": "The extent to which South Africa can achieve this mitigation target, and particularly the lower end of the range, relates to the quantum of support that developed countries continue to provide and mobilise",
+      "points": [
+        "Investment required 2026-2035: adaptation ZAR 250 billion (ZAR 25 billion/yr) for 36 priority adaptation projects; mitigation ZAR 3.47 trillion (ZAR 347 billion/yr) (Table 3).",
+        "Adaptation total does not capture full adaptation needs, previously estimated at around USD 4 billion per year (s.6).",
+        "Accessed about USD 2 billion (ZAR 36 billion) per year of international climate finance in 2018-2019; keeps the 2021 NDC goal of accessing USD 8 billion (ZAR 160 billion) annually by 2030 (s.6).",
+        "Thanks developed countries for Art. 9.1 / UNFCCC Art. 4 support while noting a remaining finance gap; welcomes full implementation of the NCQG (s.6).",
+        "Expects a fair share of international climate finance for adaptation and loss and damage, including from the FRLD; access to adaptation finance currently 12% of flows, target to increase significantly (s.4(e), s.6, s.7).",
+        "Lower end of the 2035 mitigation range is linked to developed-country support under Article 9 (s.3)."
+      ],
+      "supports": [
+        "developed-country support under Art. 9",
+        "fair share of international finance incl. FRLD",
+        "NCQG implementation",
+        "scaled adaptation finance"
+      ],
+      "opposes": [],
+      "redLines": [],
+      "caveats": "National NDC; conditional and unconditional actions are not separated in a table. No explicit CBAM/trade text found in the grepped finance sections. South Africa is also a BASIC member (see India COP30 BASIC statement, a group position)."
+    },
+    {
+      "id": "group-aosis-belem-mission-2026",
+      "country": "group:AOSIS",
+      "type": "official_position",
+      "title": "AOSIS Submission on inputs to the Belém Mission on 1.5",
+      "publisher": "Alliance of Small Island States (UNFCCC submission)",
+      "url": "https://unfccc.int/sites/default/files/resource/Submission_Alliance_Small_Island_States_%28AOSIS%29.pdf",
+      "date": "2026-07",
+      "retrieved": "2026-11-27",
+      "location": "s.II Context (p. 2-3); 'Priority Needs in SIDS' (p. 4-5); 'Priority Actionable Solutions in SIDS' (p. 5-6)",
+      "quote": "the private sector probably will only contribute around 10% of the needed adaptation finance in SIDS and so the onus remains on public financing, and particularly grant-based and concessional international public finance",
+      "points": [
+        "AOSIS (39 countries) says failure to submit 1.5C-aligned NDCs potentially constitutes an internationally wrongful act (p. 2).",
+        "As of June 16 (2026), 15 SIDS had submitted NAPs; lack of grant-based public finance is worsening soft limits to adaptation (p. 3).",
+        "Adaptation support, including for project feasibility work, must be grant-based and must not put SIDS into further debt; highlights a 'missing middle' between NAP priorities and bankable projects (p. 4).",
+        "Adaptation finance and loss-and-damage finance should dovetail, with adequate accessible funds in the FRLD, GCF, Adaptation Fund and SCCF/GEF (p. 4).",
+        "Calls for emergency acceleration of SIDS access, simplified modalities and non-debt instruments; flags high cost of capital, debt burdens, restrictive concessional eligibility and sovereign risk assessments (p. 5-6)."
+      ],
+      "supports": [
+        "grant-based and concessional public adaptation finance",
+        "simplified access to UNFCCC funds",
+        "FRLD alongside adaptation funds",
+        "1.5C-aligned NDCs"
+      ],
+      "opposes": [
+        "debt-creating adaptation finance",
+        "over-reliance on private finance for adaptation"
+      ],
+      "redLines": [],
+      "caveats": "GROUP position (AOSIS), submitted to the Belém Mission on 1.5, not to the finance work programme; Fiji's own national position not collected. AOSIS COP31 plenary statement not found."
+    }
+  ],
+  "notVerified": [
+    {
+      "claim": "Bangladesh NAP 2023-2050 total cost of about USD 230 billion over 27 years (and USD 184.5bn new and additional)",
+      "why": "NAP PDF on unfccc.int exceeded fetch size limit and direct download is blocked by bot protection; figure seen only in search snippets/secondary sources. NDC 3.0 restates 113 interventions and USD 8.5bn/yr need but not the 230bn total."
+    },
+    {
+      "claim": "India called the COP29 NCQG an 'optical illusion' and objected after gavelling",
+      "why": "Widely reported by media; official PIB text not opened (PIB returns HTTP 403)."
+    },
+    {
+      "claim": "India's COP30 closing statement (PIB PRID 2193076, 22/23 Nov 2025) on unilateral trade measures and the Just Transition Mechanism",
+      "why": "PIB page returned HTTP 403; only search-snippet summary seen."
+    },
+    {
+      "claim": "Contents of the 'Baku to Belém Roadmap to 1.3T' report (five action fronts, figures)",
+      "why": "cop30.br PDFs and pages returned HTTP 401; unfccc.int document page returned empty content."
+    },
+    {
+      "claim": "The 2024 Arab Group NCQG statement was delivered by Saudi Arabia as Arab Group chair",
+      "why": "The statement text does not name the chair country."
+    },
+    {
+      "claim": "China's 2035 NDC target (7-10% below peak net GHG by 2035) and China's description of its finance as voluntary South-South cooperation",
+      "why": "China's 2035 NDC PDF (Chinese) was not opened; figures came only from search snippets."
+    },
+    {
+      "claim": "COP31 (Antalya, 9-20 Nov 2026) outcomes on adaptation finance tripling, the Art. 9.1 work programme and African Group agenda proposal",
+      "why": "Only search snippets (ENB, news) seen; no COP31 decision text opened."
+    },
+    {
+      "claim": "AGN's own negotiating position/submission on adaptation finance at COP31",
+      "why": "No AGN submission found or opened; only AU Commission/AMCEN statement verified."
+    }
+  ],
+  "failed": [
+    {
+      "url": "https://unfccc.int/sites/default/files/resource/NAP-Bangladesh-2023.pdf",
+      "reason": "WebFetch maxContentLength (10 MB) exceeded; curl blocked by Incapsula bot protection"
+    },
+    {
+      "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2334571&reg=3&lang=2",
+      "reason": "HTTP 403 Forbidden"
+    },
+    {
+      "url": "https://www.pib.gov.in/PressReleseDetailm.aspx?PRID=2334571&reg=48&lang=2",
+      "reason": "HTTP 403 Forbidden"
+    },
+    {
+      "url": "https://www.pib.gov.in/PressReleasePage.aspx?PRID=2193076",
+      "reason": "HTTP 403 Forbidden"
+    },
+    {
+      "url": "https://cop30.br/pt-br/prioridades-em-2026/mapa-do-caminho-de-baku-a-belem-rumo-a-us-1-3-trilhao/summary_roadmap_cop30_en_final_regular.pdf/@@download/file",
+      "reason": "HTTP 401 Unauthorized"
+    },
+    {
+      "url": "https://cop30.br/en/2026-priorities/baku-to-belem-to-1-3t-roadmap",
+      "reason": "HTTP 401 Unauthorized"
+    },
+    {
+      "url": "https://unfccc.int/documents/652289",
+      "reason": "Page returned empty content"
+    }
+  ]
+}

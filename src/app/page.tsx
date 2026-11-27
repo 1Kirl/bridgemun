@@ -1,40 +1,23 @@
-"use client";
+import { Figtree, Inter_Tight } from "next/font/google";
+import { Landing } from "@/components/landing-deck/Landing";
+import "@/components/landing-deck/landing.css";
 
-import { useState } from "react";
-import { Header } from "@/components/common/Header";
-import { Footer } from "@/components/common/Footer";
-import { Hero } from "@/components/landing/Hero";
-import { LoginModal } from "@/components/landing/LoginModal";
-import { RegisterModal } from "@/components/landing/RegisterModal";
-import { CreateForumModal } from "@/components/landing/CreateForumModal";
-import { JoinForumModal } from "@/components/landing/JoinForumModal";
+/* Fonts of the reference landing; scoped to this page (Bricolage, used by the logo too, is loaded in the root layout). */
+const heading = Inter_Tight({ variable: "--font-heading", subsets: ["latin"] });
+const body = Figtree({ variable: "--font-body", subsets: ["latin"] });
+
+/*
+ * Runs before the first paint of a FULL page load only (React does not execute it on client-side navigation):
+ * - motion: animations on unless the visitor turned them off on this page or the OS asks for reduced motion;
+ * - intro: once per browser session, so coming back from a meeting room never replays it.
+ */
+const LANDING_INIT = `try{var r=document.documentElement,off=false;try{off=localStorage.getItem("bridgemun.motion")==="off"}catch(e){}var rm=window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches;if((!off&&!rm)||location.search.indexOf("motion=on")>-1)r.dataset.motion="full";var seen=false;try{seen=sessionStorage.getItem("bridgemun.intro")==="seen";sessionStorage.setItem("bridgemun.intro","seen")}catch(e){}if(!seen&&location.search.indexOf("intro=off")<0){r.dataset.intro="on";setTimeout(function(){delete r.dataset.intro},9000)}}catch(e){}`;
 
 export default function Home() {
-  const [loginModalOpen, setLoginModalOpen] = useState(false);
-  const [registerModalOpen, setRegisterModalOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [joinOpen, setJoinOpen] = useState(false);
-
-  const openLogin = () => {
-    setRegisterModalOpen(false);
-    setLoginModalOpen(true);
-  };
-  const openRegister = () => {
-    setLoginModalOpen(false);
-    setRegisterModalOpen(true);
-  };
-
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <Header onLoginClick={openLogin} />
-      <main className="flex-1 pt-16">
-        <Hero onLoginClick={openLogin} onCreateForum={() => setCreateOpen(true)} onJoinForum={() => setJoinOpen(true)} />
-      </main>
-      <Footer />
-      <LoginModal isOpen={loginModalOpen} onClose={() => setLoginModalOpen(false)} onSwitchToRegister={openRegister} />
-      <RegisterModal isOpen={registerModalOpen} onClose={() => setRegisterModalOpen(false)} onSwitchToLogin={openLogin} />
-      <CreateForumModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
-      <JoinForumModal isOpen={joinOpen} onClose={() => setJoinOpen(false)} />
+    <div className={`bm-landing ${heading.variable} ${body.variable}`}>
+      <script dangerouslySetInnerHTML={{ __html: LANDING_INIT }} />
+      <Landing />
     </div>
   );
 }

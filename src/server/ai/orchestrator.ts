@@ -7,7 +7,7 @@ import { toPublicState, type PublicForumState } from "@/engine/publicView";
 import { allowedChoices } from "@/engine/voting";
 import type { Effect, ForumEngineState, MotionParams, RecordEntry } from "@/engine/types";
 import { loadState, runCommand, type EffectSink } from "@/server/engine/store";
-import { loadPositionSet, retrieve, type Retrieval } from "@/server/positions/positions";
+import { loadPositionSet, retrieve, sourceRefs, type Retrieval } from "@/server/positions/positions";
 import type { AudioStore } from "@/server/speech/audioStore";
 import type { TtsProvider } from "@/server/speech/providers";
 import { assignVoices } from "@/server/speech/voices";
@@ -196,8 +196,12 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
 
   async function logAction(forumId: string, entry: Record<string, unknown>) {
     // A late AI result must not re-create data under a forum that was deleted meanwhile.
-    if (!(await db.doc(`forums/${forumId}`).get()).exists) return;
-    await db.collection(`forums/${forumId}/aiActions`).add({ ...entry, provider: cfg.llm.name, atMs: Date.now() });
+    const f = await db.doc(`forums/${forumId}`).get();
+    if (!f.exists) return;
+    // Titles / links of the cited material, from the set pinned to this forum (only ids that really exist there).
+    const ids = Array.isArray(entry.evidence) ? (entry.evidence as string[]) : [];
+    const sources = ids.length ? sourceRefs(loadPositionSet(f.data()?.positionSetVersion as string | undefined), ids) : [];
+    await db.collection(`forums/${forumId}/aiActions`).add({ ...entry, ...(sources.length ? { sources } : {}), provider: cfg.llm.name, atMs: Date.now() });
   }
 
   const retr = (L: NonNullable<Awaited<ReturnType<typeof load>>>, seat: string, query: string): Retrieval => retrieve(L.set, seat, L.ctx.agenda, query);
@@ -217,7 +221,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
     for (const seat of consult) {
       const fresh = await loadState(db, forumId);
       if (!fresh || fresh.phase.type !== "FLOOR_OPEN" || fresh.phase.windowId !== windowId) return; // window moved on
-      const ev = retr(L, seat, `${L.ctx.agenda} ${L.record.slice(-3).map((r) => r.text).join(" ")}`);
+      const ev = retr(L, seat, `${L.state.activeCaucus?.topic ?? ""} ${L.record.slice(-3).map((r) => r.text).join(" ")}`);
       const r = await callLlm(forumId, {
         model: cfg.models.decision,
         schemaName: "floor_decision",
@@ -258,7 +262,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
         const res = await act(forumId, seat, { type: "submit_motion", seat, params: p }, { phaseId: windowId });
         if (!res.ok) await logAction(forumId, { seat, kind: "floor", windowId, ok: false, error: `engine_rejected:${res.code}` });
       }
-      await logAction(forumId, { seat, kind: "floor", windowId, ok: true, action: d.action, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds, matchLevel: ev.matchLevel, model: r.model });
+      await logAction(forumId, { seat, kind: "floor", windowId, ok: true, action: d.action, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds.filter((id) => ev.citeable.has(id)), matchLevel: ev.matchLevel, model: r.model });
     }
     const s = await loadState(db, forumId);
     if (!s || s.phase.type !== "FLOOR_OPEN" || s.phase.windowId !== windowId) return;
@@ -321,7 +325,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
         ok: res.ok,
         choice: v.choice,
         summary: v.rationale.slice(0, 400),
-        evidence: v.evidenceIds.filter((id) => ev.chunks.some((c) => c.id === id)),
+        evidence: v.evidenceIds.filter((id) => ev.citeable.has(id)),
         matchLevel: ev.matchLevel,
         model: r.model,
         ...(res.ok ? {} : { error: res.code }),
@@ -336,7 +340,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
     const p = L.state.phase;
     if (p.type !== "AI_SPEECH_PENDING" || p.seat !== seat) return;
     const ctxSeq = L.state.contextSeq; // always reason over the CURRENT confirmed record
-    const ev = retr(L, seat, `${L.ctx.agenda} ${L.record.slice(-4).map((r) => r.text).join(" ")}`);
+    const ev = retr(L, seat, `${p.context.kind === "mod_caucus" ? (L.state.activeCaucus?.topic ?? "") : ""} ${L.record.slice(-4).map((r) => r.text).join(" ")}`);
     const topic = p.context.kind === "mod_caucus" ? `Moderated caucus topic: ${L.state.activeCaucus?.topic ?? ""}.` : "Formal debate (speakers' list).";
     const r = await callLlm(forumId, {
       model: cfg.models.speech,
@@ -387,7 +391,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       }
     }
     const res = await act(forumId, seat, { type: "ai_speech_ready", seat, text, contextSeq: ctxSeq, audioId, durationMs, ...(audioError ? { audioError } : {}) });
-    await logAction(forumId, { seat, kind: "speech", contextSeq: ctxSeq, ok: res.ok, summary: r.data.rationale.slice(0, 400), evidence: r.data.evidenceIds.filter((id) => ev.chunks.some((c) => c.id === id)), matchLevel: ev.matchLevel, audioId: audioId ?? null, model: r.model, ...(res.ok ? {} : { error: res.code }) });
+    await logAction(forumId, { seat, kind: "speech", contextSeq: ctxSeq, ok: res.ok, summary: r.data.rationale.slice(0, 400), evidence: r.data.evidenceIds.filter((id) => ev.citeable.has(id)), matchLevel: ev.matchLevel, audioId: audioId ?? null, model: r.model, ...(res.ok ? {} : { error: res.code }) });
     if (!res.ok && res.code === "stale_context" && attempt === 0) return onSpeech(forumId, seat, contextSeq, maxWords, 1); // regenerate once on new context
   }
 
@@ -409,7 +413,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
       }
       const docs = Object.values(fresh.documents).filter((d) => (d.status === "draft" || d.status === "approved") && (!trigger || d.id === trigger));
       if (trigger && !docs.length) return;
-      const ev = retr(L, seat, `${L.ctx.agenda} resolution draft`);
+      const ev = retr(L, seat, `resolution draft ${docs.map((d) => `${d.title} ${d.operative.join(" ")}`).join(" ").slice(0, 1500)}`);
       const docList = docs.length
         ? docs.map((d) => `- ${d.id} "${d.title}" (${d.status}; sponsors ${d.sponsors.join(",")}; signatories ${d.signatories.join(",")})\n${docText(fresh, d.id)}`).join("\n")
         : "(no drafts yet)";
@@ -452,7 +456,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
           operative: d.draft.operative.slice(0, 8).map((x) => x.slice(0, 800)),
         });
       }
-      await logAction(forumId, { seat, kind: "caucus", ok: res ? res.ok : true, action: d.action, docId: d.docId ?? null, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds.filter((id) => ev.chunks.some((c) => c.id === id)), matchLevel: ev.matchLevel, model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
+      await logAction(forumId, { seat, kind: "caucus", ok: res ? res.ok : true, action: d.action, docId: d.docId ?? null, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds.filter((id) => ev.citeable.has(id)), matchLevel: ev.matchLevel, model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
     }
   }
 
@@ -496,7 +500,7 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
           : ({ kind: a.kind, clauseIndex: idx, text: a.text.trim().slice(0, 800) } as const);
       res = await act(forumId, seat, { type: "submit_amendment", seat, targetDocId: a.docId, op });
     }
-    await logAction(forumId, { seat, kind: "amendment", ok: res ? res.ok : true, action: d.action, amendmentId: d.amendmentId ?? null, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds.filter((id) => ev.chunks.some((c) => c.id === id)), matchLevel: ev.matchLevel, model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
+    await logAction(forumId, { seat, kind: "amendment", ok: res ? res.ok : true, action: d.action, amendmentId: d.amendmentId ?? null, summary: d.rationale.slice(0, 400), evidence: d.evidenceIds.filter((id) => ev.citeable.has(id)), matchLevel: ev.matchLevel, model: r.model, ...(res && !res.ok ? { error: res.code } : {}) });
   }
 
   // ── voting procedure: reorder (rule 34), divide (rule 33), division proposals ──
