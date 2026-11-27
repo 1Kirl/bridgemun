@@ -91,6 +91,7 @@ Stage track (Roll call → Debate & negotiation [loop: general debate / moderate
 - Prep screen (5:00 starts on Start, mic blocked in the pane shown honestly, text draft kept across details toggle and reload); speech still running after 69 s; text submit ended the turn at once (overtime credit 27.6 s = 72.6 − 45);
   caucus speech 5:00; End speech → separate confirmation step; reload during speech kept the deadline; mobile prep/speaking.
 - Vote: "Voting time 0:42" countdown → after 45 s "Waiting for human responses · 1 human response remaining" (no number) → amber 1-minute and red 15-second notices → voting removed the notice and moved on; a second vote expired → Not voted 1 in the chart and the record. Screenshots: /Users/kirl/BridgeMUN/screenshots/2026-11-27-speech-vote/.
+- S1 production check (2026-11-27, forum C15pJOo4hEu5BkQ3TX5d "AUDIT TEST — S1 speech check", commit de83be3, API only): Start speech → 300 s slot (official 45 s); still speaking at 72 s; text submit ended the turn; a second End speech was refused (ended once); overtime credit 28.0 s; then both offline → H1 → closed "all_humans_left". LLM 2 calls / ~1.7k tokens.
 ### User-verified on the production site (real browsers, 2026-11-27, new forum after 50bf29a)
 - Roll call: only US declared → waited for UK; UK declared → next step at once. (user check: passed)
 - Motion floor: UK tab closed while awaited → the wait continued; after reconnecting the response deadline was not reset. (user check: passed)
