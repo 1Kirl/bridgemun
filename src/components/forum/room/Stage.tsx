@@ -82,7 +82,7 @@ export function ChairPanel({ state, rv, now }: { state: PublicForumState; rv: Re
  * Right: who has the floor. Always in the same place (also during motions and votes). The video element passed
  * as `video` stays mounted the whole time; an AI statement or the idle notice is drawn on top of it.
  */
-export function SpeakerPanel({ state, video, aiAudio }: { state: PublicForumState; now?: number; video: React.ReactNode; aiAudio?: React.ReactNode }) {
+export function SpeakerPanel({ state, video, aiAudio, audioButton }: { state: PublicForumState; now?: number; video: React.ReactNode; aiAudio?: React.ReactNode; audioButton?: React.ReactNode }) {
   const p = state.phase;
   const seatId = p.type === "SPEECH" || p.type === "SPEECH_PREP" || p.type === "AI_SPEECH_PENDING" || p.type === "SPEECH_CONFIRM" ? p.seat : null;
   const speaker = seatId ? state.seats[seatId] : null;
@@ -112,16 +112,21 @@ export function SpeakerPanel({ state, video, aiAudio }: { state: PublicForumStat
             <KindBadge seat={speaker} />
           </>
         ) : (
-          <p className="text-xs font-bold text-gray-400">No one has the floor right now</p>
+          <p className="flex-1 text-xs font-bold text-gray-400">No one has the floor right now</p>
         )}
+        {audioButton}
       </div>
       <div className="relative min-h-[110px] flex-1 lg:min-h-[180px]">
         {/* always mounted: no reconnect when the step changes */}
         <div className="absolute inset-0">{video}</div>
         {aiSpeaking && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-start gap-2 overflow-y-auto bg-[#020617] px-5 py-3 text-center custom-scrollbar" data-testid="ai-speech-text">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-purple-600/30">
-              <Bot size={18} className="text-purple-200" />
+            {/* AI delegate "profile": country flag with an AI badge */}
+            <span className="relative shrink-0">
+              <Flag code={speaker!.id} className="h-10 w-14" />
+              <span className="absolute -bottom-1 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 ring-2 ring-[#020617]">
+                <Bot size={11} className="text-white" />
+              </span>
             </span>
             <p className="text-sm leading-relaxed text-purple-50">{p.ai!.text}</p>
           </div>

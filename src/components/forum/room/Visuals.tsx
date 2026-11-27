@@ -176,18 +176,6 @@ export function SituationCard({ state, rv, now, children }: { state: PublicForum
   );
 }
 
-const RV_TITLE: Record<string, string> = {
-  attendance: "Attendance declared",
-  start_speech: "Speaker started",
-  confirm_transcript: "Record confirmed",
-  motion: "Responded on the floor",
-  voting_motion: "Responded on the floor",
-  division: "Responded on division",
-  vote: "Human votes cast",
-  volunteer: "Volunteered or passed",
-  sponsor: "Sponsor responses",
-  caucus_ready: "Ready to resume",
-};
 
 /** E. Human response status. Shows WHO has responded, never how anyone voted. */
 /**

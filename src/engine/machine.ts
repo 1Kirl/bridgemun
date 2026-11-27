@@ -1603,7 +1603,7 @@ function dispatch(ctx: Ctx, c: Command) {
         startedMs: playStartMs,
         deadlineMs: playStartMs + Math.min(estMs + 1000, slotMs),
         context: pp.context,
-        ai: { text: c.text, audioId: c.audioId, playStartMs, durationMs: c.durationMs, contextSeq: c.contextSeq },
+        ai: { text: c.text, audioId: c.audioId, playStartMs, durationMs: c.durationMs, contextSeq: c.contextSeq, ...(c.audioError ? { audioError: c.audioError } : {}) },
       });
       return;
     }

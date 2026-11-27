@@ -5,10 +5,11 @@ import { createDummyAiDriver } from "@/server/ai/dummyDriver";
 import { OpenAILlm, type LlmProvider } from "@/server/ai/llm";
 import { createAiOrchestrator } from "@/server/ai/orchestrator";
 import type { EffectSink } from "@/server/engine/store";
-import { adminDb } from "@/server/firebaseAdmin";
+import { adminDb, getAdminApp } from "@/server/firebaseAdmin";
+import { getStorage } from "firebase-admin/storage";
 import { advanceIfDue } from "@/server/forums/service";
 import { createScheduler, type Scheduler } from "@/server/scheduler";
-import { FirestoreChunkAudioStore, LocalFsAudioStore, type AudioStore } from "@/server/speech/audioStore";
+import { FirestoreChunkAudioStore, LocalFsAudioStore, StorageAudioStore, type AudioStore } from "@/server/speech/audioStore";
 import { ElevenLabsTts, MockStt, MockTts, OpenAIStt, type SttProvider, type TtsProvider } from "@/server/speech/providers";
 import { readCaps, type Caps } from "@/server/usage/budget";
 
@@ -58,8 +59,10 @@ export function buildRuntime(db: Firestore, env: Record<string, string | undefin
   const audioStore: AudioStore | null =
     over.audioStore !== undefined
       ? over.audioStore
-      : env.AUDIO_STORE === "firestore"
-        ? new FirestoreChunkAudioStore(db)
+      : env.AUDIO_STORE === "storage"
+        ? new StorageAudioStore(getStorage(getAdminApp()).bucket())
+        : env.AUDIO_STORE === "firestore"
+          ? new FirestoreChunkAudioStore(db)
         : prod
           ? null
           : new LocalFsAudioStore();
@@ -115,6 +118,11 @@ export function buildRuntime(db: Firestore, env: Record<string, string | undefin
       }
     }
     if (ai) await ai(forumId, effects);
+    // Audio retention: AI speech audio is only needed while the forum runs. When it closes, its audio objects are
+    // deleted (captions stay in the record). A bucket lifecycle rule (7 days) is the backstop for anything missed.
+    if (effects.some((e) => e.type === "forum_closed") && audioStore?.deleteForum) {
+      await audioStore.deleteForum(forumId).catch((err) => console.error("[audio] cleanup failed", forumId, err));
+    }
   };
   return { drain, db, scheduler, sink, aiDriver: over.llm ? `override:${over.llm.name}` : aiDriverName, stt, audioStore, caps };
 }

@@ -8,7 +8,7 @@ import { ScriptedLlm, type LlmMessage } from "@/server/ai/llm";
 import { advanceIfDue, claimSeat, createForum, userCommand } from "@/server/forums/service";
 import { loadState } from "@/server/engine/store";
 import { buildRuntime, type Runtime } from "@/server/runtime";
-import { MemoryAudioStore } from "@/server/speech/audioStore";
+import { MemoryAudioStore, type AudioStore } from "@/server/speech/audioStore";
 import { MockStt, MockTts } from "@/server/speech/providers";
 import { transcribeSpeech } from "@/server/speech/transcribe";
 import { BudgetExceeded, DEFAULT_CAPS, readUsage, reserve, type Caps } from "@/server/usage/budget";
@@ -71,7 +71,7 @@ describe.skipIf(!onEmulator)("Phase 4–5 server pieces on the emulator (mock pr
     expect((await db.doc("forums/deleted-forum/usage/ai").get()).exists).toBe(false);
   });
 
-  async function setup(opts: { version?: string; script: (name: string, m: LlmMessage[]) => unknown; caps?: Partial<Caps["perForum"]> }) {
+  async function setup(opts: { version?: string; script: (name: string, m: LlmMessage[]) => unknown; caps?: Partial<Caps["perForum"]>; audioStore?: AudioStore }) {
     process.env.POSITION_SET_VERSION = opts.version ?? "fixture-v0";
     const llm = new ScriptedLlm(opts.script);
     const rt = buildRuntime(
@@ -80,7 +80,7 @@ describe.skipIf(!onEmulator)("Phase 4–5 server pieces on the emulator (mock pr
         SCHEDULER_DRIVER: "local",
         ...(opts.caps?.llm_calls !== undefined ? { CAP_FORUM_LLM_CALLS: String(opts.caps.llm_calls) } : {}),
       },
-      { llm, tts: new MockTts(), audioStore: new MemoryAudioStore(), stt: new MockStt(), delayMs: 5 },
+      { llm, tts: new MockTts(), audioStore: opts.audioStore ?? new MemoryAudioStore(), stt: new MockStt(), delayMs: 5 },
     );
     const { forumId, joinCode } = await createForum(db, U("owner"), {
       title: "t",
@@ -193,6 +193,28 @@ describe.skipIf(!onEmulator)("Phase 4–5 server pieces on the emulator (mock pr
     expect(await rt.audioStore!.get(forumId, p.ai!.audioId!)).not.toBeNull();
     const log = (await db.collection(`forums/${forumId}/aiActions`).where("kind", "==", "speech").get()).docs[0].data();
     expect(log.evidence).toEqual(["fx-fr-vax-1"]); // invented ids are dropped
+  });
+
+  it("AI speech: a storage failure costs only the audio — the speech is given with captions and the reason", async () => {
+    const failing: AudioStore = { name: "failing", put: async () => { throw new Error("bucket unavailable"); }, get: async () => null };
+    const { rt, forumId } = await setup({
+      audioStore: failing,
+      script: (name) =>
+        name === "floor_decision"
+          ? { action: "pass", motion: null, rationale: "", evidenceIds: [] }
+          : name === "delegate_speech"
+            ? { text: "France supports regional manufacturing hubs.", rationale: "x", evidenceIds: [] }
+            : { votes: [] },
+    });
+    const { runCommand } = await import("@/server/engine/store");
+    await runCommand(db, forumId, { actor: { kind: "ai", seat: "fr" }, command: { type: "add_to_speakers_list", seat: "fr" } }, { onEffects: rt.sink });
+    await userCommand(db, U("owner"), forumId, { command: { type: "floor_pass", seat: "us" } }, rt.sink);
+    await userCommand(db, U("u2"), forumId, { command: { type: "floor_pass", seat: "gb" } }, rt.sink);
+    const s = await until(db, forumId, (x) => x.phase.type === "SPEECH" && x.phase.speakerKind === "ai");
+    const p = s.phase as Extract<ForumEngineState["phase"], { type: "SPEECH" }>;
+    expect(p.ai?.text).toContain("France supports");
+    expect(p.ai?.audioId).toBeUndefined();
+    expect(p.ai?.audioError).toBe("store_failed");
   });
 
   it("transcription: only the speaker awaiting confirmation may upload; transcript becomes ready, then is confirmed", async () => {

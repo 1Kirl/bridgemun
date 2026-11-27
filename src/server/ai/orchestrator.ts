@@ -359,22 +359,34 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
     const text = r.data.text.split(/\s+/).slice(0, maxWords).join(" ");
     let audioId: string | undefined;
     let durationMs: number | undefined;
+    let audioError: "tts_off" | "tts_failed" | "store_failed" | undefined = cfg.tts && cfg.audioStore ? undefined : "tts_off";
     if (cfg.tts && cfg.audioStore) {
       const voices = assignVoices(forumId, Object.values(L.state.seats).filter((x) => x.kind === "ai").map((x) => x.id));
       try {
         await reserve(db, forumId, { tts_chars: text.length }, cfg.caps);
         const t = await cfg.tts.synthesize({ text, voiceId: voices[seat].voiceId, modelId: cfg.ttsModelId });
         if (t.ok) {
-          audioId = `a${randomUUID().replace(/-/g, "").slice(0, 20)}`;
-          await cfg.audioStore.put(forumId, audioId, t.audio, t.mime);
-          durationMs = t.durationMs;
-        } else await logAction(forumId, { seat, kind: "tts", ok: false, error: t.error });
+          const id = `a${randomUUID().replace(/-/g, "").slice(0, 20)}`;
+          try {
+            await cfg.audioStore.put(forumId, id, t.audio, t.mime);
+            audioId = id;
+            durationMs = t.durationMs;
+          } catch (err) {
+            // Storage failure must not cost the speech: it is given with captions only.
+            audioError = "store_failed";
+            await logAction(forumId, { seat, kind: "tts", ok: false, error: `store_failed: ${String((err as Error)?.message ?? err).slice(0, 160)}` });
+          }
+        } else {
+          audioError = "tts_failed";
+          await logAction(forumId, { seat, kind: "tts", ok: false, error: t.error });
+        }
       } catch (e) {
         if (!(e instanceof BudgetExceeded)) throw e;
+        audioError = "tts_failed";
         await logAction(forumId, { seat, kind: "tts", ok: false, error: e.message }); // captions only
       }
     }
-    const res = await act(forumId, seat, { type: "ai_speech_ready", seat, text, contextSeq: ctxSeq, audioId, durationMs });
+    const res = await act(forumId, seat, { type: "ai_speech_ready", seat, text, contextSeq: ctxSeq, audioId, durationMs, ...(audioError ? { audioError } : {}) });
     await logAction(forumId, { seat, kind: "speech", contextSeq: ctxSeq, ok: res.ok, summary: r.data.rationale.slice(0, 400), evidence: r.data.evidenceIds.filter((id) => ev.chunks.some((c) => c.id === id)), matchLevel: ev.matchLevel, audioId: audioId ?? null, model: r.model, ...(res.ok ? {} : { error: res.code }) });
     if (!res.ok && res.code === "stale_context" && attempt === 0) return onSpeech(forumId, seat, contextSeq, maxWords, 1); // regenerate once on new context
   }

@@ -291,7 +291,7 @@ export type Phase =
       startedMs: number;
       deadlineMs: number;
       context: SpeechContext;
-      ai?: { text: string; audioId?: string; playStartMs: number; durationMs?: number; contextSeq: number };
+      ai?: { text: string; audioId?: string; playStartMs: number; durationMs?: number; contextSeq: number; audioError?: "tts_off" | "tts_failed" | "store_failed" };
       /** S1: the official speaking time of this slot (human speeches); time used beyond it is credited back to the session. */
       officialSec?: number;
     }
@@ -458,7 +458,8 @@ export type Command =
   | { type: "confirm_transcript"; seat: SeatId; text: string }
   | { type: "submit_text_speech"; seat: SeatId; text: string }
   | { type: "skip_transcript"; seat: SeatId }
-  | { type: "ai_speech_ready"; seat: SeatId; text: string; contextSeq: number; audioId?: string; durationMs?: number }
+  /** audioError: why there is no audio (captions are always shown): TTS not configured / generation failed / storage failed. */
+  | { type: "ai_speech_ready"; seat: SeatId; text: string; contextSeq: number; audioId?: string; durationMs?: number; audioError?: "tts_off" | "tts_failed" | "store_failed" }
   | { type: "submit_motion"; seat: SeatId; params: MotionParams }
   | { type: "floor_pass"; seat: SeatId }
   | { type: "request_extension"; seat: SeatId }

@@ -2,6 +2,7 @@ import "server-only";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Firestore } from "firebase-admin/firestore";
+import type { Bucket } from "@google-cloud/storage";
 
 /**
  * Where generated AI speech audio lives. Clients fetch it through an authenticated, membership-checked
@@ -10,12 +11,16 @@ import type { Firestore } from "firebase-admin/firestore";
  *  - FirestoreChunkAudioStore: opt-in production option without a new plan (AUDIO_STORE=firestore);
  *    bytes are split into ≤ 700 KB base64-free Blob chunks under forums/{id}/audio/{audioId}/chunks.
  *    Uses the project's existing Firestore quota; NOT enabled by default (owner decision).
- *  - Firebase Storage: alternative, NOT implemented (default buckets require the Blaze plan)
+ *  - StorageAudioStore: production (AUDIO_STORE=storage). Private objects in the project's default Firebase Storage
+ *    bucket under forums/{forumId}/audio/{audioId}; served only through the members-only route (no public URLs,
+ *    no download tokens). Deleted when the forum closes; a 7-day bucket lifecycle rule is the backstop.
  */
 export interface AudioStore {
   readonly name: string;
   put(forumId: string, audioId: string, bytes: Uint8Array, mime: string): Promise<void>;
   get(forumId: string, audioId: string): Promise<{ bytes: Uint8Array; mime: string } | null>;
+  /** Removes every audio object of a forum (called when the forum closes, and by test cleanup). */
+  deleteForum?(forumId: string): Promise<number>;
 }
 
 const safe = (s: string) => /^[A-Za-z0-9_-]{1,80}$/.test(s);
@@ -39,6 +44,40 @@ export class LocalFsAudioStore implements AudioStore {
     } catch {
       return null;
     }
+  }
+}
+
+export class StorageAudioStore implements AudioStore {
+  readonly name = "firebase-storage";
+  constructor(private bucket: Bucket) {}
+  private file(forumId: string, audioId: string) {
+    return this.bucket.file(`forums/${forumId}/audio/${audioId}`);
+  }
+  async put(forumId: string, audioId: string, bytes: Uint8Array, mime: string) {
+    if (!safe(forumId) || !safe(audioId)) throw new Error("bad id");
+    if (bytes.byteLength > MAX_AUDIO_STORE_BYTES) throw new Error("audio too large");
+    await this.file(forumId, audioId).save(Buffer.from(bytes), {
+      resumable: false,
+      contentType: mime,
+      metadata: { cacheControl: "private, max-age=3600", metadata: { forumId, createdAtMs: String(Date.now()) } },
+    });
+  }
+  async get(forumId: string, audioId: string) {
+    if (!safe(forumId) || !safe(audioId)) return null;
+    const f = this.file(forumId, audioId);
+    try {
+      const [[buf], [meta]] = await Promise.all([f.download(), f.getMetadata()]);
+      return { bytes: new Uint8Array(buf), mime: meta.contentType || "audio/mpeg" };
+    } catch (e) {
+      if ((e as { code?: number }).code === 404) return null;
+      throw e;
+    }
+  }
+  async deleteForum(forumId: string) {
+    if (!safe(forumId)) return 0;
+    const [files] = await this.bucket.getFiles({ prefix: `forums/${forumId}/audio/` });
+    await Promise.all(files.map((f) => f.delete({ ignoreNotFound: true })));
+    return files.length;
   }
 }
 

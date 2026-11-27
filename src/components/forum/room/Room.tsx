@@ -1,8 +1,8 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { MediaSession, type MediaHandle } from "@/components/forum/MediaSession";
 import { FilePlus2 } from "lucide-react";
 import type { PublicForumState } from "@/engine/publicView";
 import { DraftEditor, useDocDraft, type DocDraft } from "./DraftEditor";
@@ -26,7 +26,6 @@ import { AiSpeechAudio } from "./AiSpeechAudio";
 import { useSpeechRecorder } from "@/hooks/useSpeechRecorder";
 import { BallotResults, FloorMotions, RecordFeed, SeatGrid, SpeakersList } from "./Panels";
 
-const ZoomVideo = dynamic(() => import("@/components/forum/ZoomVideo"), { ssr: false });
 
 /** Engine-driven meeting room. All state comes from the server projection; buttons send engine commands. */
 export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () => number }) {
@@ -35,14 +34,23 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
   const p = state.phase;
   const me = state.seats[mySeat];
   const isOwner = state.ownerUid === uid;
-  const speaker = "seat" in p ? state.seats[(p as { seat: string }).seat] : null;
   const iHoldFloor = p.type === "SPEECH" && p.seat === mySeat && p.speakerKind === "human";
-  const canSpeak = iHoldFloor || p.type === "UNMOD_CAUCUS";
   const prep = useSpeechPrep(forumId, mySeat);
   const recorder = useSpeechRecorder(forumId, state, mySeat, prep.mode === "mic");
   // Own turn (recognised or speaking): a focused screen; the rest of the room is folded away but stays mounted.
   const focus = (p.type === "SPEECH_PREP" && p.seat === mySeat) || iHoldFloor;
   const [showDetails, setShowDetails] = useState(false);
+  // One gesture turns on meeting audio: Zoom listening + AI voice playback (browsers block autoplay until then).
+  const media = useRef<MediaHandle>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const [zoomAudio, setZoomAudio] = useState({ joined: false, micBlocked: false });
+  const onZoomAudio = useCallback((s: { joined: boolean; micBlocked: boolean }) => setZoomAudio(s), []);
+  const turnOnAudio = async () => {
+    setAudioUnlocked(true);
+    setAudioBlocked(false);
+    await media.current?.enableAudio();
+  };
   const doc = useDocDraft(forumId, mySeat);
   // A text speech whose reply was lost still entered the record: never offer the same draft again.
   const lastMine = [...record].reverse().find((r) => r.seat === mySeat && r.source === "human_text");
@@ -117,19 +125,19 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
               <SpeakerPanel
                 state={state}
                 now={t}
-                aiAudio={p.type === "SPEECH" && p.speakerKind === "ai" ? <AiSpeechAudio forumId={forumId} state={state} now={now} /> : null}
-                video={
-                  <ZoomVideo
-                    forumId={forumId}
-                    onLeave={() => router.push("/")}
-                    onConfirmLeave={async () => true}
-                    videoSdkRole={isOwner ? 1 : 0}
-                    canSpeak={canSpeak}
-                    speakerName={speaker?.countryName}
-                    micMuted={!canSpeak}
-                    onMicMutedChange={() => {}}
-                  />
+                aiAudio={<AiSpeechAudio forumId={forumId} state={state} now={now} unlocked={audioUnlocked} onBlocked={() => setAudioBlocked(true)} />}
+                audioButton={
+                  !audioUnlocked || audioBlocked || !zoomAudio.joined ? (
+                    <button type="button" onClick={() => void turnOnAudio()} className="ml-auto shrink-0 rounded-full bg-brand px-3 py-1 text-[11px] font-black text-white shadow" data-testid="turn-on-audio">
+                      Turn on audio
+                    </button>
+                  ) : (
+                    <span className="ml-auto shrink-0 text-[10px] font-bold text-emerald-300" data-testid="audio-on">
+                      Audio on
+                    </span>
+                  )
                 }
+                video={<MediaSession ref={media} forumId={forumId} uid={uid} state={state} mySeat={mySeat} micWanted={iHoldFloor && prep.mode === "mic"} onAudioState={onZoomAudio} />}
               />
             </div>
             <RecordLog state={state} record={record} />
