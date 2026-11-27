@@ -53,10 +53,14 @@ happens if they do not answer. Code: `src/engine/responses.ts` (who is awaited, 
   ("no motion stands"), but it still stays open for its normal timer so they can move a motion at any time.
   Moving a motion makes them "active" again (asked normally next time). Any meaningful change asks everyone again.
   A new motion is always voted, and every eligible human is asked to vote on it.
-* **Caucus volunteering.** "Pass this turn only" applies to the current speaking turn; they are asked again next
-  turn. "Pass for the rest of this caucus" is an explicit choice that ends with the caucus; they can still volunteer
-  in any turn (which cancels it) or choose "Ask me every turn again". Nobody is ever excluded from speaking, and no
-  answer is made up for anyone.
+* **Caucus volunteering (revised 2026-11-27).** Only two answers: "Volunteer to speak" or "Pass this turn". A pass
+  applies to the current speaking turn; every new turn asks again. The earlier "pass for the rest of this caucus" /
+  "ask me every turn again" options were removed; the server refuses them. A persistent pass stored by the earlier
+  version still counts for the turn in which it was given and is cleared when the next turn opens. Nobody is ever
+  excluded from speaking, and no answer is made up for anyone.
+* **No instant floor loop (2026-11-27 incident fix).** If no human is required in a floor-type window (e.g. no human
+  declared attendance), the window is never closed early by AI passes; it runs its normal timer. When a floor window
+  opens in exactly the same situation as the previous one, the AI is consulted only on every 4th such window.
 
 Actions in one step never complete another step's response (e.g. joining the speakers' list does not answer a
 floor window; a vote does not answer a later floor window).

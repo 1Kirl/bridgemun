@@ -46,14 +46,27 @@ Rule interpretations added: rule 33 proposals ordered "more parts = more disrupt
 | Results screen (per-item tallies, votes by country) | yes | yes | local UI |
 | Roll-call votes, right of reply, suspension of rules, crisis rules 37–40 | excluded | — | — |
 
+## Incident 2026-11-27 — Firestore free quota exhausted (fixed in 23d5deb)
+- Symptom: every authenticated route (command, presence, nudge, tick) hit the 120 s Vercel timeout; home and /api/time were fine.
+- Cause: Firebase `bridgemun` is on the Spark (free) plan (20k writes / 50k reads per day, reset 08:00 UTC). A forum with
+  one human who never declared attendance looped: empty floor → AI passes → window closed at once → reopened, about every
+  3 s for 37 min (4,271 AI passes, 1,450 AI actions), spending the write quota. Firestore retries quota errors silently.
+- Fixes: floor windows without a required human run their normal timer; unchanged floors consult the AI every 4th window;
+  engine transactions/presence writes fail fast (503 database_unavailable, 30 s); late AI work writes nothing under deleted forums.
+- Note: a plan upgrade (Blaze) would remove the hard daily cap; not changed (owner decision).
+
 ## Meeting room UI (2026-11-27)
-Stage track (Roll call → Debate & negotiation [loop: general debate / moderated caucus / negotiation & drafting / resolutions, switched by motion] → Final voting → Results; no percentages) · situation card (actor flag, human/AI, action, large server-time countdown, continue condition, details folded) · "my action" card (response needed / done / no action, response countdown, 60 s and 15 s warnings stating the real consequence) · human response tracker (who responded, never how) · general speakers' list with "paused — resumes after the caucus" and separate caucus volunteers · seat grid · vote charts (live: votes-cast progress only; closed: Yes/No/Abstain/Not voted bars, pass line on the correct denominator: electorate for procedural D1, Yes+No for substantive rule 35) · resolution pipeline with signature meters · final results cards · lobby "Based on HMUN 2026" badge with rule-by-rule details · opening briefing overlay (reduced-motion aware).
+Layout (23d5deb): centre = chair panel | speaker panel (same height; video stays mounted) → Record (240 px chat log) →
+two-column action card (main | Optional, New draft in its header). Side: Motions on the floor → Delegations → Responded on
+the floor → Recent results (latest + Previous results (N)) → Documents → General speakers' list → Why did the AI do that?.
+Caucus volunteering: Volunteer to speak / Pass this turn only.
+Earlier layout notes (superseded where they differ): Stage track (Roll call → Debate & negotiation [loop: general debate / moderated caucus / negotiation & drafting / resolutions, switched by motion] → Final voting → Results; no percentages) · situation card (actor flag, human/AI, action, large server-time countdown, continue condition, details folded) · "my action" card (response needed / done / no action, response countdown, 60 s and 15 s warnings stating the real consequence) · human response tracker (who responded, never how) · general speakers' list with "paused — resumes after the caucus" and separate caucus volunteers · seat grid · vote charts (live: votes-cast progress only; closed: Yes/No/Abstain/Not voted bars, pass line on the correct denominator: electorate for procedural D1, Yes+No for substantive rule 35) · resolution pipeline with signature meters · final results cards · lobby "Based on HMUN 2026" badge with rule-by-rule details · opening briefing overlay (reduced-motion aware).
 
 ## How to run
 - Emulator dev: `npm run emulators` + `npm run dev` (AI = dummy, speech = mock; no paid calls)
 - Emulator + real AI: `AI_DRIVER=openai STT_PROVIDER=openai TTS_PROVIDER=elevenlabs POSITION_SET_VERSION=fixture-v0 npm run dev`
 - Real Firebase project locally: `npm run dev:project` (loads `.env.project.local`; git-ignored)
-- Tests: `npm run test:emu` (250) · Connectivity: `npm run check:project`
+- Tests: `npm run test:emu` (255) · Connectivity: `npm run check:project`
 - Production E2E driver (admin-created test users, public API routes, no passwords):
   `node scripts/with-env.mjs .env.project.local -- node scripts/e2e/prod-drive.mjs <users|create|lookup|join|cmd|presence|heartbeat|state|wait|vote|record|ai|usage|forumdoc|use>`
   (state in `.data/prod-e2e*.json`, git-ignored). Duplicate QStash deliveries: `scripts/e2e/dup-ticks.mjs`.
@@ -99,6 +112,10 @@ Stage track (Roll call → Debate & negotiation [loop: general debate / moderate
 - Text speech failure injection: network failure → "Not submitted … kept; try again", still speaking; lost reply after the server applied it → speech screen closed from server state, draft cleared, recorded once, retry refused.
 - Vote: 45 s countdown → "Waiting for human responses" with no number in the situation or action card.
 - 30 s briefing production check (2026-11-27, forum iwHjr34gAz00yzmpWEeC, commit 61b7657, API only): BRIEFING 30 s → ROLL_CALL by QStash at +33 s; session start = briefing end (offset 0); both offline → H1 → closed "all_humans_left".
+### 2026-11-27 (late) — outage fix + centre layout
+- Production recheck after 23d5deb (forum "AUDIT TEST — loop recheck", one human who never declared attendance, real AI, QStash): debate opened after the 5 min roll-call window; 3 min of AI-only debate = 23 engine events (before the fix ≈ 400 in 3 min); no runtime errors since the deploy. Forum and test accounts deleted afterwards.
+- Test data deleted (production): 15 test forums incl. all subcollections (≈ 6,400+ documents), 14 join codes, 1 orphaned subcollection set, test accounts audit-test-a/b with profiles. Kept: "BridgeMUN Portfolio Demo" (not clearly a test) and the three password accounts (user-owned).
+- Local browser (emulator, dummy AI): centre chair | speaker → Record → action card; side order; vote shown once (chair panel); video element kept across step changes; spinner + pulse while my response is needed, pulse stops after responding; Record keeps position while reading ("2 new — Jump to latest"); Volunteer / Pass this turn only (caucus scope refused by the server); latest result + "Previous results (1)" collapsed; no side New draft, centre entry in all writable steps; own speech focus screen and draft kept; mobile order without horizontal scroll. Screenshots: /Users/kirl/BridgeMUN/screenshots/2026-11-27-center-layout/.
 ### User-verified on the production site (real browsers, 2026-11-27, new forum after 50bf29a)
 - Roll call: only US declared → waited for UK; UK declared → next step at once. (user check: passed)
 - Motion floor: UK tab closed while awaited → the wait continued; after reconnecting the response deadline was not reset. (user check: passed)
