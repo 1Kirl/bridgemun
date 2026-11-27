@@ -49,7 +49,7 @@ export function AiRationale({ forumId, state, positionSetVersion }: { forumId: s
     [forumId],
   );
   return (
-    <details className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    <details className="bm-card bm-tone-violet rounded-2xl p-4">
       <summary className="flex cursor-pointer items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">
         <Brain size={14} className="text-purple-600" /> Why did the AI do that?
       </summary>

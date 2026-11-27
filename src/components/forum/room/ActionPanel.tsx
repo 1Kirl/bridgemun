@@ -21,8 +21,8 @@ type Props = {
 /** W1 on: required responses are awaited; the old +30 s extension buttons are not used. */
 const w1 = (s: PublicForumState) => (s.settings.timers.responseWaitSec ?? 0) > 0;
 
-const box = "rounded-2xl border border-gray-100 bg-white p-4 shadow-sm";
-const h3 = "mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800";
+const box = "bm-card bm-tone-accent rounded-2xl p-4";
+const h3 = "bm-heading mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800";
 
 /** "What can I do now?" — every button maps to one engine command; the server validates it. */
 export function ActionPanel({
@@ -122,7 +122,7 @@ export function ActionPanel({
         <div className="flex items-start gap-2">
           {head.icon}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-gray-900">{head.title}</p>
+            <p className="bm-heading text-sm font-black text-gray-900">{head.title}</p>
             <p className="text-xs text-gray-600">{head.sub}</p>
           </div>
           {status === "needed" && rv?.wait && (overBase ? <Spinner label="Waiting for your response" /> : <Countdown atMs={rv.wait.baseDeadlineMs} now={now} size="md" warn={false} />)}

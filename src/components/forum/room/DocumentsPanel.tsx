@@ -9,7 +9,7 @@ import type { AmendmentOp, DocumentState } from "@/engine/types";
 import type { useForumActions } from "@/hooks/useForumActions";
 
 type Props = { state: PublicForumState; mySeat: string; actions: ReturnType<typeof useForumActions> };
-const box = "rounded-2xl border border-gray-100 bg-white p-4 shadow-sm";
+const box = "bm-card bm-tone-sky rounded-2xl p-4";
 const lines = (t: string) => t.split("\n").map((x) => x.trim()).filter(Boolean);
 
 const STATUS: Record<DocumentState["status"], string> = {
@@ -254,7 +254,7 @@ function Meter({ label, n, need }: { label: string; n: number; need: number }) {
         </span>
       </p>
       <div className="mt-0.5 h-1.5 overflow-hidden rounded-full bg-gray-100">
-        <div className={`h-full ${ok ? "bg-emerald-500" : "bg-brand"}`} style={{ width: `${need ? Math.min(100, (n / need) * 100) : 100}%` }} />
+        <div className={`bm-progress h-full ${ok ? "bg-emerald-500" : "bg-brand"}`} style={{ width: `${need ? Math.min(100, (n / need) * 100) : 100}%` }} />
       </div>
     </div>
   );

@@ -43,7 +43,7 @@ export function StageTrack({ state }: { state: PublicForumState }) {
             <li key={st.id} className="flex shrink-0 items-center gap-1">
               {i > 0 && <span className={`h-0.5 w-3 shrink-0 sm:w-6 ${i <= ci ? "bg-brand" : "bg-gray-200"}`} aria-hidden />}
               <div
-                className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-bold ${
+                className={`bm-heading flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-bold transition-colors duration-300 ${
                   status === "current" ? "border-brand bg-brand text-white shadow-sm" : status === "done" ? "border-brand/30 bg-brand-light text-brand" : status === "skipped" ? "border-dashed border-gray-300 text-gray-400" : "border-gray-200 text-gray-400"
                 }`}
                 aria-current={status === "current" ? "step" : undefined}
@@ -125,7 +125,7 @@ export function SituationCard({ state, rv, now, children }: { state: PublicForum
         ? `Next: ${d.next}`
         : "";
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" aria-live="polite" data-testid="situation">
+    <section className="bm-card bm-tone-sun rounded-2xl p-4" aria-live="polite" data-testid="situation">
       <div className="flex items-start gap-3">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-100">
           {actor ? <Flag code={actor.id} className="h-12 w-12" /> : p.type === "UNMOD_CAUCUS" ? <Users size={22} className="text-brand" /> : p.type.includes("VOT") ? <Scale size={22} className="text-brand" /> : <Gavel size={22} className="text-brand" />}
@@ -187,7 +187,7 @@ export function ResponseTracker({ state, rv, mySeat }: { state: PublicForumState
   const n = rv?.required.length ?? 0;
   const done = rv?.responded.length ?? 0;
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" data-testid="response-tracker">
+    <section className="bm-card bm-tone-mint rounded-2xl p-4" data-testid="response-tracker">
       <div className="mb-1 flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">
           <Hourglass size={13} className="text-brand" /> Responded on the floor
@@ -208,7 +208,7 @@ export function ResponseTracker({ state, rv, mySeat }: { state: PublicForumState
           </p>
           <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" role="progressbar" aria-valuemin={0} aria-valuemax={n} aria-valuenow={done}>
             {rv.required.map((id) => (
-              <span key={id} className={`flex-1 ${rv.responded.includes(id) ? "bg-emerald-500" : "bg-gray-200"}`} />
+              <span key={id} className={`flex-1 transition-colors duration-300 ${rv.responded.includes(id) ? "bg-emerald-500" : "bg-gray-200"}`} />
             ))}
           </div>
           <ul className="mt-2 flex flex-wrap gap-1.5">
@@ -313,7 +313,7 @@ const SEG = {
   yes: "bg-emerald-500",
   no: "bg-rose-500",
   abstain: "bg-slate-400",
-  notVoted: "bg-[repeating-linear-gradient(135deg,#e5e7eb_0_4px,#f8fafc_4px_8px)]",
+  notVoted: "bg-[repeating-linear-gradient(135deg,#d3e2f0_0_4px,#f5f9fd_4px_8px)]",
 };
 
 /** Live: progress of who has voted (choices stay hidden). Closed: Yes/No/Abstain/Not voted with the correct pass line. */
@@ -339,7 +339,7 @@ export function VoteChart({ state, b, compact = false }: { state: PublicForumSta
           </span>
         </div>
         <div className="h-3 overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-valuemin={0} aria-valuemax={e} aria-valuenow={voted}>
-          <div className="h-full bg-brand transition-[width] duration-500" style={{ width: `${e ? (voted / e) * 100 : 0}%` }} />
+          <div className="bm-progress h-full bg-brand" style={{ width: `${e ? (voted / e) * 100 : 0}%` }} />
         </div>
         <p className="mt-1 text-[11px] text-gray-500">
           Humans voted {humans.filter((h) => b.voted.includes(h)).length}/{humans.length} · AI voted {b.voted.filter((x) => !humans.includes(x)).length}/{e - humans.length} · how each delegation voted is revealed when the vote closes.
@@ -368,7 +368,7 @@ export function VoteChart({ state, b, compact = false }: { state: PublicForumSta
       </div>
       <div className={`relative ${rule.scale === "eligible" ? "mt-5" : "mt-1.5"}`}>
         <div className={`flex overflow-hidden rounded-md ${compact ? "h-4" : "h-6"}`} role="img" aria-label={rows.map((x) => `${x.label} ${x.n}`).join(", ")}>
-          {rows.map((x) => (x.n > 0 ? <div key={x.k} className={`${SEG[x.k]} flex items-center justify-center text-[10px] font-black text-white`} style={{ width: `${(x.n / total) * 100}%` }}>{!compact && x.k !== "notVoted" ? x.n : ""}</div> : null))}
+          {rows.map((x) => (x.n > 0 ? <div key={x.k} className={`bm-progress ${SEG[x.k]} flex items-center justify-center text-[10px] font-black text-white`} style={{ width: `${(x.n / total) * 100}%` }}>{!compact && x.k !== "notVoted" ? x.n : ""}</div> : null))}
         </div>
         {rule.scale === "eligible" && (
           <div className="pointer-events-none absolute inset-y-[-3px] border-l-2 border-gray-900" style={{ left: `${(rule.needYes / total) * 100}%` }} aria-hidden>
@@ -397,8 +397,8 @@ function DecisiveBar({ yes, no, ratio }: { yes: number; no: number; ratio: numbe
     <div className="mt-2">
       <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Yes vs No (decisive votes: {t})</p>
       <div className="relative mt-1 flex h-2.5 overflow-hidden rounded-full">
-        <div className="bg-emerald-500" style={{ width: `${(yes / t) * 100}%` }} />
-        <div className="bg-rose-500" style={{ width: `${(no / t) * 100}%` }} />
+        <div className="bm-progress bg-emerald-500" style={{ width: `${(yes / t) * 100}%` }} />
+        <div className="bm-progress bg-rose-500" style={{ width: `${(no / t) * 100}%` }} />
         <div className="absolute inset-y-0 border-l-2 border-gray-900" style={{ left: `${ratio * 100}%` }} aria-hidden />
       </div>
       <p className="mt-0.5 text-[10px] text-gray-500">Pass line at {ratio === 0.5 ? "half (Yes must be more than No)" : "two-thirds"} of Yes + No</p>

@@ -99,4 +99,10 @@ export function parseFirebasePublicConfig(raw: RawPublicEnv): FirebasePublicConf
   };
 }
 
-export const EMULATOR_PORTS = { auth: 9099, firestore: 8080, storage: 9199 } as const;
+/** Emulator ports (defaults match firebase.json; NEXT_PUBLIC_EMU_*_PORT lets a second local project use other ports). */
+const port = (v: string | undefined, d: number) => Number(v) || d;
+export const EMULATOR_PORTS = {
+  auth: port(process.env.NEXT_PUBLIC_EMU_AUTH_PORT, 9099),
+  firestore: port(process.env.NEXT_PUBLIC_EMU_FIRESTORE_PORT, 8080),
+  storage: port(process.env.NEXT_PUBLIC_EMU_STORAGE_PORT, 9199),
+} as const;

@@ -54,7 +54,7 @@ export function DraftEditor({ doc, mySeat, actions }: { doc: DocDraft; mySeat: s
     else setFailed(true);
   };
   return (
-    <section className="rounded-2xl border-2 border-brand/40 bg-white p-4 shadow-sm" data-testid="draft-editor">
+    <section className="rounded-2xl border-2 border-brand/40 bg-white p-4 shadow-[4px_4px_0_var(--bm-cyan)]" data-testid="draft-editor">
       <div className="mb-3 flex items-center justify-between">
         <p className="flex items-center gap-2 text-sm font-black text-brand">
           <FilePlus2 size={16} /> New document

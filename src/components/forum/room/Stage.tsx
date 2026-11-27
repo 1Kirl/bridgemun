@@ -30,14 +30,14 @@ export function ChairPanel({ state, rv, now }: { state: PublicForumState; rv: Re
         ? `Next: ${d.next}`
         : "";
   return (
-    <section className={`flex flex-col rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:min-h-[260px] ${STAGE_H}`} data-testid="chair-panel" aria-live="polite">
+    <section className={`bm-card bm-tone-sun flex flex-col rounded-2xl p-4 lg:min-h-[260px] ${STAGE_H}`} data-testid="chair-panel" aria-live="polite">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-light">
           <Gavel size={20} className="text-brand" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Automatic chair</p>
-          <p className="text-base font-black leading-tight text-gray-900">{ACTION_LABEL[p.type] ?? d.title}</p>
+          <p className="bm-heading text-base font-black leading-tight text-gray-900">{ACTION_LABEL[p.type] ?? d.title}</p>
           <p className="text-xs text-gray-500">{subStateOf(state)}</p>
         </div>
         <div className="shrink-0 text-right" data-testid="chair-timer">
@@ -98,13 +98,13 @@ export function SpeakerPanel({ state, video, aiAudio, audioButton }: { state: Pu
             ? "Confirming the record"
             : "";
   return (
-    <section className={`flex flex-col overflow-hidden rounded-2xl bg-[#020617] lg:min-h-[260px] text-white shadow-sm ${STAGE_H}`} data-testid="speaker-panel">
+    <section className={`bm-stage flex flex-col overflow-hidden rounded-2xl lg:min-h-[260px] text-white ${STAGE_H}`} data-testid="speaker-panel">
       <div className="flex items-center gap-2 px-4 py-3">
         {speaker ? (
           <>
             <Flag code={speaker.id} className="h-6 w-9" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-black">{speaker.countryName}</p>
+              <p className="bm-heading truncate text-sm font-black">{speaker.countryName}</p>
               <p className="flex items-center gap-1 text-[11px] text-gray-300">
                 {p.type === "SPEECH" && <Mic size={11} />} {status}
               </p>
@@ -120,11 +120,11 @@ export function SpeakerPanel({ state, video, aiAudio, audioButton }: { state: Pu
         {/* always mounted: no reconnect when the step changes */}
         <div className="absolute inset-0">{video}</div>
         {aiSpeaking && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-start gap-2 overflow-y-auto bg-[#020617] px-5 py-3 text-center custom-scrollbar" data-testid="ai-speech-text">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-start gap-2 overflow-y-auto bg-[#0c2b4b] px-5 py-3 text-center custom-scrollbar" data-testid="ai-speech-text">
             {/* AI delegate "profile": country flag with an AI badge */}
             <span className="relative shrink-0">
               <Flag code={speaker!.id} className="h-10 w-14" />
-              <span className="absolute -bottom-1 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 ring-2 ring-[#020617]">
+              <span className="absolute -bottom-1 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-purple-600 ring-2 ring-[#0c2b4b]">
                 <Bot size={11} className="text-white" />
               </span>
             </span>
@@ -132,11 +132,11 @@ export function SpeakerPanel({ state, video, aiAudio, audioButton }: { state: Pu
           </div>
         )}
         {p.type === "AI_SPEECH_PENDING" && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center gap-3 bg-[#020617] text-sm text-gray-300">
+          <div className="absolute inset-0 z-10 flex items-center justify-center gap-3 bg-[#0c2b4b] text-sm text-gray-300">
             <Spinner label="AI is preparing a statement" tone="brand" /> The AI delegation is preparing its statement…
           </div>
         )}
-        {!speaker && <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#020617] text-xs text-gray-500">Waiting for the next speaker</div>}
+        {!speaker && <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0c2b4b] text-xs text-gray-500">Waiting for the next speaker</div>}
       </div>
       {aiAudio}
     </section>

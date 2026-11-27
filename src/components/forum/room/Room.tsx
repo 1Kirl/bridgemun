@@ -62,6 +62,13 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
     await media.current?.enableAudio();
   };
   const doc = useDocDraft(forumId, mySeat);
+  // The landing's "Reduce motion" choice also quiets the meeting screens (the OS setting is handled in CSS).
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("bridgemun.motion") === "off") document.documentElement.dataset.bmMotion = "off";
+      else delete document.documentElement.dataset.bmMotion;
+    } catch {}
+  }, []);
   // A text speech whose reply was lost still entered the record: never offer the same draft again.
   const lastMine = [...record].reverse().find((r) => r.seat === mySeat && r.source === "human_text");
   useEffect(() => {
@@ -74,13 +81,13 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
   const sessionLeft = state.settings.sessionEndsAtMs && p.type !== "CLOSED" && p.type !== "BRIEFING" ? sessionEndOf(state, t) - t : null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f1f5f9]">
-      <header className="flex h-14 items-center justify-between gap-3 border-b border-gray-200 bg-white px-5">
+    <div className="bm-room flex min-h-screen flex-col">
+      <header className="flex h-14 items-center justify-between gap-3 border-b border-[var(--bm-line)] bg-white/90 px-5 backdrop-blur">
         <Link href="/" aria-label="BridgeMUN home" className="shrink-0" title="BridgeMUN home">
           <LogoSymbol className="h-8 w-8" />
         </Link>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-black text-gray-900">{meta.title}</p>
+          <p className="bm-heading truncate text-sm font-black text-gray-900">{meta.title}</p>
           <p className="truncate text-[11px] text-gray-500">
             {state.committeeId.replace("_HMUN", "")} · {meta.agenda} · rules {state.rulesetId}
           </p>
@@ -212,7 +219,7 @@ function FinalResults({ state, reason }: { state: ForumViewProps["state"]; reaso
       .filter((b) => b.subject.type === "resolution" && b.subject.docId === docId)
       .sort((a, b) => b.openedAtMs - a.openedAtMs)[0];
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm" data-testid="final-results">
+    <section className="bm-card bm-tone-mint rounded-2xl p-5" data-testid="final-results">
       <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">Results</p>
       <p className="text-xl font-black text-gray-900">{reason}</p>
       {resolutions.length === 0 ? (

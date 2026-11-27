@@ -66,12 +66,12 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
   };
 
   return (
-    <section className="mx-auto min-h-0 w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-3xl border-2 border-brand bg-white p-4 pb-0 shadow-2xl sm:rounded-3xl sm:p-6 sm:pb-0" data-testid="speech-focus">
+    <section className="mx-auto min-h-0 w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-3xl border-2 border-brand bg-white p-4 pb-0 shadow-[6px_6px_0_var(--bm-sun)] sm:rounded-3xl sm:p-6 sm:pb-0" data-testid="speech-focus">
       <div className="flex items-start gap-3">
         <Flag code={mySeat} className="h-12 w-16" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-lg font-black text-gray-900">{me.countryName}</p>
-          <p className="text-xl font-black text-brand" aria-live="polite">{speaking ? "You have the floor — speaking" : "Your turn — get ready"}</p>
+          <p className="bm-heading truncate text-lg font-black text-gray-900">{me.countryName}</p>
+          <p className="bm-heading text-xl font-black text-brand" aria-live="polite">{speaking ? "You have the floor — speaking" : "Your turn — get ready"}</p>
           <p className="text-xs text-gray-500">
             {p.type === "SPEECH" || p.type === "SPEECH_PREP" ? (p.context.kind === "mod_caucus" ? `Moderated caucus · “${state.activeCaucus?.topic ?? ""}”` : p.context.kind === "yield" ? "Yielded time" : "General speakers’ list") : ""}
           </p>

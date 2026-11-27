@@ -52,5 +52,5 @@ export default function ForumPage() {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#f1f5f9] px-6 text-center text-gray-500">{children}</div>;
+  return <div className="bm-room flex min-h-screen flex-col items-center justify-center gap-3 px-6 text-center text-gray-500">{children}</div>;
 }

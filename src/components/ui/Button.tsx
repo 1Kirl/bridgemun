@@ -14,13 +14,16 @@ export const Button = ({
   children,
   ...props
 }: ButtonProps) => {
-  const baseStyles = "inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
-  
+  // BridgeMUN buttons (shared with the landing): pill shape, a small press shadow, short press feedback.
+  // Disabled buttons are flat with no hover or press so they never look clickable. Sizes are unchanged.
+  const baseStyles =
+    "bm-btn inline-flex items-center justify-center rounded-full font-semibold [font-family:var(--font-heading),var(--font-body),system-ui,sans-serif] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-1 disabled:pointer-events-none disabled:opacity-45";
+
   const variants = {
-    primary: "bg-brand text-white hover:bg-brand-hover shadow-sm",
-    secondary: "bg-white text-brand border border-gray-200 hover:bg-gray-50 shadow-sm",
-    outline: "border border-gray-300 bg-transparent hover:bg-gray-50",
-    ghost: "hover:bg-gray-100 text-gray-700",
+    primary: "bm-btn-primary bg-brand text-white",
+    secondary: "bm-btn-secondary border border-[var(--bm-line)] bg-white text-brand hover:border-brand/50",
+    outline: "border border-gray-300 bg-white text-gray-800 hover:border-gray-500",
+    ghost: "text-gray-700 hover:bg-gray-100",
   };
 
   const sizes = {

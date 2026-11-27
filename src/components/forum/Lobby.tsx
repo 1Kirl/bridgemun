@@ -42,9 +42,9 @@ export function Lobby({ uid, mySeat, meta, state, actions }: ForumViewProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f1f5f9] px-4 py-8">
+    <div className="bm-room min-h-screen px-4 py-8">
       <div className="mx-auto max-w-4xl space-y-5">
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="bm-card bm-tone-sun rounded-2xl p-6">
           <div className="mb-3 flex items-center justify-between gap-2">
             <Link href="/" aria-label="BridgeMUN home">
               <Logo size="sm" />
@@ -75,7 +75,7 @@ export function Lobby({ uid, mySeat, meta, state, actions }: ForumViewProps) {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <div className="bm-card bm-tone-sky rounded-2xl p-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-black uppercase tracking-widest text-gray-800">
               Delegations ({humans.length} people · {seats.length - humans.length} AI)

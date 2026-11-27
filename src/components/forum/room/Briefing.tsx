@@ -27,10 +27,10 @@ export function Briefing({ state, now }: { state: PublicForumState; now: number 
   // negative delays = the animation continues from where the shared clock is (refresh-safe)
   const anim = (i: number) => ({ animationDelay: `${i * STEP_MS - elapsed}ms` });
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/85 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label="Opening briefing" data-testid="briefing">
-      <div className="w-full max-w-2xl rounded-3xl bg-white p-5 shadow-2xl sm:p-7">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#0c2b4b]/80 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label="Opening briefing" data-testid="briefing">
+      <div className="bm-room w-full max-w-2xl rounded-3xl border-2 border-[#0c2b4b] p-5 shadow-[8px_8px_0_var(--bm-sun)] sm:p-7">
         <p className="text-[11px] font-black uppercase tracking-[0.25em] text-brand">Opening briefing</p>
-        <h2 className="mt-1 text-2xl font-black text-gray-900">Based on HMUN 2026 rules of procedure</h2>
+        <h2 className="mt-1 text-2xl font-extrabold text-gray-900">Based on HMUN 2026 rules of procedure</h2>
         <p className="mt-1 text-sm text-gray-600">
           {committee?.id.replace("_HMUN", "")} — {committee?.name} · ruleset {state.rulesetId}
         </p>
@@ -71,7 +71,7 @@ export function Briefing({ state, now }: { state: PublicForumState; now: number 
             </span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-label="Time until roll call" aria-valuemin={0} aria-valuemax={Math.round(total / 1000)} aria-valuenow={Math.ceil(left / 1000)}>
-            <div className="h-full rounded-full bg-brand" style={{ width: `${total ? Math.max(0, Math.min(100, (left / total) * 100)) : 0}%` }} data-testid="briefing-gauge" />
+            <div className="h-full rounded-full bg-[var(--bm-sun)]" style={{ width: `${total ? Math.max(0, Math.min(100, (left / total) * 100)) : 0}%` }} data-testid="briefing-gauge" />
           </div>
         </div>
       </div>
@@ -81,7 +81,7 @@ export function Briefing({ state, now }: { state: PublicForumState; now: number 
 
 function Card({ i, anim, icon: Icon, title, text }: { i: number; anim: (i: number) => React.CSSProperties; icon: typeof Vote; title: string; text: string }) {
   return (
-    <li className="briefing-card flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm" style={anim(i)}>
+    <li className="briefing-card bm-card bm-tone-sky flex items-center gap-3 rounded-2xl px-3 py-2.5" style={anim(i)}>
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand text-white">
         <Icon size={18} />
       </span>

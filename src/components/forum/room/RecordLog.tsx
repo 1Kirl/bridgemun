@@ -34,6 +34,14 @@ export function RecordLog({ state, record }: { state: PublicForumState; record: 
   const box = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const seen = useRef(record.length);
+  // Entries already present when the log mounted never animate; later ones rise in once (same key → no re-mount).
+  const lastSeq = record.length ? record[record.length - 1].seq : -1;
+  const [firstSeq, setFirstSeq] = useState(lastSeq);
+  const [prevLen, setPrevLen] = useState(record.length);
+  if (prevLen !== record.length) {
+    setPrevLen(record.length);
+    if (record.length - prevLen > 3) setFirstSeq(lastSeq); // initial load / reconnect batch: no animation
+  }
   const [unread, setUnread] = useState(0);
 
   const onScroll = () => {
@@ -67,8 +75,8 @@ export function RecordLog({ state, record }: { state: PublicForumState; record: 
   }, [record.length]);
 
   return (
-    <section className="relative rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" data-testid="record-log">
-      <h3 className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">
+    <section className="bm-card bm-tone-sky relative rounded-2xl p-4" data-testid="record-log">
+      <h3 className="bm-heading mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">
         <MessageSquare size={14} className="text-brand" /> Record
       </h3>
       <div ref={box} onScroll={onScroll} className="h-[240px] space-y-1.5 overflow-y-auto pr-1 custom-scrollbar" data-testid="record-scroll">
@@ -79,7 +87,7 @@ export function RecordLog({ state, record }: { state: PublicForumState; record: 
           const seat = r.seat ? state.seats[r.seat] : null;
           const long = r.text.length > 220;
           return (
-            <div key={r.seq} className={`rounded-xl px-3 py-1.5 text-sm ${st.cls}`} data-kind={k}>
+            <div key={r.seq} className={`rounded-xl px-3 py-1.5 text-sm ${st.cls} ${r.seq > firstSeq ? "bm-enter" : ""}`} data-kind={k}>
               <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-gray-500">
                 {seat ? <Flag code={seat.id} className="h-3 w-4" /> : <st.icon size={11} />}
                 <span className="text-gray-700">{seat ? seat.countryName : "Chair (automatic)"}</span>

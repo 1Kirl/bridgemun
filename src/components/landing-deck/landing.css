@@ -5,27 +5,27 @@
  * stylesheet stays loaded.
  */
 
-/* The home-page palette of the reference (its base :root values with the softer "deck/intro" overrides). */
+/* The home-page palette of the reference — values now come from the shared tokens in src/styles/brand.css. */
 .bm-landing {
   color-scheme: light;
-  --background: #fbfdff;
-  --surface: #ffffff;
-  --surface-sunk: #eaf5ff;
-  --ink: #0c2b4b;
-  --muted: #4c6580;
-  --line: #d3e6f8;
-  --accent: #1580d8;
-  --accent-ink: #ffffff;
-  --danger: #b4321f;
-  --sky-glow: #e2f0fd;
-  --sky: #d3e8fb;
-  --sun: #f7cf63;
-  --cyan: #6ccaef;
-  --coral: #f6998a;
-  --mint: #78d5b3;
-  --violet: #b0a4f5;
+  --background: var(--bm-bg);
+  --surface: var(--bm-surface);
+  --surface-sunk: var(--bm-sunk);
+  --ink: var(--bm-ink);
+  --muted: var(--bm-muted);
+  --line: var(--bm-line);
+  --accent: var(--bm-accent);
+  --accent-ink: var(--bm-accent-ink);
+  --danger: var(--bm-danger);
+  --sky-glow: var(--bm-sky-glow);
+  --sky: var(--bm-sky);
+  --sun: var(--bm-sun);
+  --cyan: var(--bm-cyan);
+  --coral: var(--bm-coral);
+  --mint: var(--bm-mint);
+  --violet: var(--bm-violet);
   --shadow: 0 1px 2px rgb(11 107 194 / 0.05), 0 10px 28px -16px rgb(11 107 194 / 0.25);
-  --radius-ui: 12px;
+  --radius-ui: var(--bm-radius-ui);
   --font-head: var(--font-bric);
   min-height: 100vh;
   background: radial-gradient(72rem 26rem at 80% -7rem, var(--sky-glow), transparent 72%) no-repeat, var(--background);

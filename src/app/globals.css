@@ -1,12 +1,73 @@
 @import "tailwindcss";
+@import "../styles/brand.css";
 
 @theme {
-  --color-brand: #0088cc;
-  --color-brand-hover: #0076b1;
-  --color-brand-light: #f0f7ff;
-  --color-text-main: #1e293b;
-  --color-text-sub: #64748b;
-  --font-sans: "Inter", "Geist Sans", sans-serif;
+  /* BridgeMUN palette (same values as the landing; see src/styles/brand.css). */
+  --color-brand: #1580d8;
+  --color-brand-hover: #0f6bb8;
+  --color-brand-light: #eaf5ff;
+  --color-text-main: #0c2b4b;
+  --color-text-sub: #4c6580;
+  --font-sans: var(--font-body), "Geist Sans", system-ui, sans-serif;
+
+  /* Neutrals: navy-tinted instead of cool gray, ending in the landing's ink (#0c2b4b) and muted text (#4c6580). */
+  --color-gray-50: #f5f9fd;
+  --color-gray-100: #eaf2fa;
+  --color-gray-200: #d3e2f0;
+  --color-gray-300: #b4c7da;
+  --color-gray-400: #8aa0b6;
+  --color-gray-500: #637b94;
+  --color-gray-600: #4c6580;
+  --color-gray-700: #34506d;
+  --color-gray-800: #1f3d5c;
+  --color-gray-900: #0c2b4b;
+  --color-slate-50: #f5f9fd;
+  --color-slate-100: #eaf2fa;
+  --color-slate-200: #d3e2f0;
+  --color-slate-300: #b4c7da;
+  --color-slate-400: #8aa0b6;
+  --color-slate-500: #637b94;
+  --color-slate-600: #4c6580;
+  --color-slate-700: #34506d;
+
+  /* "Response needed" = sun (landing yellow #f7cf63), "done / yes" = mint (#78d5b3), AI = violet (#b0a4f5).
+     Darker steps keep text contrast; meanings are unchanged (amber = needed, emerald = done/yes, rose/red = no/urgent). */
+  --color-amber-50: #fff9e8;
+  --color-amber-100: #fdf0c6;
+  --color-amber-200: #fbe39b;
+  --color-amber-300: #f7cf63;
+  --color-amber-400: #f0bb3a;
+  --color-amber-500: #e0a21d;
+  --color-amber-600: #b67d0e;
+  --color-amber-700: #8c600c;
+  --color-amber-800: #6c4a0c;
+  --color-amber-900: #523709;
+  --color-emerald-50: #ecfaf3;
+  --color-emerald-100: #d3f3e4;
+  --color-emerald-200: #a8e5cb;
+  --color-emerald-300: #78d5b3;
+  --color-emerald-400: #4cc196;
+  --color-emerald-500: #2fa67c;
+  --color-emerald-600: #208a66;
+  --color-emerald-700: #186f53;
+  --color-emerald-800: #145943;
+  --color-emerald-900: #0f4434;
+  --color-purple-50: #f5f3ff;
+  --color-purple-100: #ebe7fe;
+  --color-purple-200: #d8d1fc;
+  --color-purple-300: #b0a4f5;
+  --color-purple-400: #9183ea;
+  --color-purple-500: #7765d9;
+  --color-purple-600: #614fc1;
+  --color-purple-700: #4f3fa0;
+  --color-purple-800: #403381;
+  --color-purple-900: #352b67;
+  --color-rose-50: #fff2ef;
+  --color-rose-100: #ffe1db;
+  --color-rose-200: #ffc6bb;
+  --color-rose-500: #e5614c;
+  --color-rose-600: #c84a36;
+  --color-rose-800: #93301f;
 
   /* QA2 #4: 전역 타이포 스케일을 약 1px씩 키워 더 또렷하고 꽉 차 보이게.
      줄 높이는 기본값을 유지해 밀도(density)를 높인다. */
@@ -74,8 +135,8 @@ body {
 
 /* "Your response is needed": a soft, steady pulse of background and border (no size/position change). */
 @keyframes respond-pulse {
-  0%, 100% { background-color: #fffbeb; border-color: #fcd34d; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-  50% { background-color: #fef3c7; border-color: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12); }
+  0%, 100% { background-color: #fff9e8; border-color: #fbe39b; box-shadow: 0 0 0 0 rgba(247, 207, 99, 0); }
+  50% { background-color: #fdf0c6; border-color: #f0bb3a; box-shadow: 0 0 0 4px rgba(247, 207, 99, 0.25); }
 }
 .respond-pulse { animation: respond-pulse 2.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
@@ -84,10 +145,12 @@ body {
 
 /* Whole action card asks for attention (roll call): slow glow of background and border; text stays crisp. */
 @keyframes card-attention {
-  0%, 100% { background-color: #ffffff; border-color: #fde68a; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-  50% { background-color: #fffbeb; border-color: #f59e0b; box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.14); }
+  0%, 100% { background-color: #ffffff; border-color: #fbe39b; box-shadow: 4px 4px 0 #f7cf63, 0 0 0 0 rgba(247, 207, 99, 0); }
+  50% { background-color: #fff9e8; border-color: #f0bb3a; box-shadow: 4px 4px 0 #f7cf63, 0 0 0 6px rgba(247, 207, 99, 0.28); }
 }
 .card-attention { border-width: 2px; animation: card-attention 2.6s ease-in-out infinite; }
+html[data-bm-motion="off"] .card-attention { animation: none; background-color: #fff9e8; border-color: #f0bb3a; }
+html[data-bm-motion="off"] .respond-pulse { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  .card-attention { animation: none; background-color: #fffbeb; border-color: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14); }
+  .card-attention { animation: none; background-color: #fff9e8; border-color: #f0bb3a; box-shadow: 4px 4px 0 #f7cf63, 0 0 0 4px rgba(247, 207, 99, 0.25); }
 }

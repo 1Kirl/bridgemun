@@ -1,10 +1,7 @@
-import { Figtree, Inter_Tight } from "next/font/google";
 import { Landing } from "@/components/landing-deck/Landing";
 import "@/components/landing-deck/landing.css";
 
-/* Fonts of the reference landing; scoped to this page (Bricolage, used by the logo too, is loaded in the root layout). */
-const heading = Inter_Tight({ variable: "--font-heading", subsets: ["latin"] });
-const body = Figtree({ variable: "--font-body", subsets: ["latin"] });
+/* Fonts (Bricolage, Inter Tight, Figtree) are loaded in the root layout and shared with the meeting screens. */
 
 /*
  * Runs before the first paint of a FULL page load only (React does not execute it on client-side navigation):
@@ -15,7 +12,7 @@ const LANDING_INIT = `try{var r=document.documentElement,off=false;try{off=local
 
 export default function Home() {
   return (
-    <div className={`bm-landing ${heading.variable} ${body.variable}`}>
+    <div className="bm-landing">
       <script dangerouslySetInnerHTML={{ __html: LANDING_INIT }} />
       <Landing />
     </div>

@@ -7,8 +7,8 @@ import type { RecordEntry } from "@/engine/types";
 import { describeMotion } from "@/lib/phaseText";
 import { Flag, KindBadge, VoteChart } from "./Visuals";
 
-const box = "rounded-2xl border border-gray-100 bg-white p-4 shadow-sm";
-const h3 = "mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800";
+const box = "bm-card bm-tone-sky rounded-2xl p-4";
+const h3 = "bm-heading mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800";
 const flag = (c: string) => <img src={`https://flagcdn.com/w40/${c}.png`} alt="" className="h-3.5 w-5 shrink-0 rounded-sm object-cover" />;
 
 /** D. General speakers' list (kept through caucuses) and, separately, moderated-caucus volunteers. */
