@@ -53,6 +53,7 @@ docs/*
 !docs/response-wait-policy.md
 !docs/position-materials.md
 !docs/production-audio.md
+!docs/scheduler.md
 
 # firebase emulator artefacts
 *-debug.log
