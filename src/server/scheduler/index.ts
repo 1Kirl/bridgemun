@@ -9,9 +9,12 @@ import "server-only";
 export type ScheduledJob = { forumId: string; phaseId: string; atMs: number };
 export type JobHandler = (job: ScheduledJob) => Promise<void>;
 
+/** `retryTag`: registering again after a lost task — gives the task a fresh name (see CloudTasksScheduler). */
+export type ScheduleOptions = { retryTag?: string };
+
 export interface Scheduler {
   readonly driver: string;
-  schedule(job: ScheduledJob): Promise<void>;
+  schedule(job: ScheduledJob, opts?: ScheduleOptions): Promise<void>;
 }
 
 /** In-process timers. Development/tests only — lost on restart and invisible to other instances. */
@@ -57,6 +60,8 @@ type CloudTasksConfig = {
  * own /api/engine/tick route with an OIDC token of `invokerEmail` (the route verifies signature, issuer,
  * audience and that exact identity).
  * - Task name = forum + phase + deadline: registering the same deadline twice is a no-op (409 = already there).
+ *   Cloud Tasks also answers 409 for a name whose task was deleted or already ran (names stay reserved for about
+ *   an hour), so the repair job re-registers with `retryTag` (a new name); a duplicate tick is harmless.
  * - No cancellation: a task whose phase moved on is ignored by the engine (stale / early / duplicate ticks).
  * - Transient queue errors (429, 5xx, network) are retried twice here; anything else throws ScheduleError.
  * - Queue-side retries (5 attempts, 2–60 s backoff) cover failed deliveries.
@@ -70,21 +75,21 @@ export class CloudTasksScheduler implements Scheduler {
     private sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
   ) {}
 
-  static taskId(job: ScheduledJob) {
+  static taskId(job: ScheduledJob, retryTag?: string) {
     // Allowed: letters, digits, hyphens, underscores (max 500). Forum ids are [A-Za-z0-9_-]{1,64}.
-    return `tick-${job.forumId}-${job.phaseId}-${job.atMs}`.replace(/[^A-Za-z0-9_-]/g, "_");
+    return `tick-${job.forumId}-${job.phaseId}-${job.atMs}${retryTag ? `-${retryTag}` : ""}`.replace(/[^A-Za-z0-9_-]/g, "_");
   }
 
   get queuePath() {
     return `projects/${this.cfg.project}/locations/${this.cfg.location}/queues/${this.cfg.queue}`;
   }
 
-  async schedule(job: ScheduledJob) {
+  async schedule(job: ScheduledJob, opts: ScheduleOptions = {}) {
     const target = `${this.cfg.baseUrl.replace(/\/$/, "")}/api/engine/tick`;
     // A small margin so the tick never lands a few ms before the deadline by the server's clock.
     const at = Math.max(job.atMs + 500, this.now());
     const task = {
-      name: `${this.queuePath}/tasks/${CloudTasksScheduler.taskId(job)}`,
+      name: `${this.queuePath}/tasks/${CloudTasksScheduler.taskId(job, opts.retryTag)}`,
       scheduleTime: new Date(at).toISOString(),
       httpRequest: {
         url: target,

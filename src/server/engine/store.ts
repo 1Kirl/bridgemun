@@ -1,6 +1,6 @@
 import "server-only";
 import type { Firestore, Transaction } from "firebase-admin/firestore";
-import { apply } from "@/engine/machine";
+import { apply, phaseDeadline } from "@/engine/machine";
 import { toPublicState } from "@/engine/publicView";
 import type { ApplyResult, CommandEnvelope, Effect, ForumEngineState } from "@/engine/types";
 import { HttpError } from "@/server/auth";
@@ -36,11 +36,22 @@ const plain = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 export const statePath = (forumId: string) => `forums/${forumId}/engineState/current`;
 export const publicPath = (forumId: string) => `forums/${forumId}/engine/public`;
 
+/**
+ * When the forum next needs the server: the hold's close time while on hold, else the current step's deadline;
+ * null when closed or nothing is timed. Stored beside the state as `nextWakeAtMs` (same write, no extra cost) so
+ * the repair job can find forums whose deadline passed without a tick (index query, never a scan).
+ */
+export function nextWakeMs(s: Pick<ForumEngineState, "paused" | "phase">): number | null {
+  if (s.phase.type === "CLOSED") return null;
+  return s.paused ? s.paused.autoResumeAtMs : (phaseDeadline(s.phase) ?? null);
+}
+const stateDoc = (s: ForumEngineState) => ({ state: plain(s), nextWakeAtMs: nextWakeMs(s) });
+
 export async function initEngineState(db: Firestore, state: ForumEngineState) {
   await db.runTransaction(async (tx) => {
     const ref = db.doc(statePath(state.forumId));
     if ((await tx.get(ref)).exists) throw new Error("engine state already initialised");
-    tx.set(ref, { state: plain(state) });
+    tx.set(ref, stateDoc(state));
     tx.set(db.doc(publicPath(state.forumId)), { state: plain(toPublicState(state)), updatedAtMs: Date.now() });
   });
 }
@@ -82,7 +93,7 @@ export async function runCommand(
     const t = now(); // server time, taken inside the attempt so retries use a fresh clock
     const r = apply(state, env, t);
     if (!r.ok || r.duplicate) return r;
-    tx.set(ref, { state: plain(r.state) });
+    tx.set(ref, stateDoc(r.state));
     if (forumStatusOf(state) !== forumStatusOf(r.state)) {
       tx.set(db.doc(`forums/${forumId}`), { status: forumStatusOf(r.state), statusChangedAtMs: t }, { merge: true });
     }

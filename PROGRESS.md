@@ -1,8 +1,8 @@
 # BridgeMUN — progress record
 
-Last updated: 2026-11-27 (late: multi-account real-browser E2E on production). Repository: github.com/1Kirl/bridgemun (**public**, branch `main`).
+Last updated: 2026-11-28 (deadline scheduler moved from QStash to Google Cloud Tasks; production H1 + regression). Repository: github.com/1Kirl/bridgemun (**public**, branch `main`).
 Production: https://bridgemun.vercel.app — Vercel project `1kirl/bridgemun` (Git-connected, production branch `main`,
-auto-deploy on push, region icn1) · Firebase project `bridgemun` (Blaze plan; Firestore + Storage asia-northeast3) · QStash (free tier, 1,000 publishes/day).
+auto-deploy on push, region icn1) · Firebase project `bridgemun` (Blaze plan; Firestore + Storage asia-northeast3) · Google Cloud Tasks queue `engine-ticks` + Cloud Scheduler repair job (asia-northeast3, same project; see docs/scheduler.md). QStash retired 2026-11-28.
 
 Status legend — **real**: verified against the real external service · **mock**: verified with test doubles / emulator only · **unverified**: not yet verified.
 "User-verified" = checked by the owner in real browsers/devices; "Claude-verified" = checked by Claude (browser automation, API, tests).
@@ -11,7 +11,8 @@ Status legend — **real**: verified against the real external service · **mock
 
 | Area | Status | Verified by |
 |---|---|---|
-| Rules engine (hmun-ga-2026@1), W1 / H1 / S1, 30 s briefing | done | automated tests (273) · Claude: production browser run (W1 waits, 60/15 s warnings, expiry) · H1 on local server (see log) |
+| Rules engine (hmun-ga-2026@1), W1 / H1 / S1, 30 s briefing | done | automated tests (287) · Claude: production browser run (W1 waits, 60/15 s warnings, expiry) · H1 on production with Cloud Tasks only (2026-11-28) |
+| Deadline scheduler: Cloud Tasks per-deadline tasks (OIDC), repair job for failed / lost tasks | done | automated tests · Claude: production (H1, repair path, regression; see log) |
 | Create / join by code / lobby / start lock / late-join block / reconnect to same seat | done | user-verified · Claude: production browser run with 3 isolated accounts + late joiner |
 | Sign-up / login screens | done | user-verified (production) · Claude: localhost against the real Firebase project (sign-up, wrong password, login) |
 | Speeches: text, microphone → transcription → confirm → record, speech modal hide/reopen | done | user-verified (real mic) · Claude: production with a fake microphone playing synthetic speech (real OpenAI transcription) |
@@ -29,7 +30,7 @@ Status legend — **real**: verified against the real external service · **mock
 | 0 | Separation from the previous developer's environment, server auth, rules | done |
 | 1 | HMUN GA rules engine + automatic-chair state machine | done |
 | 2 | Create / join by code / waiting room, atomic seats, start lock, reconnect | done |
-| 3 | Meeting loop, timers, pause/extend, deadlines via QStash, recovery | done |
+| 3 | Meeting loop, timers, pause/extend, deadlines (QStash until 2026-11-28 KST, now Google Cloud Tasks), recovery | done |
 | 4 | Speaker recording → OpenAI transcription → confirmation → record → AI context | done (real mic: user-verified) |
 | 5 | OpenAI autonomous AI, ElevenLabs TTS, position materials interface | done (TTS in production via Cloud Storage since c33bcb3) |
 | 6 | Documents, amendments, sponsor responses, voting procedure, final voting, results | done |
@@ -82,13 +83,13 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 - Emulator dev: `npm run emulators` + `npm run dev` (AI = dummy, speech = mock; no paid calls). If another local project already uses the emulator ports: `npx firebase emulators:start --only firestore,auth,storage --project demo-bridgemun --config firebase.altports.json` and run the app with `NEXT_PUBLIC_EMU_AUTH_PORT=19099 NEXT_PUBLIC_EMU_FIRESTORE_PORT=18080 NEXT_PUBLIC_EMU_STORAGE_PORT=19199 npm run dev`.
 - Emulator + real AI: `AI_DRIVER=openai STT_PROVIDER=openai TTS_PROVIDER=elevenlabs POSITION_SET_VERSION=fixture-v0 npm run dev`
 - Real Firebase project locally: `npm run dev:project` (loads `.env.project.local`; git-ignored)
-- Tests: `npm run test:emu` (273) · Connectivity: `npm run check:project`
+- Tests: `npm run test:emu` (287; if another project holds the default emulator ports: `npx firebase emulators:exec --config firebase.altports.json --only firestore,auth,storage --project demo-bridgemun "npx vitest run"`) · Connectivity: `npm run check:project`
 - Real-browser multi-account harness (Playwright, isolated contexts, fake camera/mic, custom-token sign-in — no passwords typed into the site):
   `node scripts/with-env.mjs .env.project.local -- node scripts/e2e/browser-harness.mjs [baseUrl]` then send UI actions to `127.0.0.1:7781` (runs saved in `.data/e2e-browser/`, git-ignored).
 - Production E2E driver (admin-created test users, public API routes, no passwords):
   `node scripts/with-env.mjs .env.project.local -- node scripts/e2e/prod-drive.mjs <users|create|lookup|join|cmd|presence|heartbeat|state|wait|vote|record|ai|usage|forumdoc|use>`
-  (state in `.data/prod-e2e*.json`, git-ignored). Duplicate QStash deliveries: `scripts/e2e/dup-ticks.mjs`.
-- QStash smoke test: `node scripts/with-env.mjs .env.project.local -- npx tsx --conditions=react-server scripts/qstash-smoke.ts`
+  (state in `.data/prod-e2e*.json`, git-ignored).
+- Deadline scheduler (Cloud Tasks queue, IAM, env, repair job, operations): docs/scheduler.md. Local / emulator runs use `SCHEDULER_DRIVER=local` (in-process timers).
 
 ## Verification log
 ### 2026-11-27 (late) — multi-account REAL-BROWSER E2E on production (Claude-verified; harness scripts/e2e/browser-harness.mjs)
@@ -177,7 +178,7 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 - Earlier: 205 tests (engine incl. reorder/division/yield/points/H1/stale ticks; rules; unit incl. transient-retry classification; emulator store/service/Phase 4–6 with scripted LLM incl. AI amendments, AI division, 503 retry, Firestore audio store).
 
 ## Known gaps / decisions waiting
-- QStash free tier: 1,000 publishes/day. One meeting publishes roughly 50–150 deadline ticks; heavy testing exhausted it on 2026-11-27. While exhausted, meetings still advance when someone has the page open (client nudge / presence heartbeat apply due deadlines), but an abandoned meeting cannot reach H1 / close until the quota resets (09:00 KST). Options (owner decision): QStash pay-as-you-go, or fewer test runs per day.
+- Deadline scheduler: Cloud Tasks (free tier 1M operations / month; see docs/scheduler.md). QStash quota limit no longer applies (retired 2026-11-28).
 - Real devices: microphone quality, camera on two physical devices and listening to AI voices are user checks (Claude used fake devices; playback state was measured, not listened to).
 - AI judgement can keep debate open (e.g. voting down "enter voting" until an amendment is settled) — by design; humans can sign/introduce to move on.
 - Yield to questions, roll-call votes, right of reply: not implemented (excluded or need moderator discretion).

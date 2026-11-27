@@ -30,6 +30,14 @@ describe("CloudTasksScheduler", () => {
     expect(JSON.parse(Buffer.from(task.httpRequest.body, "base64").toString())).toEqual(job);
   });
 
+  it("re-registration after a lost task uses a fresh name (Cloud Tasks reserves deleted / executed names)", async () => {
+    const f = vi.fn(async () => resp(200));
+    await new CloudTasksScheduler(cfg, f as never, () => job.atMs - 60_000).schedule(job, { retryTag: "r123" });
+    const { task } = JSON.parse(String((f.mock.calls[0] as unknown as [string, RequestInit])[1].body));
+    expect(task.name.endsWith(`/tasks/tick-F0rum_1-p7-${job.atMs}-r123`)).toBe(true);
+    expect(JSON.parse(Buffer.from(task.httpRequest.body, "base64").toString())).toEqual(job); // body unchanged
+  });
+
   it("a deadline already in the past is dispatched now (not in the past)", async () => {
     const f = vi.fn(async () => resp(200));
     const now = job.atMs + 10_000;
