@@ -76,8 +76,8 @@ function checkZoom() {
 
 function checkScheduler() {
   const d = process.env.SCHEDULER_DRIVER ?? "NOT SET";
-  console.log(`Scheduler: driver=${d}` + (d === "qstash"
-    ? ` QSTASH_TOKEN=${set("QSTASH_TOKEN")} signing=${set("QSTASH_CURRENT_SIGNING_KEY")}/${set("QSTASH_NEXT_SIGNING_KEY")} APP_BASE_URL=${set("APP_BASE_URL")}`
+  console.log(`Scheduler: driver=${d}` + (d === "cloudtasks"
+    ? ` CLOUD_TASKS_LOCATION=${set("CLOUD_TASKS_LOCATION")} CLOUD_TASKS_QUEUE=${set("CLOUD_TASKS_QUEUE")} CLOUD_TASKS_INVOKER_EMAIL=${set("CLOUD_TASKS_INVOKER_EMAIL")} APP_BASE_URL=${set("APP_BASE_URL")}`
     : ""));
 }
 

@@ -117,7 +117,8 @@ describe.skipIf(!onEmulator)("engine store on Firestore emulator", () => {
   it("scheduler factory refuses local timers in production", () => {
     const h = async () => {};
     expect(() => createScheduler({ SCHEDULER_DRIVER: "local", VERCEL: "1" }, h)).toThrow(/not allowed in production/);
-    expect(() => createScheduler({ SCHEDULER_DRIVER: "qstash" }, h)).toThrow(/QSTASH_TOKEN/);
+    expect(() => createScheduler({ SCHEDULER_DRIVER: "cloudtasks" }, h)).toThrow(/CLOUD_TASKS_QUEUE/);
+    expect(() => createScheduler({ SCHEDULER_DRIVER: "qstash" }, h)).toThrow(/SCHEDULER_DRIVER/); // QStash removed
     expect(() => createScheduler({}, h)).toThrow(/SCHEDULER_DRIVER/);
   });
 });

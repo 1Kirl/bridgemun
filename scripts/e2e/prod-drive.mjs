@@ -140,7 +140,7 @@ if (cmd === "users") {
 } else if (cmd === "presence") {
   out(await api(rest[0], `/api/forums/${st.forumId}/presence`, { online: rest[1] !== "off" }));
 } else if (cmd === "heartbeat") {
-  // heartbeat <seconds> <who...>: keeps the listed humans "online" WITHOUT calling nudge (deadlines come from QStash only)
+  // heartbeat <seconds> <who...>: keeps the listed humans "online" WITHOUT calling nudge (deadlines come from Cloud Tasks only)
   const until = Date.now() + Number(rest[0]) * 1000;
   const who = rest.slice(1);
   while (Date.now() < until) {

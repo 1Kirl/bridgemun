@@ -9,6 +9,13 @@ import { adminDb, getAdminApp } from "@/server/firebaseAdmin";
 import { getStorage } from "firebase-admin/storage";
 import { advanceIfDue } from "@/server/forums/service";
 import { createScheduler, type Scheduler } from "@/server/scheduler";
+
+/** OAuth access token of the server's service account (no extra key; used for Cloud Tasks). */
+async function adminAccessToken() {
+  const cred = getAdminApp().options.credential;
+  if (!cred) throw new Error("no service-account credential");
+  return (await cred.getAccessToken()).access_token;
+}
 import { FirestoreChunkAudioStore, LocalFsAudioStore, StorageAudioStore, type AudioStore } from "@/server/speech/audioStore";
 import { ElevenLabsTts, MockStt, MockTts, OpenAIStt, type SttProvider, type TtsProvider } from "@/server/speech/providers";
 import { readCaps, type Caps } from "@/server/usage/budget";
@@ -50,9 +57,14 @@ export function buildRuntime(db: Firestore, env: Record<string, string | undefin
     // Work may enqueue more work (AI action → engine effect → next AI action), so loop until quiet.
     for (let i = 0; i < 50 && pending.size; i++) await Promise.allSettled([...pending]);
   };
-  const scheduler = createScheduler(env, async (job) => {
-    await advanceIfDue(db, job.forumId, sink);
-  });
+  const scheduler = createScheduler(
+    env,
+    async (job) => {
+      await advanceIfDue(db, job.forumId, sink);
+    },
+    // Cloud Tasks calls use the server's existing service-account credential (firebase-admin; cloud-platform scope).
+    env.SCHEDULER_DRIVER === "cloudtasks" ? adminAccessToken : undefined,
+  );
   const caps = readCaps(env);
 
   // AUDIO_STORE: "local" (dev default) | "firestore" (opt-in, existing Firestore quota) | unset in production = none (captions only).
@@ -111,10 +123,14 @@ export function buildRuntime(db: Firestore, env: Record<string, string | undefin
       try {
         await scheduler.schedule({ forumId, phaseId: e.phaseId, atMs: e.atMs });
       } catch (err) {
-        // The state change is already committed. Without a scheduled tick the deadline is still applied by the
-        // next client nudge / presence heartbeat (advanceIfDue); record the failure for diagnosis.
-        console.error("[scheduler] publish failed", forumId, e.phaseId, err);
-        await db.doc(`forums/${forumId}`).set({ schedulerError: { phaseId: e.phaseId, atMs: Date.now(), message: String(err).slice(0, 200) } }, { merge: true }).catch(() => {});
+        // The state change is already committed but its deadline task is missing. Flag the forum: the repair job
+        // (/api/engine/repair, Cloud Scheduler) re-registers the current deadline even if every browser is closed;
+        // a client nudge / presence heartbeat also applies a due deadline meanwhile.
+        console.error("[scheduler] enqueue failed", forumId, e.phaseId, String(err).slice(0, 200));
+        await db
+          .doc(`forums/${forumId}`)
+          .set({ schedulerPending: true, schedulerError: { phaseId: e.phaseId, deadlineMs: e.atMs, atMs: Date.now(), message: String(err).slice(0, 200) } }, { merge: true })
+          .catch(() => {});
       }
     }
     if (ai) await ai(forumId, effects);
