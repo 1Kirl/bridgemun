@@ -73,6 +73,8 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 - QStash smoke test: `node scripts/with-env.mjs .env.project.local -- npx tsx --conditions=react-server scripts/qstash-smoke.ts`
 
 ## Verification log
+### 2026-11-27 — room UX (commit 83516ba): user-verified — production site, real browsers
+- The user checked every listed item on https://bridgemun.vercel.app in real browsers and reported all working: roll-call card highlight and release, "No motion" done state / Submit motion disabled / refresh / Change response, floor-open reason text, speech dialog (microphone and text, hide/reopen, Zoom kept), mobile layout, side order (speakers' list above documents). No further changes requested.
 ### 2026-11-27 — room UX: no-motion state, roll-call highlight, speech dialog, side order (local browser, emulator, dummy AI)
 - Engine: FLOOR_OPEN.reason (display only: debate_opened, no_motions, motions_out_of_order, no_motion_adopted, speaking_time_set, speech_ended, caucus_ended, resumed, resolution_presented, amendment_decided); no transition changed. 6 engine tests (floor-reason.test.ts); 263 tests total pass.
 - Two browser origins (A = US owner, B = UK): roll call → whole action card pulses (no inner pulse), scrolled into view once; A answered → pulse stopped, "Attendance recorded — waiting for others", B still pulsing. Floor: simulated failed "No motion" → error, button kept; retry → "No motion" recorded, Submit motion disabled, inputs hidden; refresh keeps it; Change response → form back + "Keep No motion"; new window (after a speech / after the caucus) → form enabled again with the matching reason ("The last speech has ended." / "The caucus has ended.").
