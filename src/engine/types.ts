@@ -278,6 +278,19 @@ export type SpeechContext =
   /** Rule 18: remaining time yielded by another delegate; the receiver may not yield again. */
   | { kind: "yield"; from: SeatId; sec: number };
 
+/** What led to a FLOOR_OPEN window — shown to delegates so they know why the floor is open (again). */
+export type FloorReason =
+  | "debate_opened" // roll call finished
+  | "no_motions" // the previous window closed with no motion submitted
+  | "motions_out_of_order" // the previous window's motions were all out of order when it closed
+  | "no_motion_adopted" // the previous window's motions were voted on (or not held) and none was adopted
+  | "speaking_time_set" // a motion to set the speaking time was adopted
+  | "speech_ended"
+  | "caucus_ended"
+  | "resumed" // after a suspension
+  | "resolution_presented"
+  | "amendment_decided";
+
 export type Phase =
   | { type: "LOBBY" }
   | { type: "BRIEFING"; startedMs: number; deadlineMs: number }
@@ -311,6 +324,8 @@ export type Phase =
       windowId: string;
       deadlineMs: number;
       origin: "after_speech" | "after_caucus" | "empty_list" | "after_motions" | "after_resume";
+      /** Why this window opened (display only; never used by the rules). Absent on windows opened before it existed. */
+      reason?: FloorReason;
       readySeats: SeatId[];
       aiDoneSeats: SeatId[];
       extensionUsedSec: number;

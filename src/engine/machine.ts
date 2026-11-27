@@ -36,6 +36,7 @@ import {
   validateAmendmentOp,
 } from "@/engine/documents";
 import type {
+  FloorReason,
   Actor,
   ApplyResult,
   Ballot,
@@ -455,20 +456,21 @@ function startSpeakerSlot(ctx: Ctx, id: SeatId, context: SpeechContext) {
   }
 }
 
-function nextSpeakerOrFloor(ctx: Ctx, origin: "after_motions" | "after_resume" | "empty_list") {
+function nextSpeakerOrFloor(ctx: Ctx, origin: "after_motions" | "after_resume" | "empty_list", reason: FloorReason) {
   if (sessionOver(ctx)) return sessionEnd(ctx);
   const next = ctx.s.speakersList.shift();
   if (next) return startSpeakerSlot(ctx, next, { kind: "speakers_list" });
-  openFloor(ctx, origin === "after_resume" ? "after_resume" : "empty_list");
+  openFloor(ctx, origin === "after_resume" ? "after_resume" : "empty_list", reason);
 }
 
-function openFloor(ctx: Ctx, origin: Extract<Phase, { type: "FLOOR_OPEN" }>["origin"]) {
+function openFloor(ctx: Ctx, origin: Extract<Phase, { type: "FLOOR_OPEN" }>["origin"], reason: FloorReason) {
   if (sessionOver(ctx)) return sessionEnd(ctx);
   transition(ctx, {
     type: "FLOOR_OPEN",
     windowId: "",
     deadlineMs: ctx.now + ctx.s.settings.timers.motionWindowSec * 1000,
     origin,
+    reason,
     readySeats: [],
     aiDoneSeats: [],
     extensionUsedSec: 0,
@@ -507,8 +509,8 @@ function afterSpeech(ctx: Ctx, context: SpeechContext) {
     }
     return continueModCaucus(ctx);
   }
-  if (context.kind === "dr_panel") return openFloor(ctx, "after_motions");
-  openFloor(ctx, "after_speech");
+  if (context.kind === "dr_panel") return openFloor(ctx, "after_motions", "resolution_presented");
+  openFloor(ctx, "after_speech", "speech_ended");
 }
 
 function endSpeechSlot(ctx: Ctx, id: SeatId, context: SpeechContext) {
@@ -585,10 +587,11 @@ function closeFloor(ctx: Ctx) {
     }
   }
   if (valid.length === 0) {
+    const reason: FloorReason = pending.length > 0 ? "motions_out_of_order" : "no_motions";
     if (p.origin === "after_caucus" || p.origin === "after_speech" || p.origin === "after_motions") {
-      return nextSpeakerOrFloor(ctx, "after_motions");
+      return nextSpeakerOrFloor(ctx, "after_motions", reason);
     }
-    return nextSpeakerOrFloor(ctx, "empty_list");
+    return nextSpeakerOrFloor(ctx, "empty_list", reason);
   }
   valid.sort(compareMotions);
   startMotionBallot(ctx, p.windowId, valid.map((m) => m.id));
@@ -636,7 +639,7 @@ function startMotionBallot(ctx: Ctx, windowId: string, queue: string[]) {
     });
     return;
   }
-  nextSpeakerOrFloor(ctx, "after_motions"); // rule 15: all motions failed / none held
+  nextSpeakerOrFloor(ctx, "after_motions", "no_motion_adopted"); // rule 15: all motions failed / none held
 }
 
 function connectionMap(s: ForumEngineState) {
@@ -729,7 +732,7 @@ function adoptMotion(ctx: Ctx, m: Motion, remaining: string[]) {
     case "set_speaking_time":
       ctx.s.speakingTimeSec = p.speakingSec;
       if (keep.length) return startMotionBallot(ctx, (ctx.s.phase as { windowId: string }).windowId, keep);
-      return nextSpeakerOrFloor(ctx, "after_motions");
+      return nextSpeakerOrFloor(ctx, "after_motions", "speaking_time_set");
     case "introduce_resolution": {
       const approved = Object.values(ctx.s.documents)
         .filter((d) => d.kind === "draft_resolution" && d.status === "approved")
@@ -798,7 +801,7 @@ function endCaucus(ctx: Ctx) {
   const c = ctx.s.activeCaucus;
   if (c) ctx.s.lastEndedCaucus = { ...c, endedPhaseId: ctx.s.phaseId };
   ctx.s.activeCaucus = null;
-  openFloor(ctx, "after_caucus");
+  openFloor(ctx, "after_caucus", "caucus_ended");
 }
 
 function pickVolunteer(ctx: Ctx, volunteers: SeatId[]): SeatId {
@@ -1197,7 +1200,7 @@ function endPhase(ctx: Ctx) {
       const required = debateQuorumRequired(Object.keys(s.seats).length);
       if (present >= required) {
         record(ctx, { source: "chair", substantive: false, text: `Roll call closed: ${present} present (debate quorum ${required}).` });
-        return nextSpeakerOrFloor(ctx, "empty_list");
+        return nextSpeakerOrFloor(ctx, "empty_list", "debate_opened");
       }
       if (sessionOver(ctx)) return sessionEnd(ctx);
       announce(ctx, `No debate quorum yet (${present}/${required}, rule 32). Roll call remains open.`);
@@ -1268,7 +1271,7 @@ function endPhase(ctx: Ctx) {
       return endCaucus(ctx);
     case "SUSPENDED":
       record(ctx, { source: "chair", substantive: false, text: "Meeting resumed after suspension." });
-      return nextSpeakerOrFloor(ctx, "after_resume");
+      return nextSpeakerOrFloor(ctx, "after_resume", "resumed");
     case "DR_INTRO":
       if (p.stage === "presentation") {
         p.stage = "qa";
@@ -1280,7 +1283,7 @@ function endPhase(ctx: Ctx) {
         const [next, ...rest] = p.queue;
         return transition(ctx, { type: "DR_INTRO", queue: rest, docId: next, stage: "presentation", deadlineMs: ctx.now + s.settings.timers.drPresentationSec * 1000 });
       }
-      return openFloor(ctx, "after_motions");
+      return openFloor(ctx, "after_motions", "resolution_presented");
     case "AMENDMENT_SPONSOR_RESPONSE": {
       if (W(s) && p.wait && ctx.now >= p.wait.responseDeadlineMs) return resolveAmendmentResponse(ctx, "consent_not_obtained");
       if (s.settings.policies.amendmentSponsorSilence === "extend_once_then_not_agreeing" && !p.waitExtended) {
@@ -1381,7 +1384,7 @@ function resolveAmendmentResponse(ctx: Ctx, outcome: "all_agreed" | "objected" |
         : "not every sponsor consented in time (no objection was recorded; app policy D5)";
     record(ctx, { source: "chair", substantive: true, text: `Amendment ${a.id} is unfriendly because ${why}; it will be voted (2/3, rule 29) in voting procedure.` });
   }
-  openFloor(ctx, "after_motions");
+  openFloor(ctx, "after_motions", "amendment_decided");
 }
 
 function pause(ctx: Ctx) {
@@ -1496,7 +1499,7 @@ function dispatch(ctx: Ctx, c: Command) {
       if (s.phase.type === "ROLL_CALL" && Object.values(s.seats).every(isPresent)) {
         const present = presentSeats(s).length;
         record(ctx, { source: "chair", substantive: false, text: `Roll call complete: ${present} present.` });
-        return nextSpeakerOrFloor(ctx, "empty_list");
+        return nextSpeakerOrFloor(ctx, "empty_list", "debate_opened");
       }
       if (s.phase.type === "ROLL_CALL") return maybeAdvanceOnResponse(ctx);
       return;

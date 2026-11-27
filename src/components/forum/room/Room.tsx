@@ -8,6 +8,7 @@ import type { PublicForumState } from "@/engine/publicView";
 import { DraftEditor, useDocDraft, type DocDraft } from "./DraftEditor";
 import { useSpeechPrep } from "@/hooks/useSpeechPrep";
 import { SpeechFocus } from "./SpeechFocus";
+import { SpeechModal } from "./SpeechModal";
 import { SpeechPrepCard } from "./SpeechPrepCard";
 import { Clock, Home, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -37,9 +38,16 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
   const iHoldFloor = p.type === "SPEECH" && p.seat === mySeat && p.speakerKind === "human";
   const prep = useSpeechPrep(forumId, mySeat);
   const recorder = useSpeechRecorder(forumId, state, mySeat, prep.mode === "mic");
-  // Own turn (recognised or speaking): a focused screen; the rest of the room is folded away but stays mounted.
+  // Own turn (recognised or speaking): a dialog over the room. The room stays mounted and visible behind it.
   const focus = (p.type === "SPEECH_PREP" && p.seat === mySeat) || iHoldFloor;
-  const [showDetails, setShowDetails] = useState(false);
+  const [speechHidden, setSpeechHidden] = useState(false);
+  const hideSpeech = useCallback(() => setSpeechHidden(true), []);
+  // a new turn always opens the dialog again; preparing → speaking keeps the delegate's choice
+  const [prevFocus, setPrevFocus] = useState(focus);
+  if (prevFocus !== focus) {
+    setPrevFocus(focus);
+    if (!focus) setSpeechHidden(false);
+  }
   // One gesture turns on meeting audio: Zoom listening + AI voice playback (browsers block autoplay until then).
   const media = useRef<MediaHandle>(null);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
@@ -107,17 +115,19 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
         </main>
       ) : (
         <>
-        {focus && (
-          <div className="space-y-2 p-3 sm:p-4">
-            <SpeechFocus state={state} mySeat={mySeat} actions={actions} recorder={recorder} prep={prep} now={t} />
-            <div className="mx-auto flex max-w-3xl justify-center">
-              <button type="button" onClick={() => setShowDetails((x) => !x)} className="rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs font-bold text-gray-600 shadow-sm" data-testid="toggle-details">
-                {showDetails ? "Hide meeting details" : "Show meeting details (motions, documents, delegations)"}
-              </button>
-            </div>
+        <SpeechModal active={focus} hidden={speechHidden} onHide={hideSpeech}>
+          <SpeechFocus state={state} mySeat={mySeat} actions={actions} recorder={recorder} prep={prep} now={t} />
+        </SpeechModal>
+        {focus && speechHidden && (
+          <div className="sticky top-0 z-40 flex flex-wrap items-center gap-2 border-b border-red-200 bg-red-50 px-5 py-2 text-sm font-bold text-red-800" role="status" data-testid="speech-reopen-bar">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-600 motion-safe:animate-pulse" aria-hidden />
+            {iHoldFloor ? "You have the floor — your speech is still running." : "It is your turn to speak."}
+            <Button size="sm" className="ml-auto" onClick={() => setSpeechHidden(false)} data-testid="reopen-speech">
+              Open speech screen
+            </Button>
           </div>
         )}
-        <main className={`grid flex-1 grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_360px] ${focus && !showDetails ? "hidden" : ""}`}>
+        <main className="grid flex-1 grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           {/* CENTRE: chair | speaker → Record → my actions. Fixed order and sizes; content changes inside. */}
           <div className="min-w-0 space-y-4" data-testid="room-center">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-testid="stage-row">
@@ -178,8 +188,8 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
             <SeatGrid state={state} mySeat={mySeat} />
             <ResponseTracker state={state} rv={rv} mySeat={mySeat} />
             <BallotResults state={state} />
-            <DocumentsPanel state={state} mySeat={mySeat} actions={actions} onNewDraft={doc.open} />
             <SpeakersList state={state} />
+            <DocumentsPanel state={state} mySeat={mySeat} actions={actions} onNewDraft={doc.open} />
             <AiRationale forumId={forumId} state={state} positionSetVersion={meta.positionSetVersion} />
           </aside>
         </main>

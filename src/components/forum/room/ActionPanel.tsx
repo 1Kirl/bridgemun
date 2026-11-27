@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, CircleDashed, Hand, Mic, Send, SkipForward, Timer, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { PublicForumState } from "@/engine/publicView";
-import type { MotionParams, MotionType, Phase, VoteChoice } from "@/engine/types";
+import type { FloorReason, MotionParams, MotionType, Phase, VoteChoice } from "@/engine/types";
 import { allowedChoices } from "@/engine/voting";
 import { MOTION_LABEL, describeMotion, describePhase } from "@/lib/phaseText";
 import type { useForumActions } from "@/hooks/useForumActions";
@@ -40,6 +40,23 @@ export function ActionPanel({
   const me = state.seats[mySeat];
   const present = me.attendance === "present" || me.attendance === "present_and_voting";
   const { send, busy } = actions;
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Entering roll call without having answered: bring the card into view ONCE (per roll call, also across a refresh).
+  const rcPending = p.type === "ROLL_CALL" && !present;
+  useEffect(() => {
+    if (!rcPending) return;
+    const el = cardRef.current;
+    const key = `bm-rollcall-scrolled:${state.phaseId}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {}
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    if (r.top >= 0 && r.top < window.innerHeight - 120) return; // already visible
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  }, [rcPending, state.phaseId]);
   if (p.type === "CLOSED" || p.type === "BRIEFING") return null;
   const rv = publicResponseView(state);
   const mine = !!rv?.required.includes(mySeat);
@@ -71,29 +88,37 @@ export function ActionPanel({
   const head = {
     needed: { cls: "border-amber-300 bg-amber-50", icon: <Hand size={18} className="text-amber-700" />, title: "Your response is needed", sub: rv ? RESPONSE_ACTION[rv.kind] : "" },
     optional: { cls: "border-brand/30 bg-brand-light", icon: <CircleDashed size={18} className="text-brand" />, title: "Negotiation in progress", sub: "Optional: click “Ready to resume” when you are done. The caucus ends at its adopted time, or earlier once every human is ready." },
-    done: myStanding
-      ? {
-          cls: "border-emerald-200 bg-emerald-50",
-          icon: <CheckCircle2 size={18} className="text-emerald-700" />,
-          title: "Your “no motion” still stands",
-          sub: "Nothing has changed since you said you had no motion, so you are not asked again. You can still move a motion while the window is open.",
-        }
-      : { cls: "border-emerald-200 bg-emerald-50", icon: <CheckCircle2 size={18} className="text-emerald-700" />, title: "Done — waiting for others", sub: rv && rv.pending.length ? `${rv.pending.length} other delegate${rv.pending.length > 1 ? "s" : ""} still to respond` : "Waiting for the AI delegations / step timer" },
+    done:
+      p.type === "FLOOR_OPEN" && myFloorResponse(state, mySeat) !== "motion"
+        ? {
+            cls: "border-emerald-200 bg-emerald-50",
+            icon: <CheckCircle2 size={18} className="text-emerald-700" />,
+            title: "Your response is recorded",
+            sub: myStanding ? "Your earlier “No motion” still applies. No action is needed unless you want to change it." : "“No motion” — no action is needed unless you want to change it.",
+          }
+        : {
+            cls: "border-emerald-200 bg-emerald-50",
+            icon: <CheckCircle2 size={18} className="text-emerald-700" />,
+            title: p.type === "ROLL_CALL" ? "Attendance recorded — waiting for others" : "Done — waiting for others",
+            sub: rv && rv.pending.length ? `${rv.pending.length} other delegate${rv.pending.length > 1 ? "s" : ""} still to respond` : "Waiting for the AI delegations / step timer",
+          },
     speaking: { cls: "border-red-200 bg-red-50", icon: <Mic size={18} className="text-red-700" />, title: "You have the floor", sub: "Speak now; end your speech when you are finished" },
     waiting: { cls: "border-gray-200 bg-gray-50", icon: <CircleDashed size={18} className="text-gray-500" />, title: "No action needed from you", sub: "Waiting for other delegates to respond" },
     none: { cls: "border-gray-200 bg-gray-50", icon: <UserCheck size={18} className="text-gray-500" />, title: "No action needed right now", sub: "You can still use the optional actions below" },
   }[status];
 
   const overBase = !!rv?.wait && now >= rv.wait.baseDeadlineMs;
+  // Roll call: the whole card is highlighted from the moment attendance is needed until it is recorded.
+  const rollCallNeeded = p.type === "ROLL_CALL" && status === "needed";
   return (
-    <div className={box} data-testid="my-action">
+    <div ref={cardRef} className={`${box} ${rollCallNeeded ? "card-attention" : ""}`} data-testid="my-action" data-attention={rollCallNeeded ? "roll-call" : undefined}>
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className={`${h3} mb-0`}>Your actions — {me.countryName}</h3>
         {headerAction}
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <div className="min-w-0 space-y-4" data-testid="main-actions">
-      <div className={`rounded-xl border-2 p-3 ${head.cls} ${status === "needed" ? "respond-pulse" : ""}`} data-testid={`my-status-${status}`}>
+      <div className={`rounded-xl border-2 p-3 ${head.cls} ${status === "needed" && !rollCallNeeded ? "respond-pulse" : ""}`} data-testid={`my-status-${status}`}>
         <div className="flex items-start gap-2">
           {head.icon}
           <div className="min-w-0 flex-1">
@@ -394,6 +419,31 @@ function SpeakerControls({ state, mySeat, actions, recorder, part }: Props & { p
 
 const MOTION_CHOICES: MotionType[] = ["mod_caucus", "unmod_caucus", "extend_caucus", "set_speaking_time", "suspend", "adjourn", "introduce_resolution", "introduce_amendment", "enter_voting"];
 
+/** Why the floor is open — from the engine's recorded reason; neutral when it is not known. */
+const FLOOR_REASON: Record<FloorReason, string> = {
+  debate_opened: "Roll call is complete and debate is open.",
+  no_motions: "No motions were submitted in the previous round.",
+  motions_out_of_order: "The motions from the previous round were out of order when it closed.",
+  no_motion_adopted: "No motion was adopted in the previous round.",
+  speaking_time_set: "The new speaking time was adopted.",
+  speech_ended: "The last speech has ended.",
+  caucus_ended: "The caucus has ended.",
+  resumed: "The meeting has resumed.",
+  resolution_presented: "The draft resolution has been presented.",
+  amendment_decided: "The amendment’s sponsors have responded.",
+};
+const REOPENED: FloorReason[] = ["no_motions", "motions_out_of_order", "no_motion_adopted"];
+
+/** My standing on the open floor: a motion of mine is on it, my "no motion" is recorded (now or still applying), or nothing yet. */
+export function myFloorResponse(state: PublicForumState, mySeat: string): "motion" | "no_motion" | "standing" | "none" {
+  const p = state.phase;
+  if (p.type !== "FLOOR_OPEN") return "none";
+  if (Object.values(state.motions).some((m) => m.windowId === p.windowId && m.mover === mySeat && m.status === "pending")) return "motion";
+  if (p.readySeats.includes(mySeat)) return "no_motion";
+  if ((p.standingSeats ?? []).includes(mySeat)) return "standing";
+  return "none";
+}
+
 function FloorControls({ state, mySeat, actions }: Props) {
   const p = state.phase as Extract<Phase, { type: "FLOOR_OPEN" }>;
   const { send, busy } = actions;
@@ -404,7 +454,14 @@ function FloorControls({ state, mySeat, actions }: Props) {
   const [durMin, setDurMin] = useState(2);
   const draftAmendments = Object.values(state.amendments).filter((a) => a.status === "draft");
   const [amendmentId, setAmendmentId] = useState("");
-  const ready = p.readySeats.includes(mySeat);
+  // "No motion" accepted by the server for this window, before the snapshot shows it (no second click meanwhile).
+  const [passedIn, setPassedIn] = useState<string | null>(null);
+  // "Change response" opens the form again for this window only; the server keeps the "no motion" until a motion is submitted.
+  const [changingIn, setChangingIn] = useState<string | null>(null);
+  const resp = myFloorResponse(state, mySeat);
+  const noMotion = resp === "no_motion" || resp === "standing" || (resp === "none" && passedIn === p.windowId);
+  const changing = noMotion && changingIn === p.windowId;
+  const locked = noMotion && !changing;
 
   const params = (): MotionParams => {
     switch (type) {
@@ -427,69 +484,120 @@ function FloorControls({ state, mySeat, actions }: Props) {
         return { type: "adjourn" };
     }
   };
+  const inFlight = useRef(false); // a fast double click sends once
+  const pass = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const ok = await send({ type: "floor_pass", seat: mySeat }, { phaseId: state.phaseId }).finally(() => (inFlight.current = false));
+    if (ok) {
+      setPassedIn(p.windowId);
+      setChangingIn(null);
+    }
+  };
+  const submit = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const ok = await send({ type: "submit_motion", seat: mySeat, params: params() }, { phaseId: state.phaseId }).finally(() => (inFlight.current = false));
+    if (ok) setChangingIn(null);
+  };
 
   return (
-    <div className="space-y-2 rounded-xl border border-brand/20 bg-brand/5 p-3">
-      <p className="text-sm font-black text-brand">Floor is open — move a motion</p>
-      {(p.standingSeats ?? []).includes(mySeat) && !ready && (
-        <p className="rounded-lg bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800" data-testid="standing-no-motion">
-          Your earlier “no motion” still stands — nothing has changed, so you do not need to answer again. Move a motion if you want; otherwise this window simply runs its normal time.
+    <div className="space-y-2 rounded-xl border border-brand/20 bg-brand/5 p-3" data-testid="floor-controls" data-response={locked ? "no_motion" : resp}>
+      <div>
+        <p className="text-sm font-black text-brand" data-testid="floor-title">
+          {p.reason && REOPENED.includes(p.reason) ? "The floor is open again" : "The floor is open"}
         </p>
-      )}
-      <select value={type} onChange={(e) => setType(e.target.value as MotionType)} className="w-full rounded-lg border border-gray-200 p-2 text-sm">
-        {MOTION_CHOICES.map((m) => (
-          <option key={m} value={m}>
-            {MOTION_LABEL[m]}
-          </option>
-        ))}
-      </select>
-      {type === "introduce_amendment" && (
-        <select value={amendmentId} onChange={(e) => setAmendmentId(e.target.value)} className="w-full rounded-lg border border-gray-200 p-2 text-sm">
-          {draftAmendments.length === 0 && <option value="">No amendment drafted yet (see Documents)</option>}
-          {draftAmendments.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.id} → {state.documents[a.targetDocId]?.title} ({a.op.kind} clause {a.op.clauseIndex + 1}, {a.signatories.length} signatories)
-            </option>
-          ))}
-        </select>
-      )}
-      {type === "mod_caucus" && <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic" className="w-full rounded-lg border border-gray-200 p-2 text-sm" />}
-      {(type === "mod_caucus" || type === "set_speaking_time") && (
-        <label className="flex items-center gap-2 text-xs text-gray-600">
-          Speaking time (s)
-          <input type="number" min={15} max={180} value={speakingSec} onChange={(e) => setSpeakingSec(Number(e.target.value))} className="w-20 rounded border border-gray-200 p-1" />
-        </label>
-      )}
-      {(type === "mod_caucus" || type === "unmod_caucus") && (
-        <label className="flex items-center gap-2 text-xs text-gray-600">
-          Total (min)
-          <input type="number" min={1} max={20} value={totalMin} onChange={(e) => setTotalMin(Number(e.target.value))} className="w-20 rounded border border-gray-200 p-1" />
-        </label>
-      )}
-      {(type === "extend_caucus" || type === "suspend") && (
-        <label className="flex items-center gap-2 text-xs text-gray-600">
-          Duration (min)
-          <input type="number" min={0.5} step={0.5} max={10} value={durMin} onChange={(e) => setDurMin(Number(e.target.value))} className="w-20 rounded border border-gray-200 p-1" />
-        </label>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={busy} onClick={() => void send({ type: "submit_motion", seat: mySeat, params: params() }, { phaseId: state.phaseId })}>
-          Submit motion
-        </Button>
-        <Button size="sm" variant="secondary" disabled={busy || ready} onClick={() => void send({ type: "floor_pass", seat: mySeat }, { phaseId: state.phaseId })}>
-          {ready ? "Done ✓" : "No motion — I'm done"}
-        </Button>
-        {!w1(state) && (
-          <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "request_extension", seat: mySeat })}>
-            <Timer size={13} className="mr-1" /> +30 s
-          </Button>
-        )}
+        <p className="text-xs text-gray-600" data-testid="floor-reason">
+          {p.reason ? FLOOR_REASON[p.reason] : "Delegates may move motions now."}
+        </p>
       </div>
-      <p className="text-[11px] text-gray-500">
-        {w1(state)
-          ? "Moving a motion also counts as your response (you can add another while the window is open). The window closes when every human delegate has responded and the AI delegations are done."
-          : "The window stays open for its full time unless every online delegate is ready. AI motions never close it early."}
-      </p>
+
+      {locked ? (
+        <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2" data-testid="no-motion-recorded">
+          <p className="flex items-center gap-1.5 text-sm font-black text-emerald-800">
+            <CheckCircle2 size={15} /> “No motion” recorded
+          </p>
+          {resp === "standing" && <p className="text-xs text-emerald-900">Your earlier answer still applies — nothing has changed since.</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" disabled aria-disabled data-testid="submit-motion">
+              Submit motion
+            </Button>
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => setChangingIn(p.windowId)} data-testid="change-response">
+              Change response
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {changing && (
+            <p className="rounded-lg bg-gray-50 px-2 py-1.5 text-xs text-gray-700" data-testid="changing-response">
+              Your “No motion” stays recorded until you submit a motion.{" "}
+              <button type="button" className="font-bold text-brand underline" onClick={() => setChangingIn(null)}>
+                Keep “No motion”
+              </button>
+            </p>
+          )}
+          {resp === "motion" && <p className="rounded-lg bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800">Your motion is on the floor and counts as your response. You can add another while the window is open.</p>}
+          <select value={type} onChange={(e) => setType(e.target.value as MotionType)} className="w-full rounded-lg border border-gray-200 p-2 text-sm" aria-label="Motion">
+            {MOTION_CHOICES.map((m) => (
+              <option key={m} value={m}>
+                {MOTION_LABEL[m]}
+              </option>
+            ))}
+          </select>
+          {type === "introduce_amendment" && (
+            <select value={amendmentId} onChange={(e) => setAmendmentId(e.target.value)} className="w-full rounded-lg border border-gray-200 p-2 text-sm">
+              {draftAmendments.length === 0 && <option value="">No amendment drafted yet (see Documents)</option>}
+              {draftAmendments.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.id} → {state.documents[a.targetDocId]?.title} ({a.op.kind} clause {a.op.clauseIndex + 1}, {a.signatories.length} signatories)
+                </option>
+              ))}
+            </select>
+          )}
+          {type === "mod_caucus" && <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Topic" className="w-full rounded-lg border border-gray-200 p-2 text-sm" />}
+          {(type === "mod_caucus" || type === "set_speaking_time") && (
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              Speaking time (s)
+              <input type="number" min={15} max={180} value={speakingSec} onChange={(e) => setSpeakingSec(Number(e.target.value))} className="w-20 rounded border border-gray-200 p-1" />
+            </label>
+          )}
+          {(type === "mod_caucus" || type === "unmod_caucus") && (
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              Total (min)
+              <input type="number" min={1} max={20} value={totalMin} onChange={(e) => setTotalMin(Number(e.target.value))} className="w-20 rounded border border-gray-200 p-1" />
+            </label>
+          )}
+          {(type === "extend_caucus" || type === "suspend") && (
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              Duration (min)
+              <input type="number" min={0.5} step={0.5} max={10} value={durMin} onChange={(e) => setDurMin(Number(e.target.value))} className="w-20 rounded border border-gray-200 p-1" />
+            </label>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={busy} onClick={() => void submit()} data-testid="submit-motion">
+              Submit motion
+            </Button>
+            {!noMotion && resp !== "motion" && (
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => void pass()} data-testid="no-motion">
+                No motion — I’m done
+              </Button>
+            )}
+            {!w1(state) && (
+              <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "request_extension", seat: mySeat })}>
+                <Timer size={13} className="mr-1" /> +30 s
+              </Button>
+            )}
+          </div>
+          {resp === "none" && !changing && (
+            <p className="text-[11px] text-gray-500">
+              {w1(state)
+                ? "Moving a motion also counts as your response. The window closes when every human delegate has responded and the AI delegations are done."
+                : "The window stays open for its full time unless every online delegate is ready. AI motions never close it early."}
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }

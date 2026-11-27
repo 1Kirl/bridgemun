@@ -12,6 +12,8 @@ import { publicResponseView } from "@/lib/meetingFlow";
 import { Countdown, ExpiryWarning, Flag } from "./Visuals";
 
 type Recorder = { status: string; detail: string };
+/** Main button area: stays visible at the bottom of the dialog while the content scrolls (mobile). */
+const stickyFoot = "sticky bottom-0 z-[1] -mx-4 mt-3 border-t border-gray-100 bg-white px-4 pb-4 pt-3 sm:-mx-6 sm:px-6";
 type Props = {
   state: PublicForumState;
   mySeat: string;
@@ -41,11 +43,20 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
   const [submitting, setSubmitting] = useState(false);
   const [failed, setFailed] = useState(false);
   const [yieldTo, setYieldTo] = useState("");
+  const [ending, setEnding] = useState(false);
   if (!speaking && !preparing) return null;
   const rv = publicResponseView(state);
   const left = speaking ? p.deadlineMs - now : 0;
 
+  // End / submit / expiry can race: the buttons lock while one is in flight; the server applies only the first.
+  const endSpeech = async () => {
+    if (ending || submitting) return;
+    setEnding(true);
+    await actions.send({ type: "end_speech", seat: mySeat, ...(yieldTo ? { yieldTo } : {}) }, { phaseId: state.phaseId });
+    setEnding(false);
+  };
   const submitText = async () => {
+    if (submitting || ending) return;
     setSubmitting(true);
     setFailed(false);
     const ok = await actions.send({ type: "submit_text_speech", seat: mySeat, text: prep.draft }, { phaseId: state.phaseId });
@@ -55,12 +66,12 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
   };
 
   return (
-    <section className="mx-auto w-full max-w-3xl rounded-3xl border-2 border-brand bg-white p-4 shadow-lg sm:p-6" data-testid="speech-focus" aria-live="polite">
+    <section className="mx-auto min-h-0 w-full max-w-3xl overflow-y-auto overscroll-contain rounded-t-3xl border-2 border-brand bg-white p-4 pb-0 shadow-2xl sm:rounded-3xl sm:p-6 sm:pb-0" data-testid="speech-focus">
       <div className="flex items-start gap-3">
         <Flag code={mySeat} className="h-12 w-16" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-black text-gray-900">{me.countryName}</p>
-          <p className="text-xl font-black text-brand">{speaking ? "You have the floor" : "Your turn"}</p>
+          <p className="text-xl font-black text-brand" aria-live="polite">{speaking ? "You have the floor — speaking" : "Your turn — get ready"}</p>
           <p className="text-xs text-gray-500">
             {p.type === "SPEECH" || p.type === "SPEECH_PREP" ? (p.context.kind === "mod_caucus" ? `Moderated caucus · “${state.activeCaucus?.topic ?? ""}”` : p.context.kind === "yield" ? "Yielded time" : "General speakers’ list") : ""}
           </p>
@@ -68,7 +79,7 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
         <div className="shrink-0 text-right">
           {speaking ? (
             <>
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Time left</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-red-600">Speaking · time left</p>
               <Countdown atMs={p.deadlineMs} now={now} />
             </>
           ) : (
@@ -114,12 +125,12 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
         <div className="mt-3 space-y-3">
           <MicStatus prep={prep} recorder={recorder} speaking={speaking} />
           {speaking && (
-            <>
-              <Button size="lg" className="w-full justify-center bg-red-600 py-7 text-lg hover:bg-red-700" disabled={actions.busy} onClick={() => void actions.send({ type: "end_speech", seat: mySeat, ...(yieldTo ? { yieldTo } : {}) }, { phaseId: state.phaseId })} data-testid="end-speech">
-                <Square size={18} className="mr-2" /> End speech
+            <div className={stickyFoot}>
+              <Button size="lg" data-autofocus className="w-full justify-center bg-red-600 py-6 text-lg hover:bg-red-700" disabled={actions.busy || ending} onClick={() => void endSpeech()} data-testid="end-speech">
+                {ending ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Square size={18} className="mr-2" />} {ending ? "Ending…" : "End speech"}
               </Button>
-              <p className="text-center text-sm font-semibold text-gray-700">Click End speech when you finish.</p>
-            </>
+              <p className="pt-1 text-center text-xs font-semibold text-gray-600">Click End speech when you finish. Hiding this screen does not end your speech.</p>
+            </div>
           )}
         </div>
       ) : (
@@ -127,7 +138,8 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
           <textarea
             value={prep.draft}
             onChange={(e) => prep.setDraft(e.target.value)}
-            rows={7}
+            rows={speaking ? 9 : 7}
+            data-autofocus={speaking ? true : undefined}
             maxLength={4000}
             placeholder="Type your statement…"
             className="w-full rounded-xl border-2 border-gray-200 p-3 text-base focus:border-brand focus:outline-none"
@@ -135,24 +147,24 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
           />
           <p className="text-[11px] text-gray-500">{speaking ? "Submitting your text ends your turn." : "Your draft is saved on this device. You can submit it once your speech has started."}</p>
           {speaking && (
-            <>
-              <Button size="lg" className="w-full justify-center py-7 text-lg" disabled={submitting || !prep.draft.trim()} onClick={() => void submitText()} data-testid="submit-text">
-                {submitting ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Send size={18} className="mr-2" />}
-                {submitting ? "Submitting…" : "Submit text speech"}
-              </Button>
+            <div className={stickyFoot}>
               {failed && (
-                <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">
+                <p role="alert" className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700" data-testid="submit-failed">
                   Not submitted{actions.error ? ` — ${actions.error}` : ""}. Your text is kept; try again.
                 </p>
               )}
-            </>
+              <Button size="lg" className="w-full justify-center py-6 text-lg" disabled={submitting || ending || !prep.draft.trim()} onClick={() => void submitText()} data-testid="submit-text">
+                {submitting ? <Loader2 size={18} className="mr-2 animate-spin" /> : <Send size={18} className="mr-2" />}
+                {submitting ? "Submitting…" : "Submit text speech"}
+              </Button>
+            </div>
           )}
         </div>
       )}
 
       {preparing && (
-        <div className="mt-4 space-y-2">
-          <Button size="lg" className="w-full justify-center py-7 text-lg" disabled={actions.busy} onClick={() => void actions.send({ type: "start_speech", seat: mySeat }, { phaseId: state.phaseId })} data-testid="start-speech-button">
+        <div className={`${stickyFoot} space-y-2`}>
+          <Button size="lg" data-autofocus className="w-full justify-center py-6 text-lg" disabled={actions.busy} onClick={() => void actions.send({ type: "start_speech", seat: mySeat }, { phaseId: state.phaseId })} data-testid="start-speech-button">
             <Play size={18} className="mr-2" /> Start speech
           </Button>
           {rv?.kind === "start_speech" && rv.pending.includes(mySeat) && <ExpiryWarning rv={rv} now={now} />}
@@ -178,12 +190,12 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
         </details>
       )}
       {speaking && prep.mode === "text" && (
-        <button type="button" className="mt-2 text-[11px] font-bold text-gray-400 underline" disabled={actions.busy} onClick={() => void actions.send({ type: "end_speech", seat: mySeat }, { phaseId: state.phaseId })}>
+        <button type="button" className="mt-2 text-[11px] font-bold text-gray-400 underline" disabled={actions.busy || submitting || ending} onClick={() => void endSpeech()}>
           End without submitting text
         </button>
       )}
 
-      <details className="mt-3 text-xs text-gray-500">
+      <details className="mb-4 mt-3 text-xs text-gray-500">
         <summary className="flex cursor-pointer list-none items-center gap-1 font-bold">
           <ChevronDown size={13} /> How speaking works here
         </summary>
