@@ -213,7 +213,12 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
 
 /** Final screen: one card per resolution with the deciding vote, plus why the forum ended. */
 function FinalResults({ state, reason }: { state: ForumViewProps["state"]; reason: string }) {
-  const resolutions = Object.values(state.documents).filter((d) => d.kind === "draft_resolution" && (d.status === "adopted" || d.status === "failed" || d.status === "not_voted" || d.status === "introduced"));
+  // In the order they were voted (rule 34 order), not the order the documents happen to be stored in.
+  const order = state.votingOrder ?? [];
+  const pos = (id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
+  const resolutions = Object.values(state.documents)
+    .filter((d) => d.kind === "draft_resolution" && (d.status === "adopted" || d.status === "failed" || d.status === "not_voted" || d.status === "introduced"))
+    .sort((a, b) => pos(a.id) - pos(b.id) || a.submittedAtMs - b.submittedAtMs);
   const finalBallot = (docId: string) =>
     Object.values(state.ballots)
       .filter((b) => b.subject.type === "resolution" && b.subject.docId === docId)

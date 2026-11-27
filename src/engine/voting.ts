@@ -140,5 +140,7 @@ export function tally(
     passed = yes > no;
     formula = `yes(${yes}) > no(${no})`;
   }
+  // The record shows the rule that was applied; when it was not satisfied, say so (no rule shown as if met).
+  if (!passed) formula = `needs ${formula} — not met`;
   return { yes, no, abstain, eligibleCount, notVoted, notVotedOffline, passed, formula };
 }

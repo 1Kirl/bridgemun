@@ -98,3 +98,17 @@ describe("rules 30–31 choices", () => {
     expect(Object.keys(b.eligible)).toHaveLength(3);
   });
 });
+
+describe("tally text never shows an unmet rule as if it were met", () => {
+  it("a failed ballot's formula says 'not met'; a passed one does not", async () => {
+    const { tally } = await import("@/engine/voting");
+    const mk = (votes: Record<string, "yes" | "no" | "abstain">, threshold: "simple" | "two_thirds") =>
+      ({ id: "b", kind: "substantive", threshold, status: "closed", eligible: { a: true, b: true, c: true, d: true, e: true, f: true }, votes, voted: Object.keys(votes), quorumMet: true, presentAtOpen: 6, quorumRequired: 4, openedAtMs: 0, subject: { type: "motion", motionId: "m" } }) as never;
+    const failed = tally(mk({ a: "yes", b: "yes", c: "yes", d: "no", e: "no", f: "abstain" }, "two_thirds"), "record_not_voting", {});
+    expect(failed.passed).toBe(false);
+    expect(failed.formula).toMatch(/not met$/);
+    const ok = tally(mk({ a: "yes", b: "yes", c: "yes", d: "yes", e: "no", f: "abstain" }, "two_thirds"), "record_not_voting", {});
+    expect(ok.passed).toBe(true);
+    expect(ok.formula).not.toMatch(/not met/);
+  });
+});
