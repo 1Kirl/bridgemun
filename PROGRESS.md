@@ -86,6 +86,9 @@ Stage track (Roll call → Debate & negotiation [loop: general debate / moderate
   both offline → H1 idle hold at the caucus end (no AI calls: 23 AI actions / 21 LLM calls / ~19k tokens before and after) → closed "all_humans_left" after 10 min.
 - Local browser (W1 revision, 2026-11-27): "no motion stands" card (standing state injected into the emulator for the rendering check — the dummy AI always joins the speakers' list),
   offline delegate shown as awaiting + offline, hold confirmed in the running engine, reconnect kept the deadline; caucus "Pass this turn only" / "Pass for the rest of this caucus" / "Ask me every turn again". Screenshots: /Users/kirl/BridgeMUN/screenshots/2026-11-27-w1-rev/.
+### User-verified on the production site (real browsers, 2026-11-27, new forum after 50bf29a)
+- Roll call: only US declared → waited for UK; UK declared → next step at once. (user check: passed)
+- Motion floor: UK tab closed while awaited → the wait continued; after reconnecting the response deadline was not reset. (user check: passed)
 ### Local real browser (emulator Firebase, dummy AI) — 2026-11-27 W1 UI
 - Browser user (US, owner) + API users (UK, France) + 4 AI; second browser origin signed in as UK for side-by-side checks. Screenshots: /Users/kirl/BridgeMUN/screenshots/2026-11-27-w1/.
 - Lobby badge; briefing (cards, refresh resumes mid-animation, 5 s countdown); roll call held for the last human and advancing on their click; refresh did not reset the window;
