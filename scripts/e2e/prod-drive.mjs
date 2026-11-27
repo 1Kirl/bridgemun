@@ -106,14 +106,17 @@ if (cmd === "users") {
   const r = await api("A", "/api/forums", {
     title: rest[0] ?? "AUDIT TEST",
     agenda: rest[1] ?? "Pandemic vaccine sharing and technology transfer",
-    committeeId: "WHO_HMUN",
-    countries: [
-      { code: "us", name: "United States" },
-      { code: "gb", name: "United Kingdom" },
-      { code: "fr", name: "France" },
-      { code: "de", name: "Germany" },
-      { code: "jp", name: "Japan" },
-    ],
+    committeeId: process.env.E2E_COMMITTEE || "WHO_HMUN",
+    // E2E_COUNTRIES="us:United States,gb:United Kingdom,..." overrides the default five.
+    countries: process.env.E2E_COUNTRIES
+      ? process.env.E2E_COUNTRIES.split(",").map((x) => ({ code: x.split(":")[0], name: x.split(":")[1] }))
+      : [
+          { code: "us", name: "United States" },
+          { code: "gb", name: "United Kingdom" },
+          { code: "fr", name: "France" },
+          { code: "de", name: "Germany" },
+          { code: "jp", name: "Japan" },
+        ],
     ownerCountry: "us",
     durationMin: Number(process.env.E2E_DURATION_MIN ?? 30),
     speakingTimeSec: 45,

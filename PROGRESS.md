@@ -73,6 +73,11 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 - QStash smoke test: `node scripts/with-env.mjs .env.project.local -- npx tsx --conditions=react-server scripts/qstash-smoke.ts`
 
 ## Verification log
+### 2026-11-27 — real research set, ported landing, new logo (commit 912481e)
+- Research set `real-2026-11-27` (420 chunks, 76 country profiles, 74 sources; see research/README.md, research/COVERAGE.md, research/catalog.json). Production env POSITION_SET_VERSION=real-2026-11-27; forums created earlier keep their pinned set.
+- Production, real OpenAI (forum ECOFIN "Climate change: scaling up adaptation finance", humans US/UK via API, AI Korea/India/Bangladesh/Saudi Arabia/Germany): on a US motion to broaden the contributor base, AI votes split by country (kr yes "voluntary only", in no "Art. 9.1", bd yes, sa no "Arab Group/LMDC", de yes), each citing its own sources; AI speeches answered the UK's grant-floor proposal by name with country facts (Bangladesh USD 8.5bn need vs 4bn, Korea non-Annex II/GCF host); Korea drafted a counter-resolution rejecting the mandatory-contribution clause, Bangladesh sponsored, India/Saudi Arabia signed with stated conditions; Bangladesh moved to introduce; enter-voting split (in/sa no); d7 adopted 6-1 with clause-by-clause AI rationales. 25 LLM calls, ~114k tokens. ElevenLabs Starter quota ran out during the run (HTTP 401) → captions-only fallback worked. Test forum and accounts deleted.
+- Local (emulator): landing CTA → sign-up → Create forum → lobby → room (logo, roll-call highlight intact); landing CSS scoped (no leak after navigation); intro once per session, not on return from the room; mobile 375 px; visual comparison with the reference landing scene by scene.
+- Not verified: "Why did the AI do that?" source list rendered in a real browser on production (data stored and component built; closed forums do not show the panel); real-device favicon look at 16 px (rendered and inspected as PNG).
 ### 2026-11-27 — room UX (commit 83516ba): user-verified — production site, real browsers
 - The user checked every listed item on https://bridgemun.vercel.app in real browsers and reported all working: roll-call card highlight and release, "No motion" done state / Submit motion disabled / refresh / Change response, floor-open reason text, speech dialog (microphone and text, hide/reopen, Zoom kept), mobile layout, side order (speakers' list above documents). No further changes requested.
 ### 2026-11-27 — room UX: no-motion state, roll-call highlight, speech dialog, side order (local browser, emulator, dummy AI)
@@ -146,7 +151,7 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 
 ## Known gaps / decisions waiting
 - Zoom Video SDK: keys set; token route, session join, participant mapping and fallbacks verified (see 2026-11-27 media section). Real camera/microphone media between two physical devices: user check.
-- Production TTS: Cloud Storage store **on** (docs/production-audio.md). ElevenLabs Starter characters are nearly used up for this month.
+- Production TTS: Cloud Storage store **on** (docs/production-audio.md). ElevenLabs Starter monthly characters used up on 2026-11-27 (resets 2026-12-11): AI speeches are captions-only until then.
 - Browser sign-up/login on the production site not exercised by the agent (no password entry into non-local sites); API-level production test used admin-created users.
 - Microphone capture in a real browser, two physical devices, listening to voices: user checks.
 - Yield to questions, roll-call votes, right of reply: not implemented (excluded or need moderator discretion).
