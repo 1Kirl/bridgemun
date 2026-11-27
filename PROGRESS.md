@@ -98,6 +98,7 @@ Stage track (Roll call → Debate & negotiation [loop: general debate / moderate
 - Drafting: side "New draft" opens a wide centre editor (shown below a pending action); draft kept across close/reload; caucus shows a prominent "Negotiation & drafting" entry; submitted draft appears in side Documents.
 - Text speech failure injection: network failure → "Not submitted … kept; try again", still speaking; lost reply after the server applied it → speech screen closed from server state, draft cleared, recorded once, retry refused.
 - Vote: 45 s countdown → "Waiting for human responses" with no number in the situation or action card.
+- 30 s briefing production check (2026-11-27, forum iwHjr34gAz00yzmpWEeC, commit 61b7657, API only): BRIEFING 30 s → ROLL_CALL by QStash at +33 s; session start = briefing end (offset 0); both offline → H1 → closed "all_humans_left".
 ### User-verified on the production site (real browsers, 2026-11-27, new forum after 50bf29a)
 - Roll call: only US declared → waited for UK; UK declared → next step at once. (user check: passed)
 - Motion floor: UK tab closed while awaited → the wait continued; after reconnecting the response deadline was not reset. (user check: passed)
