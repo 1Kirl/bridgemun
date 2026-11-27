@@ -1,23 +1,39 @@
 # BridgeMUN — progress record
 
-Last updated: 2026-11-27 (meeting UX: W1 response waits + visual room). Repository: github.com/1Kirl/bridgemun (private, branch `main`).
+Last updated: 2026-11-27 (late: multi-account real-browser E2E on production). Repository: github.com/1Kirl/bridgemun (**public**, branch `main`).
 Production: https://bridgemun.vercel.app — Vercel project `1kirl/bridgemun` (Git-connected, production branch `main`,
-auto-deploy on push, region icn1) · Firebase project `bridgemun` (Firestore asia-northeast3).
+auto-deploy on push, region icn1) · Firebase project `bridgemun` (Blaze plan; Firestore + Storage asia-northeast3) · QStash (free tier, 1,000 publishes/day).
 
 Status legend — **real**: verified against the real external service · **mock**: verified with test doubles / emulator only · **unverified**: not yet verified.
+"User-verified" = checked by the owner in real browsers/devices; "Claude-verified" = checked by Claude (browser automation, API, tests).
 
-## Phases
+## Current status (2026-11-27)
+
+| Area | Status | Verified by |
+|---|---|---|
+| Rules engine (hmun-ga-2026@1), W1 / H1 / S1, 30 s briefing | done | automated tests (273) · Claude: production browser run (W1 waits, 60/15 s warnings, expiry) · H1 on local server (see log) |
+| Create / join by code / lobby / start lock / late-join block / reconnect to same seat | done | user-verified · Claude: production browser run with 3 isolated accounts + late joiner |
+| Sign-up / login screens | done | user-verified (production) · Claude: localhost against the real Firebase project (sign-up, wrong password, login) |
+| Speeches: text, microphone → transcription → confirm → record, speech modal hide/reopen | done | user-verified (real mic) · Claude: production with a fake microphone playing synthetic speech (real OpenAI transcription) |
+| Motions, No motion / Change response, votes, caucuses, documents, amendments (friendly/unfriendly), reorder, division, final voting, results | done | user-verified (UX items) · Claude: production browser run end to end |
+| AI delegations (OpenAI) with real research set `real-2026-11-27`, cited sources panel | done | Claude: production (sources open, labels shown) |
+| AI voice (ElevenLabs → Cloud Storage → synced playback) | done | Claude: production, 3 browsers in sync, refresh resumes mid-speech (playback state measured; not listened to by a person) · user-verified earlier |
+| Zoom audio/video (Video SDK) | done | user-verified (real devices) · Claude: production, 3 accounts in one session, speaker video mapped (fake camera) |
+| Landing (ported), logo/favicon, room design system | done | user-verified |
+| UNSC module | planned, not available | — |
+
+## Phases (history)
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Separation from the previous developer's environment, server auth, rules | done; rules/indexes deployed to `bridgemun` (real) |
-| 1 | HMUN GA rules engine + automatic-chair state machine | done — automated tests |
-| 2 | Create / join by code / waiting room, atomic seats, start lock, reconnect | done — production API (real) + emulator browser |
-| 3 | Meeting loop, timers, pause/extend, deadlines via QStash, recovery | done — production (real): QStash-only deadlines, duplicates, pause, idle hold |
-| 4 | Speaker recording → OpenAI transcription → confirmation → record → AI context | server path real; in-browser microphone capture unverified (needs a real browser + mic) |
-| 5 | OpenAI autonomous AI, ElevenLabs TTS, position materials interface | production AI real; TTS real locally only (production = captions, see docs/production-audio.md) |
-| 6 | Documents, amendments (incl. AI), sponsor responses, voting procedure (reorder, division), final voting, results | done — engine + UI; production E2E (real) |
-| 7 | Real position materials | waiting for the materials file (fixture only; see docs/position-materials.md) |
+| 0 | Separation from the previous developer's environment, server auth, rules | done |
+| 1 | HMUN GA rules engine + automatic-chair state machine | done |
+| 2 | Create / join by code / waiting room, atomic seats, start lock, reconnect | done |
+| 3 | Meeting loop, timers, pause/extend, deadlines via QStash, recovery | done |
+| 4 | Speaker recording → OpenAI transcription → confirmation → record → AI context | done (real mic: user-verified) |
+| 5 | OpenAI autonomous AI, ElevenLabs TTS, position materials interface | done (TTS in production via Cloud Storage since c33bcb3) |
+| 6 | Documents, amendments, sponsor responses, voting procedure, final voting, results | done |
+| 7 | Real position materials | done — `real-2026-11-27` (research/README.md) |
 | 8 | UNSC module | planned, not available |
 
 ## App policies in force
@@ -46,7 +62,7 @@ Rule interpretations added: rule 33 proposals ordered "more parts = more disrupt
 | Results screen (per-item tallies, votes by country) | yes | yes | local UI |
 | Roll-call votes, right of reply, suspension of rules, crisis rules 37–40 | excluded | — | — |
 
-## Incident 2026-11-27 — Firestore free quota exhausted (fixed in 23d5deb)
+## Incident 2026-11-27 — Firestore free quota exhausted (fixed in 23d5deb; recorded as it was then — the project is now on Blaze)
 - Symptom: every authenticated route (command, presence, nudge, tick) hit the 120 s Vercel timeout; home and /api/time were fine.
 - Cause: Firebase `bridgemun` is on the Spark (free) plan (20k writes / 50k reads per day, reset 08:00 UTC). A forum with
   one human who never declared attendance looped: empty floor → AI passes → window closed at once → reopened, about every
@@ -58,7 +74,7 @@ Rule interpretations added: rule 33 proposals ordered "more parts = more disrupt
 ## Meeting room UI (2026-11-27)
 Layout (23d5deb): centre = chair panel | speaker panel (same height; video stays mounted) → Record (240 px chat log) →
 two-column action card (main | Optional, New draft in its header). Side: Motions on the floor → Delegations → Responded on
-the floor → Recent results (latest + Previous results (N)) → Documents → General speakers' list → Why did the AI do that?.
+the floor → Recent results (latest + Previous results (N)) → General speakers' list → Documents → Why did the AI do that? (order since 83516ba).
 Caucus volunteering: Volunteer to speak / Pass this turn only.
 Earlier layout notes (superseded where they differ): Stage track (Roll call → Debate & negotiation [loop: general debate / moderated caucus / negotiation & drafting / resolutions, switched by motion] → Final voting → Results; no percentages) · situation card (actor flag, human/AI, action, large server-time countdown, continue condition, details folded) · "my action" card (response needed / done / no action, response countdown, 60 s and 15 s warnings stating the real consequence) · human response tracker (who responded, never how) · general speakers' list with "paused — resumes after the caucus" and separate caucus volunteers · seat grid · vote charts (live: votes-cast progress only; closed: Yes/No/Abstain/Not voted bars, pass line on the correct denominator: electorate for procedural D1, Yes+No for substantive rule 35) · resolution pipeline with signature meters · final results cards · lobby "Based on HMUN 2026" badge with rule-by-rule details · opening briefing overlay (reduced-motion aware).
 
@@ -66,13 +82,21 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 - Emulator dev: `npm run emulators` + `npm run dev` (AI = dummy, speech = mock; no paid calls). If another local project already uses the emulator ports: `npx firebase emulators:start --only firestore,auth,storage --project demo-bridgemun --config firebase.altports.json` and run the app with `NEXT_PUBLIC_EMU_AUTH_PORT=19099 NEXT_PUBLIC_EMU_FIRESTORE_PORT=18080 NEXT_PUBLIC_EMU_STORAGE_PORT=19199 npm run dev`.
 - Emulator + real AI: `AI_DRIVER=openai STT_PROVIDER=openai TTS_PROVIDER=elevenlabs POSITION_SET_VERSION=fixture-v0 npm run dev`
 - Real Firebase project locally: `npm run dev:project` (loads `.env.project.local`; git-ignored)
-- Tests: `npm run test:emu` (255) · Connectivity: `npm run check:project`
+- Tests: `npm run test:emu` (273) · Connectivity: `npm run check:project`
+- Real-browser multi-account harness (Playwright, isolated contexts, fake camera/mic, custom-token sign-in — no passwords typed into the site):
+  `node scripts/with-env.mjs .env.project.local -- node scripts/e2e/browser-harness.mjs [baseUrl]` then send UI actions to `127.0.0.1:7781` (runs saved in `.data/e2e-browser/`, git-ignored).
 - Production E2E driver (admin-created test users, public API routes, no passwords):
   `node scripts/with-env.mjs .env.project.local -- node scripts/e2e/prod-drive.mjs <users|create|lookup|join|cmd|presence|heartbeat|state|wait|vote|record|ai|usage|forumdoc|use>`
   (state in `.data/prod-e2e*.json`, git-ignored). Duplicate QStash deliveries: `scripts/e2e/dup-ticks.mjs`.
 - QStash smoke test: `node scripts/with-env.mjs .env.project.local -- npx tsx --conditions=react-server scripts/qstash-smoke.ts`
 
 ## Verification log
+### 2026-11-27 (late) — multi-account REAL-BROWSER E2E on production (Claude-verified; harness scripts/e2e/browser-harness.mjs)
+- Setup: Playwright Chromium, 3 isolated browser contexts (A = US owner, B = UK, C = France) + late joiner D; AI = Germany, India, Bangladesh (real OpenAI, research set real-2026-11-27); fake camera + fake microphone (synthetic speech WAV); sign-in by server-minted custom tokens (no passwords typed into the site). Sign-up / wrong password / login checked separately on localhost against the real Firebase project.
+- Run 1 (deployed eee5d0e, forum "E2E browser test", 90 min): create forum in the UI → B/C join by code, seats update live → start → briefing (same countdown on 3 screens) → roll call (P / P / P&V) → Zoom joined on all three (mic muted until speaking) → floor: speakers' list, No motion, Change response/Keep, B's mod-caucus motion → vote 5-1 → caucus: C spoke by MICROPHONE (fake mic) → End speech → real transcription → edit → Confirm → record; A saw France's video in the speaker card; AI speeches answered France/UK by name with national figures; ElevenLabs audio played once on all three screens in sync (≈10 s in, same position), B's refresh resumed at 26.9 s vs A 27.0 s → unmod caucus: A and C wrote resolutions in the editor, sponsors/signatures in Documents, AI drafted and signed → introduce (6-0) → C's amendment (UI form) signed → introduced → A accepted, B objected → unfriendly → 2/3 vote failed 3-2-1 → enter voting → reorder (C) failed 3-3 → division (B) adopted, India's proposal 1+2+4 | 3 adopted, parts included → both resolutions adopted (5-0-1, 6-0). Evidence panel: titles, links (all HTTP 200), type and verification labels.
+- Defects found in run 1 and fixed in 58f6ddc: (1) failed-vote record text showed the rule as if met ("FAILED … [yes(3) > eligible(6)/2]") → now "[needs … — not met]" (engine test added); (2) final results listed resolutions in storage order instead of the voting order.
+- Run 2 on the FINAL build 58f6ddc (forum "E2E final-build run", 90 min, same accounts): roll call with C silent → number-free waiting after the 60 s timer, 60 s warning at 239 s, 15 s warning at 286 s, expiry → "France did not answer … not recorded as present" and the meeting continued; late joiner D blocked ("already started") by code and by URL; C's No motion kept across reload; A's speech modal hidden (Esc) and reopened mid-speech → draft kept, timer kept running, Zoom stayed joined; vote with C silent → 60/15 s vote warnings → "recorded as not voting (not as abstaining)", result line "did not vote 1"; B closed the page and came back 40 s later → same seat, vote kept, Zoom rejoined; AI pushed an amendment (Bangladesh) and voted down enter-voting until it was settled (3-3, text now "needs … — not met"); C signed it, A and B accepted it as friendly → v2 → enter voting adopted → final vote 6-0 → CLOSED (voting_completed) on all three screens; 20 min later no new AI actions, events or usage.
+- H1: on production the hold could not happen because QStash's free daily quota (1,000 publishes) was exhausted during testing (HTTP 429 "daily ratelimit 1000 exceeded", reset 09:00 KST) — with nobody online no tick arrives (schedulerError recorded); verified instead on the LOCAL server with the real Firebase project and the same browser UI: everyone left → hold after 48 s → A returned → resumed → everyone left → hold again at 248 s (after the W1 floor window) → closed "all_humans_left" at 848 s (10 min hold); AI actions stayed at 2 during the hold.
 ### 2026-11-27 — meeting screens restyled to the landing's design system (visual only)
 - Shared tokens in src/styles/brand.css (landing.css now reads them; landing look unchanged). Tailwind brand/gray/slate/amber/emerald/purple/rose steps remapped to the landing palette (navy ink, azure, sun = needed, mint = done/yes, violet = AI, coral-red = no). Fonts: Inter Tight (headings, labels, buttons), Figtree (body, record), Bricolage (logo), mono timers. Cards: .bm-card (navy-tinted edge + role-coloured offset shadow, no size change); speaker stage navy; pill buttons with press shadow, flat disabled state; focus ring; Record new-entry rise; progress transitions; motion off for prefers-reduced-motion or the landing's "Reduce motion".
 - Before/after at 1280×900 and 375×812 (local emulator, dummy AI): /Users/kirl/BridgeMUN/screenshots/2026-11-27-room-design/ (before/, after/, compare-desktop.jpg, compare-mobile.jpg). Layout, card order, sizes and scroll areas unchanged; No-motion / Change response, vote chart meanings, roll-call highlight, speech modal and server-time timers verified. 272 tests pass; build passes.
@@ -153,10 +177,9 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 - Earlier: 205 tests (engine incl. reorder/division/yield/points/H1/stale ticks; rules; unit incl. transient-retry classification; emulator store/service/Phase 4–6 with scripted LLM incl. AI amendments, AI division, 503 retry, Firestore audio store).
 
 ## Known gaps / decisions waiting
-- Zoom Video SDK: keys set; token route, session join, participant mapping and fallbacks verified (see 2026-11-27 media section). Real camera/microphone media between two physical devices: user check.
-- Production TTS: Cloud Storage store **on** (docs/production-audio.md). ElevenLabs Starter monthly characters used up on 2026-11-27 (resets 2026-12-11): AI speeches are captions-only until then.
-- Browser sign-up/login on the production site not exercised by the agent (no password entry into non-local sites); API-level production test used admin-created users.
-- Microphone capture in a real browser, two physical devices, listening to voices: user checks.
+- QStash free tier: 1,000 publishes/day. One meeting publishes roughly 50–150 deadline ticks; heavy testing exhausted it on 2026-11-27. While exhausted, meetings still advance when someone has the page open (client nudge / presence heartbeat apply due deadlines), but an abandoned meeting cannot reach H1 / close until the quota resets (09:00 KST). Options (owner decision): QStash pay-as-you-go, or fewer test runs per day.
+- Real devices: microphone quality, camera on two physical devices and listening to AI voices are user checks (Claude used fake devices; playback state was measured, not listened to).
+- AI judgement can keep debate open (e.g. voting down "enter voting" until an amendment is settled) — by design; humans can sign/introduce to move on.
 - Yield to questions, roll-call votes, right of reply: not implemented (excluded or need moderator discretion).
-- Audio cleanup: Storage prefix deleted on forum_closed + 7-day lifecycle rule. AI job interruption by a killed function verified locally only (production recovery relies on the same engine deadlines).
+- Audio cleanup: Storage prefix deleted on forum_closed + 7-day lifecycle rule.
 - UNSC: not started.
