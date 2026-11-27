@@ -73,6 +73,11 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 - QStash smoke test: `node scripts/with-env.mjs .env.project.local -- npx tsx --conditions=react-server scripts/qstash-smoke.ts`
 
 ## Verification log
+### 2026-11-27 — Zoom + ElevenLabs + Cloud Storage in production (commit c33bcb3)
+- Deployed API: `/api/zoom/token` owner → role 1, member → role 0, user_identity = uid, per-forum session name, 120 min TTL; non-member 403. Live AI speech (Japan, 627 chars, 36.3 s) → Storage object; audio route member 200 audio/mpeg, signed-out 401, other forum 403; direct public URL 403.
+- Two separated browser origins (localhost = A/US, 127.0.0.1 = B/UK) against the real project (local dev server, real Firebase/Zoom/ElevenLabs): both joined the same Zoom session; while B spoke, A's speaker card found B by uid ("Camera off" + flag, not "Not connected"); Turn on audio → "Listening only (microphone blocked)" (pane blocks devices); camera blocked → "Camera could not start…" and text speech still worked; AI speech (Germany) played once from 0.17 s; refresh mid-speech + Turn on audio → resumed at 32.5 s; 45 engine events for the whole test (no loop).
+- Not verified by the agent: real microphone/camera media, hearing another participant, listening quality/accent of the voices.
+- Cleanup path: both users offline → H1 idle hold (paused no_humans) → closed after 10 min ("all_humans_left") → the forum's 2 Storage objects deleted automatically. Then test forums, join codes, Storage prefixes and audit-test-a/b deleted. ElevenLabs Starter after the test: 26,333 / 31,063 characters used this cycle (resets 2026-12-11).
 ### Production (real; https://bridgemun.vercel.app)
 - Auto-deploy: pushes to `main` deploy via the Vercel GitHub integration (commit status "Vercel: success"), e.g. e97e4c6, d0b8d2c, ecfd544.
   Env change `POSITION_SET_VERSION=fixture-v0` needed a redeploy (forum created before it pinned "none").
@@ -133,10 +138,10 @@ Earlier layout notes (superseded where they differ): Stage track (Roll call → 
 - Earlier: 205 tests (engine incl. reorder/division/yield/points/H1/stale ticks; rules; unit incl. transient-retry classification; emulator store/service/Phase 4–6 with scripted LLM incl. AI amendments, AI division, 503 retry, Firestore audio store).
 
 ## Known gaps / decisions waiting
-- Zoom Video SDK keys not available → live audio/video untested; "Zoom keys missing" notice and token tests exist.
-- Production TTS storage: options and costs in docs/production-audio.md; opt-in Firestore store implemented but **off**.
+- Zoom Video SDK: keys set; token route, session join, participant mapping and fallbacks verified (see 2026-11-27 media section). Real camera/microphone media between two physical devices: user check.
+- Production TTS: Cloud Storage store **on** (docs/production-audio.md). ElevenLabs Starter characters are nearly used up for this month.
 - Browser sign-up/login on the production site not exercised by the agent (no password entry into non-local sites); API-level production test used admin-created users.
 - Microphone capture in a real browser, two physical devices, listening to voices: user checks.
 - Yield to questions, roll-call votes, right of reply: not implemented (excluded or need moderator discretion).
-- Audio cleanup after forum end (Firestore store) not automated; AI job interruption by a killed function verified locally only (production recovery relies on the same engine deadlines).
+- Audio cleanup: Storage prefix deleted on forum_closed + 7-day lifecycle rule. AI job interruption by a killed function verified locally only (production recovery relies on the same engine deadlines).
 - UNSC: not started.
