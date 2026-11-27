@@ -37,6 +37,7 @@ export const CreateForumInput = z.object({
       /** App policy W1 response window; 0 = legacy short timers (used by older tests). */
       responseWaitSec: z.number().int().min(0).max(600),
       briefingSec: z.number().int().min(0).max(30),
+      humanSpeechMaxSec: z.number().int().min(0).max(600),
     })
     .partial()
     .default({}),
@@ -81,7 +82,8 @@ export async function createForum(db: Firestore, user: AuthedUser, raw: unknown)
       ...base,
       speakingTimeSec: input.speakingTimeSec,
       // New forums: W1 (wait up to 5 min for required human responses) + 12 s start briefing.
-      timers: { ...base.timers, responseWaitSec: 300, briefingSec: 12, ...input.timers },
+      // + S1: human speeches up to 300 s (official speaking time still counts for caucuses and the agenda).
+      timers: { ...base.timers, responseWaitSec: 300, briefingSec: 12, humanSpeechMaxSec: 300, ...input.timers },
       sessionDurationSec: input.durationMin * 60,
       sessionStartMs: 0,
       sessionEndsAtMs: 0,

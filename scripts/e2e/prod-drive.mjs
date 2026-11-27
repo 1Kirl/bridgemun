@@ -117,7 +117,8 @@ if (cmd === "users") {
     ownerCountry: "us",
     durationMin: Number(process.env.E2E_DURATION_MIN ?? 30),
     speakingTimeSec: 45,
-    timers: { motionWindowSec: 30, readingSec: 5, votingSec: 30, humanPrepSec: 5, drPresentationSec: 30, drQaSec: 30 },
+    // E2E_TIMERS (JSON) overrides, e.g. a shorter responseWaitSec for local UI checks of the warnings.
+    timers: { motionWindowSec: 30, readingSec: 5, votingSec: 30, humanPrepSec: 5, drPresentationSec: 30, drQaSec: 30, ...JSON.parse(process.env.E2E_TIMERS || "{}") },
   });
   if (r.status === 200 || r.status === 201) {
     st.forumId = r.body.forumId;

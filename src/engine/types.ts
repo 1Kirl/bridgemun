@@ -38,6 +38,12 @@ export type Settings = {
     responseWaitSec?: number;
     /** Start briefing shown to everyone before roll call (0/undefined = none). New forums: 12. */
     briefingSec?: number;
+    /**
+     * App policy S1 (online operating policy, not an HMUN rule): a HUMAN speech on the speakers' list or in a
+     * moderated caucus may run up to this many seconds (official speaking time still counts for the caucus and the
+     * agenda). 0/undefined = official speaking time only. New forums: 300. AI speeches are unchanged.
+     */
+    humanSpeechMaxSec?: number;
   };
   limits: {
     extensionSec: number;
@@ -286,6 +292,8 @@ export type Phase =
       deadlineMs: number;
       context: SpeechContext;
       ai?: { text: string; audioId?: string; playStartMs: number; durationMs?: number; contextSeq: number };
+      /** S1: the official speaking time of this slot (human speeches); time used beyond it is credited back to the session. */
+      officialSec?: number;
     }
   | {
       type: "SPEECH_CONFIRM";
@@ -425,7 +433,7 @@ export type ForumEngineState = {
    * deadline passes while no human delegate is online; resumes when one reconnects, closes at autoResumeAtMs.
    */
   paused: { pausedAtMs: number; remainingMs: number; autoResumeAtMs: number; phaseDeadlineKey: string; reason?: "owner" | "no_humans" } | null;
-  usage: { extensionsBySeat: Record<SeatId, number>; pauseUsedSec: number; /** W1: time held for humans, added back to the session end (ms). */ responseWaitCreditMs?: number };
+  usage: { extensionsBySeat: Record<SeatId, number>; pauseUsedSec: number; /** W1: time held for humans, added back to the session end (ms). */ responseWaitCreditMs?: number; /** S1: human speech time used beyond the official speaking time, added back to the session end (ms). */ speechOvertimeCreditMs?: number };
   idCounter: number;
 };
 

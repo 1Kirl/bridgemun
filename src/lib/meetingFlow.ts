@@ -112,15 +112,38 @@ export function actorOf(s: PublicForumState): Seat | null {
 }
 
 /** Response window (W1) if someone is awaited, else the phase timer. */
-export function timerOf(s: PublicForumState, rv: ResponseView | null): { atMs: number; label: string; isResponse: boolean } | null {
+export type TimerView =
+  | { mode: "countdown"; atMs: number; label: string }
+  /** W1: the step's normal time is over and humans are still awaited — no number is shown (the internal deadline stays). */
+  | { mode: "waiting"; pending: number };
+
+/**
+ * Main timer. Steps that await humans show their NORMAL time (e.g. 45 s voting) as a countdown; once it is over and
+ * humans are still awaited, the timer turns into a waiting state without numbers. The internal response deadline
+ * (requested + 300 s) is never shown as a countdown; only the 60 s / 15 s warnings refer to it.
+ */
+export function timerOf(s: PublicForumState, rv: ResponseView | null, now: number): TimerView | null {
   if (s.paused) return null;
   const p = s.phase;
-  if (rv?.wait && rv.holds && rv.pending.length > 0) return { atMs: rv.wait.responseDeadlineMs, label: "Response window", isResponse: true };
-  const d = (p as { deadlineMs?: number }).deadlineMs ?? (p.type === "SUSPENDED" ? p.resumeAtMs : undefined);
+  if (rv?.wait && rv.holds && rv.pending.length > 0 && now >= rv.wait.baseDeadlineMs) return { mode: "waiting", pending: rv.pending.length };
+  const base = rv?.wait && rv.holds ? rv.wait.baseDeadlineMs : undefined;
+  const d = base ?? (p as { deadlineMs?: number }).deadlineMs ?? (p.type === "SUSPENDED" ? p.resumeAtMs : undefined);
   if (d === undefined) return null;
   const label =
-    p.type === "SPEECH" ? "Speaking time" : p.type === "UNMOD_CAUCUS" ? "Caucus time" : p.type === "SUSPENDED" ? "Resumes in" : p.type === "BRIEFING" ? "Roll call in" : "Step ends in";
-  return { atMs: d, label, isResponse: false };
+    p.type === "SPEECH"
+      ? "Speaking time"
+      : p.type === "UNMOD_CAUCUS"
+        ? "Caucus time"
+        : p.type === "SUSPENDED"
+          ? "Resumes in"
+          : p.type === "BRIEFING"
+            ? "Roll call in"
+            : (p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && p.stage === "reading"
+              ? "Reading time"
+              : (p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && p.stage === "voting"
+                ? "Voting time"
+                : "Step ends in";
+  return { mode: "countdown", atMs: d, label };
 }
 
 /** Session end including time currently held for human responses (mirrors the engine). */
@@ -131,7 +154,10 @@ export function sessionEndOf(s: PublicForumState, now: number): number {
     const left = s.settings.sessionDurationSec * 1000 - (s.usage.responseWaitCreditMs ?? 0);
     extra = Math.max(0, Math.min(now - w.baseDeadlineMs, left));
   }
-  return s.settings.sessionEndsAtMs + extra;
+  // S1: human speech time beyond the official speaking time (same formula as the engine)
+  const p = s.phase;
+  const over = p.type === "SPEECH" && p.speakerKind === "human" && p.officialSec ? Math.max(0, Math.min(now, p.deadlineMs) - (p.startedMs + p.officialSec * 1000)) : 0;
+  return s.settings.sessionEndsAtMs + extra + over;
 }
 
 export const humansOf = (s: PublicForumState, ids: SeatId[]) => ids.map((id) => s.seats[id]).filter(Boolean);

@@ -11,7 +11,7 @@ export type RecorderStatus = "idle" | "recording" | "uploading" | "uploaded" | "
  * carries live audio to others) and uploads it for transcription when the speech ends. The transcript
  * becomes part of the record only after the engine's confirmation step.
  */
-export function useSpeechRecorder(forumId: string, state: PublicForumState, mySeat: string) {
+export function useSpeechRecorder(forumId: string, state: PublicForumState, mySeat: string, enabled = true) {
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [detail, setDetail] = useState<string>("");
   const rec = useRef<MediaRecorder | null>(null);
@@ -22,9 +22,15 @@ export function useSpeechRecorder(forumId: string, state: PublicForumState, mySe
   const awaitingMine = p.type === "SPEECH_CONFIRM" && p.seat === mySeat;
   const awaitingRef = useRef(awaitingMine);
   awaitingRef.current = awaitingMine;
+  // Mounted while the speech was already running (refresh / reconnect): earlier audio cannot be recovered.
+  const mountedDuringSpeech = useRef<boolean | null>(null);
+  if (mountedDuringSpeech.current === null) mountedDuringSpeech.current = speakingNow;
+  useEffect(() => {
+    if (!speakingNow) mountedDuringSpeech.current = false;
+  }, [speakingNow]);
 
   useEffect(() => {
-    if (!speakingNow || rec.current) return;
+    if (!speakingNow || !enabled || rec.current) return;
     let cancelled = false;
     setStatus("idle");
     setDetail("");
@@ -61,6 +67,7 @@ export function useSpeechRecorder(forumId: string, state: PublicForumState, mySe
         r.start(1000);
         rec.current = r;
         setStatus("recording");
+        if (mountedDuringSpeech.current) setDetail("Recording restarted after the page reloaded — audio from before the reload was not kept. You can switch to text.");
       } catch {
         setStatus("unavailable");
         setDetail("Microphone not available — please use the text option.");
@@ -70,11 +77,13 @@ export function useSpeechRecorder(forumId: string, state: PublicForumState, mySe
       cancelled = true;
       clearTimeout(slow);
     };
-  }, [speakingNow, forumId]);
+  }, [speakingNow, forumId, enabled]);
 
+  // Stop when the speech ends (End speech, text submitted, time up) or when the speaker switches to text.
   useEffect(() => {
-    if (!speakingNow && rec.current && rec.current.state === "recording") rec.current.stop();
-  }, [speakingNow]);
+    if ((!speakingNow || !enabled) && rec.current && rec.current.state === "recording") rec.current.stop();
+    if (!enabled && speakingNow) setStatus("idle");
+  }, [speakingNow, enabled]);
 
   return { status, detail };
 }

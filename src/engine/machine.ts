@@ -260,16 +260,32 @@ function holdCreditMs(s: ForumEngineState, now: number): number {
   return Math.max(0, Math.min(raw, left));
 }
 
-function commitHoldCredit(ctx: Ctx) {
-  const c = holdCreditMs(ctx.s, ctx.now);
-  if (c <= 0) return;
-  ctx.s.settings.sessionEndsAtMs += c;
-  ctx.s.usage.responseWaitCreditMs = (ctx.s.usage.responseWaitCreditMs ?? 0) + c;
+/**
+ * S1: time a human speech has run beyond its official speaking time. Only time actually used is credited (never the
+ * whole 300 s up front); separate from the W1 credit and its cap; pauses are excluded (startedMs is shifted on resume).
+ */
+function speechOvertimeMs(s: ForumEngineState, now: number): number {
+  const p = s.phase;
+  if (p.type !== "SPEECH" || p.speakerKind !== "human" || !p.officialSec) return 0;
+  return Math.max(0, Math.min(now, p.deadlineMs) - (p.startedMs + p.officialSec * 1000));
 }
 
-/** Session end as the UI should show it: the stored end plus the hold currently in progress. */
+function commitHoldCredit(ctx: Ctx) {
+  const c = holdCreditMs(ctx.s, ctx.now);
+  if (c > 0) {
+    ctx.s.settings.sessionEndsAtMs += c;
+    ctx.s.usage.responseWaitCreditMs = (ctx.s.usage.responseWaitCreditMs ?? 0) + c;
+  }
+  const o = speechOvertimeMs(ctx.s, ctx.now);
+  if (o > 0) {
+    ctx.s.settings.sessionEndsAtMs += o;
+    ctx.s.usage.speechOvertimeCreditMs = (ctx.s.usage.speechOvertimeCreditMs ?? 0) + o;
+  }
+}
+
+/** Session end as the UI should show it: the stored end plus the hold / speech overtime currently in progress. */
 export function effectiveSessionEndMs(s: ForumEngineState, now: number): number {
-  return s.settings.sessionEndsAtMs + holdCreditMs(s, now);
+  return s.settings.sessionEndsAtMs + holdCreditMs(s, now) + speechOvertimeMs(s, now);
 }
 
 const names = (s: ForumEngineState, ids: SeatId[]) => ids.map((id) => s.seats[id]?.countryName ?? id).join(", ");
@@ -1281,8 +1297,10 @@ function openVoting(ctx: Ctx, b: Ballot, p: { stage: string; deadlineMs: number;
 }
 
 function beginHumanSpeech(ctx: Ctx, id: SeatId, context: SpeechContext) {
-  const sec = slotSeconds(ctx, context);
-  transition(ctx, { type: "SPEECH", seat: id, speakerKind: "human", startedMs: ctx.now, deadlineMs: ctx.now + sec * 1000, context });
+  const official = slotSeconds(ctx, context);
+  // S1: humans may speak up to humanSpeechMaxSec on the speakers' list and in moderated caucuses (yielded time stays as yielded).
+  const max = context.kind === "yield" ? official : Math.max(official, ctx.s.settings.timers.humanSpeechMaxSec ?? 0);
+  transition(ctx, { type: "SPEECH", seat: id, speakerKind: "human", startedMs: ctx.now, deadlineMs: ctx.now + max * 1000, context, ...(max > official ? { officialSec: official } : {}) });
   ctx.effects.push({ type: "transcription_expected", seat: id, phaseId: ctx.s.phaseId });
 }
 
@@ -1505,7 +1523,9 @@ function dispatch(ctx: Ctx, c: Command) {
         const to = seat(ctx, c.yieldTo);
         if (to.id === c.seat) reject("yield_self", "You cannot yield to yourself");
         if (!isPresent(to)) reject("not_present", "That delegation is not present");
-        const sec = Math.floor((sp.deadlineMs - ctx.now) / 1000);
+        // Rule 18: the REMAINING OFFICIAL speaking time is yielded (not the extra S1 allowance).
+        const officialEnd = sp.officialSec ? sp.startedMs + sp.officialSec * 1000 : sp.deadlineMs;
+        const sec = Math.floor((officialEnd - ctx.now) / 1000);
         if (sec < 5) reject("no_time", "Less than 5 seconds remain; yield to the chair instead (app policy)");
         yieldTo = { seat: to.id, sec };
       }

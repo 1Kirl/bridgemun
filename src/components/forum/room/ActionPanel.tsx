@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, CircleDashed, Hand, Mic, Play, Send, SkipForward, Timer, UserCheck } from "lucide-react";
+import { CheckCircle2, CircleDashed, Hand, Mic, Send, SkipForward, Timer, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { PublicForumState } from "@/engine/publicView";
 import type { MotionParams, MotionType, Phase, VoteChoice } from "@/engine/types";
@@ -83,7 +83,7 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
             <p className="text-sm font-black text-gray-900">{head.title}</p>
             <p className="text-xs text-gray-600">{head.sub}</p>
           </div>
-          {status === "needed" && rv?.wait && <Countdown atMs={rv.wait.responseDeadlineMs} now={now} size="md" />}
+          {status === "needed" && rv?.wait && now < rv.wait.baseDeadlineMs && <Countdown atMs={rv.wait.baseDeadlineMs} now={now} size="md" warn={false} />}
         </div>
         {status === "needed" && rv && <div className="mt-2"><ExpiryWarning rv={rv} now={now} /></div>}
       </div>
@@ -330,12 +330,10 @@ function SpeakerControls({ state, mySeat, actions, recorder, part }: Props & { p
   const p = state.phase;
   const { send, busy } = actions;
   const [text, setText] = useState("");
-  const [yieldTo, setYieldTo] = useState("");
   const inList = state.speakersList.includes(mySeat);
   const pos = state.speakersList.indexOf(mySeat);
   const mySpeech = p.type === "SPEECH" && p.seat === mySeat && p.speakerKind === "human";
   const myConfirm = p.type === "SPEECH_CONFIRM" && p.seat === mySeat;
-  const myPrep = p.type === "SPEECH_PREP" && p.seat === mySeat;
 
   return (
     <div className="space-y-2">
@@ -355,50 +353,7 @@ function SpeakerControls({ state, mySeat, actions, recorder, part }: Props & { p
           )}
         </div>
       )}
-      {part === "speech" && myPrep && (
-        <div className="space-y-2 rounded-xl border-2 border-brand bg-brand-light p-3" data-testid="start-speech">
-          <p className="text-sm font-black text-brand">You have been recognised to speak</p>
-          <p className="text-xs text-gray-700">
-            Your speaking time ({p.type === "SPEECH_PREP" && p.context.kind === "yield" ? p.context.sec : p.type === "SPEECH_PREP" && p.context.kind === "mod_caucus" ? state.activeCaucus?.speakingSec ?? state.speakingTimeSec : state.speakingTimeSec} s) starts when you press Start. Your microphone opens then.
-          </p>
-          <Button size="lg" disabled={busy} onClick={() => void send({ type: "start_speech", seat: mySeat }, { phaseId: state.phaseId })}>
-            <Play size={16} className="mr-1" /> Start speech
-          </Button>
-        </div>
-      )}
-      {part === "speech" && mySpeech && (
-        <div className="space-y-2 rounded-xl border border-red-200 bg-red-50 p-3">
-          <p className="flex items-center gap-1 text-sm font-black text-red-700">
-            <Mic size={14} /> You have the floor
-          </p>
-          <p className="text-xs text-red-800">
-            {recorder?.status === "recording"
-              ? "Recording your microphone for the transcript (your live audio reaches others via the video session)."
-              : recorder?.status === "unavailable" || recorder?.detail
-                ? recorder.detail
-                : "Preparing microphone…"}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {p.context.kind === "speakers_list" && (
-              <select value={yieldTo} onChange={(e) => setYieldTo(e.target.value)} className="rounded-lg border border-red-200 bg-white p-1.5 text-xs" aria-label="Yield">
-                <option value="">Yield to the chair</option>
-                {Object.values(state.seats)
-                  .filter((x) => x.id !== mySeat && (x.attendance === "present" || x.attendance === "present_and_voting"))
-                  .map((x) => (
-                    <option key={x.id} value={x.id}>
-                      Yield remaining time to {x.countryName}
-                    </option>
-                  ))}
-              </select>
-            )}
-            <Button size="sm" disabled={busy} onClick={() => void send({ type: "end_speech", seat: mySeat, ...(yieldTo ? { yieldTo } : {}) }, { phaseId: state.phaseId })}>
-              End speech
-            </Button>
-          </div>
-          {p.context.kind === "yield" && <p className="text-[11px] text-red-800">You received yielded time; it cannot be yielded again (rule 18).</p>}
-          <TextSpeech text={text} setText={setText} label="No microphone? Submit your speech as text instead" onSubmit={() => send({ type: "submit_text_speech", seat: mySeat, text })} busy={busy} />
-        </div>
-      )}
+      {/* Recognised / speaking: handled by the full-width SpeechFocus screen (Room). */}
       {part === "speech" && myConfirm && p.type === "SPEECH_CONFIRM" && (
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
           <p className="text-sm font-black text-amber-900">Confirm what enters the record</p>
@@ -431,17 +386,6 @@ function SpeakerControls({ state, mySeat, actions, recorder, part }: Props & { p
   );
 }
 
-function TextSpeech({ text, setText, label, onSubmit, busy }: { text: string; setText: (s: string) => void; label: string; onSubmit: () => Promise<boolean>; busy: boolean }) {
-  return (
-    <details className="text-xs">
-      <summary className="cursor-pointer font-bold text-gray-600">{label}</summary>
-      <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} className="mt-2 w-full rounded-lg border border-gray-200 p-2 text-sm" />
-      <Button size="sm" className="mt-1" disabled={busy || !text.trim()} onClick={() => void onSubmit()}>
-        Submit text speech
-      </Button>
-    </details>
-  );
-}
 
 const MOTION_CHOICES: MotionType[] = ["mod_caucus", "unmod_caucus", "extend_caucus", "set_speaking_time", "suspend", "adjourn", "introduce_resolution", "introduce_amendment", "enter_voting"];
 

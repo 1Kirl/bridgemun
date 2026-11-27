@@ -85,3 +85,40 @@ when roll call opens.
 ## Older forums
 
 Forums created before W1 (`responseWaitSec` absent) keep the previous short timers and behaviour.
+
+## Timer display (2026-11-27 revision)
+
+* Steps that await humans show their **normal time** as the main countdown (e.g. "Voting time 0:45";
+  reading time and voting time are labelled separately).
+* When that time is over and humans are still awaited, the number disappears: "Waiting for human responses ·
+  N human response(s) remaining". The internal deadline (requested + 300 s — NOT 45 s + 300 s) is never shown as a
+  running countdown anywhere.
+* 60 s before the internal deadline: amber notice; 15 s before: red notice (fixed text, no countdown; votes:
+  "1 minute left to vote. If you do not respond, you will be recorded as not voting." / "15 seconds left to vote. …").
+  The notice disappears as soon as the user responds; after a reconnect the notice matching the current time is shown.
+
+# App policy S1 — human speaking time up to 300 s
+
+BridgeMUN online operating policy, **not an HMUN rule** (official speaking time: rule 17, 60 s by default).
+
+* Applies to human speeches on the general speakers' list and in moderated caucuses (new forums:
+  `timers.humanSpeechMaxSec = 300`). AI speeches keep the official speaking time. Yielded time (rule 18) stays the
+  remaining **official** time.
+* Flow: recognised → preparation (choose microphone or text, check microphone permission, write a draft — none of
+  this uses speaking time) → **Start speech** → up to 300 s.
+* Ends at once on End speech (microphone → recording stops → transcript confirmation step), on a successful
+  text submission (enters the record directly), or automatically at 300 s (microphone audio actually recorded is
+  transcribed; an unsubmitted text draft is never submitted for the delegate). End / submit / expiry racing: the
+  engine ends the turn exactly once; later requests are refused as stale.
+* Time accounting: the moderated caucus still counts the official caucus speaking time per speech (rule 10), so a long
+  human speech never cuts the caucus. Only the time actually used beyond the official speaking time is added back to the
+  session end (`usage.speechOvertimeCreditMs`), separately from the W1 credit and **not** subject to the W1 cap.
+  App pause time is excluded. A session end is only applied at step boundaries, so a speech is never cut by it.
+* Maximum meeting length (policy): planned duration + W1 waiting credit (capped at one more planned duration) +
+  S1 overtime actually used (≤ 240 s per human speech with the 60 s default) + app pauses (≤ 15 min total) +
+  an H1 idle hold (closes after 10 min).
+
+## Scope
+
+New forums created after this deploy get W1 (300 s), the briefing and S1. Forums created earlier keep the settings they
+were created with; running timers are never reset.

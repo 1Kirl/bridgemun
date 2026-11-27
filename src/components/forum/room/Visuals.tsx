@@ -112,7 +112,7 @@ const ACTION_LABEL: Partial<Record<string, string>> = {
 /** B. What is happening now: who acts, the action, the time left, what moves the meeting on. Long text folded away. */
 export function SituationCard({ state, rv, now }: { state: PublicForumState; rv: ResponseView | null; now: number }) {
   const actor = actorOf(state);
-  const t = timerOf(state, rv);
+  const t = timerOf(state, rv, now);
   const d = describePhase(state);
   const p = state.phase;
   const pending = rv && rv.holds ? rv.pending.length : 0;
@@ -146,13 +146,18 @@ export function SituationCard({ state, rv, now }: { state: PublicForumState; rv:
             {(p.type === "MOTION_VOTE" || p.type === "VOTING_PROCEDURE") && subStateOf(state) !== ACTION_LABEL[p.type] ? <span className="font-normal text-gray-500">· {subStateOf(state)}</span> : null}
           </p>
         </div>
-        {t && (
+        {t?.mode === "countdown" && (
           <div className="shrink-0 text-right">
-            <p className={`text-[10px] font-black uppercase tracking-widest ${t.isResponse ? "text-amber-700" : "text-gray-500"}`}>{t.label}</p>
-            <Countdown atMs={t.atMs} now={now} warn={t.isResponse || p.type === "SPEECH"} />
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">{t.label}</p>
+            <Countdown atMs={t.atMs} now={now} warn={p.type === "SPEECH"} />
           </div>
         )}
       </div>
+      {t?.mode === "waiting" && (
+        <div className="mt-3">
+          <WaitingBadge pending={t.pending} />
+        </div>
+      )}
       {condition && <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">{condition}</p>}
       <details className="mt-2 text-xs text-gray-600">
         <summary className="flex cursor-pointer list-none items-center gap-1 font-bold text-gray-500">
@@ -236,23 +241,47 @@ export function ResponseTracker({ state, rv, mySeat }: { state: PublicForumState
 }
 
 /** Response-window warning for the current user (60 s: notice, 15 s: urgent). States the actual consequence. */
+/** W1 waiting state: no numbers, only how many human responses remain. */
+export function WaitingBadge({ pending }: { pending: number }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200" data-testid="waiting-badge">
+      <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-amber-800">
+        <Hourglass size={13} /> Waiting for human responses
+      </p>
+      <p className="text-sm font-bold text-amber-900">
+        {pending} human response{pending === 1 ? "" : "s"} remaining
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Notice for the current user while they are awaited. Fixed text at 60 s and 15 s before the internal deadline
+ * (no running countdown). Disappears as soon as they respond (the caller stops rendering it).
+ */
 export function ExpiryWarning({ rv, now }: { rv: ResponseView; now: number }) {
   if (!rv.wait) return null;
   const left = rv.wait.responseDeadlineMs - now;
   const what = EXPIRY_ACTION[rv.kind];
+  const vote = rv.kind === "vote";
   if (left > 60_000)
-    return (
-      <p className="text-[11px] text-gray-500">
-        You have until the response window ends ({fmtClock(left)}). If you do not respond, {what}.
-      </p>
+    return now >= rv.wait.baseDeadlineMs ? (
+      <p className="text-[11px] text-gray-600">The meeting is waiting for your response. If you do not respond in time, {what}.</p>
+    ) : (
+      <p className="text-[11px] text-gray-500">If you do not respond, {what}.</p>
     );
   const urgent = left <= 15_000;
+  const text = urgent
+    ? vote
+      ? "15 seconds left to vote. If you do not respond, you will be recorded as not voting."
+      : `15 seconds left to respond. If you do not respond, ${what}.`
+    : vote
+      ? "1 minute left to vote. If you do not respond, you will be recorded as not voting."
+      : `1 minute left to respond. If you do not respond, ${what}.`;
   return (
-    <div role="alert" className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs font-bold ${urgent ? "border-red-300 bg-red-50 text-red-800" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
-      <AlertTriangle size={16} className={`shrink-0 ${urgent ? "motion-safe:animate-pulse" : ""}`} />
-      <span>
-        {fmtClock(Math.max(0, left))} left — if you do not respond, {what}.
-      </span>
+    <div role="alert" data-testid={urgent ? "warning-15" : "warning-60"} className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs font-bold ${urgent ? "border-red-400 bg-red-100 text-red-800" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
+      <AlertTriangle size={16} className="shrink-0" />
+      <span>{text}</span>
     </div>
   );
 }

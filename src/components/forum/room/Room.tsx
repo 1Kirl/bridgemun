@@ -2,6 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useSpeechPrep } from "@/hooks/useSpeechPrep";
+import { SpeechFocus } from "./SpeechFocus";
+import { SpeechPrepCard } from "./SpeechPrepCard";
 import { Bot, Clock, Home, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import type { ForumViewProps } from "@/components/forum/Lobby";
@@ -29,7 +33,12 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
   const speaker = "seat" in p ? state.seats[(p as { seat: string }).seat] : null;
   const iHoldFloor = p.type === "SPEECH" && p.seat === mySeat && p.speakerKind === "human";
   const canSpeak = iHoldFloor || p.type === "UNMOD_CAUCUS";
-  const recorder = useSpeechRecorder(forumId, state, mySeat);
+  const prep = useSpeechPrep(forumId, mySeat);
+  const recorder = useSpeechRecorder(forumId, state, mySeat, prep.mode === "mic");
+  // Own turn (recognised or speaking): a focused screen; the rest of the room is folded away but stays mounted.
+  const focus = (p.type === "SPEECH_PREP" && p.seat === mySeat) || iHoldFloor;
+  const [showDetails, setShowDetails] = useState(false);
+  const upcoming = !focus && p.type !== "CLOSED" && (state.speakersList.includes(mySeat) || (p.type === "MOD_CAUCUS" && p.volunteers.includes(mySeat)));
   const t = now();
   const rv = publicResponseView(state);
   const sessionLeft = state.settings.sessionEndsAtMs && p.type !== "CLOSED" && p.type !== "BRIEFING" ? sessionEndOf(state, t) - t : null;
@@ -77,9 +86,21 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
           <RecordFeed state={state} record={record} />
         </main>
       ) : (
-        <main className="grid flex-1 grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[440px_1fr]">
+        <>
+        {focus && (
+          <div className="space-y-2 p-3 sm:p-4">
+            <SpeechFocus state={state} mySeat={mySeat} actions={actions} recorder={recorder} prep={prep} now={t} />
+            <div className="mx-auto flex max-w-3xl justify-center">
+              <button type="button" onClick={() => setShowDetails((x) => !x)} className="rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs font-bold text-gray-600 shadow-sm" data-testid="toggle-details">
+                {showDetails ? "Hide meeting details" : "Show meeting details (motions, documents, delegations)"}
+              </button>
+            </div>
+          </div>
+        )}
+        <main className={`grid flex-1 grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[440px_1fr] ${focus && !showDetails ? "hidden" : ""}`}>
           <div className="space-y-4">
             <SituationCard state={state} rv={rv} now={t} />
+            {upcoming && <SpeechPrepCard prep={prep} />}
             <ActionPanel state={state} mySeat={mySeat} actions={actions} recorder={recorder} now={t} />
             <ResponseTracker state={state} rv={rv} mySeat={mySeat} />
             <div className="overflow-hidden rounded-3xl bg-[#020617]">
@@ -151,6 +172,7 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
             <RecordFeed state={state} record={record} />
           </div>
         </main>
+        </>
       )}
     </div>
   );
