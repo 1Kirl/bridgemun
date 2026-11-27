@@ -3,6 +3,20 @@ import type { Firestore, Transaction } from "firebase-admin/firestore";
 import { apply } from "@/engine/machine";
 import { toPublicState } from "@/engine/publicView";
 import type { ApplyResult, CommandEnvelope, Effect, ForumEngineState } from "@/engine/types";
+import { HttpError } from "@/server/auth";
+
+/**
+ * Firestore retries quota errors (RESOURCE_EXHAUSTED) silently, so a refused write used to hang every request until
+ * the 120 s function timeout (production incident 2026-11-27). Fail fast with a clear 503 instead.
+ */
+const TX_TIMEOUT_MS = 30_000;
+export function withTxTimeout<T>(p: Promise<T>): Promise<T> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, rej) => {
+    t = setTimeout(() => rej(new HttpError(503, "database_unavailable", "The database is not accepting changes right now (quota or outage). Please try again later.")), TX_TIMEOUT_MS);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(t));
+}
 
 /**
  * Firestore persistence for the engine.
@@ -59,7 +73,7 @@ export async function runCommand(
   opts: RunOptions = {},
 ): Promise<ApplyResult> {
   const now = opts.now ?? Date.now;
-  const result = await db.runTransaction(async (tx) => {
+  const result = await withTxTimeout(db.runTransaction(async (tx) => {
     const ref = db.doc(statePath(forumId));
     const snap = await tx.get(ref);
     if (!snap.exists) return { ok: false as const, code: "no_engine_state", message: "Forum has no engine state" };
@@ -79,7 +93,7 @@ export async function runCommand(
       if (ef.type === "record") tx.set(db.doc(`forums/${forumId}/record/${pad(ef.entry.seq)}`), plain(ef.entry));
     }
     return r;
-  });
+  }));
   if (result.ok && !result.duplicate && opts.onEffects && result.effects.length) {
     await opts.onEffects(forumId, result.effects);
   }

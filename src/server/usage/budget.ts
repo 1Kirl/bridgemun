@@ -49,7 +49,8 @@ export async function reserve(
   const fRef = db.doc(`forums/${forumId}/usage/ai`);
   const dRef = db.doc(`usage_global/${dayKey(now)}`);
   await db.runTransaction(async (tx) => {
-    const [f, d] = await Promise.all([tx.get(fRef), tx.get(dRef)]);
+    const [f, d, forum] = await Promise.all([tx.get(fRef), tx.get(dRef), tx.get(db.doc(`forums/${forumId}`))]);
+    if (!forum.exists) throw new BudgetExceeded("llm_calls", "forum"); // forum deleted: no new AI work, nothing written
     const fu = (f.data() ?? {}) as Partial<Record<UsageKind, number>>;
     const du = (d.data() ?? {}) as Partial<Record<UsageKind, number>>;
     for (const [kind, amt] of Object.entries(amounts) as Array<[UsageKind, number]>) {
@@ -66,6 +67,7 @@ export async function reserve(
 export async function settle(db: Firestore, forumId: string, delta: Partial<Record<UsageKind, number>>, now = Date.now()) {
   const inc = Object.fromEntries(Object.entries(delta).filter(([, v]) => v).map(([k, v]) => [k, FieldValue.increment(v as number)]));
   if (!Object.keys(inc).length) return;
+  if (!(await db.doc(`forums/${forumId}`).get()).exists) return; // forum deleted meanwhile: write nothing under it
   await Promise.all([
     db.doc(`forums/${forumId}/usage/ai`).set(inc, { merge: true }),
     db.doc(`usage_global/${dayKey(now)}`).set(inc, { merge: true }),

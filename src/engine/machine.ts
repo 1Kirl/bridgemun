@@ -367,6 +367,10 @@ function maybeAdvanceOnResponse(ctx: Ctx) {
   const v = responseView(s, engineVoted(s));
   if (!v || v.pending.length > 0) return;
   if (!(aiDone(s) || ctx.now >= w.baseDeadlineMs)) return;
+  // Nobody human is required (e.g. no human declared attendance): never close early, or an empty floor would
+  // reopen instantly in a tight loop. The step's normal timer applies.
+  const floorLike = s.phase.type === "FLOOR_OPEN" || s.phase.type === "VP_FLOOR" || s.phase.type === "DIVISION_PROPOSALS";
+  if (floorLike && v.required.length === 0 && ctx.now < w.baseDeadlineMs) return;
   // Humans answered only through a standing choice: keep the window open for its normal time (they can still act).
   if (v.standing.length > 0 && ctx.now < w.baseDeadlineMs) return;
   endPhase(ctx);
@@ -480,14 +484,18 @@ function openFloor(ctx: Ctx, origin: Extract<Phase, { type: "FLOOR_OPEN" }>["ori
     }
   }
   ctx.s.carriedMotionIds = [];
+  // Unchanged situation since the last window: consult the AI only every 4th time (cost / write protection).
+  const fkey = floorContextKey(ctx.s);
+  ctx.s.floorQuiet = ctx.s.floorQuiet?.key === fkey ? { key: fkey, count: ctx.s.floorQuiet.count + 1 } : { key: fkey, count: 0 };
+  const consultAi = ctx.s.floorQuiet.count % 4 === 0;
   if (W(ctx.s) && ctx.s.standingNoMotion) {
-    const key = floorContextKey(ctx.s);
+    const key = fkey;
     const standing = Object.values(ctx.s.seats)
       .filter((x) => x.kind === "human" && isPresent(x) && ctx.s.standingNoMotion![x.id] === key)
       .map((x) => x.id);
     if (standing.length) p.standingSeats = standing;
   }
-  ctx.effects.push({ type: "ai_floor_decision_needed", windowId: p.windowId, contextSeq: ctx.s.contextSeq });
+  if (consultAi) ctx.effects.push({ type: "ai_floor_decision_needed", windowId: p.windowId, contextSeq: ctx.s.contextSeq });
 }
 
 function afterSpeech(ctx: Ctx, context: SpeechContext) {
@@ -772,6 +780,9 @@ function startCaucus(ctx: Ctx, c: CaucusState) {
 }
 
 function openVolunteerWindow(ctx: Ctx) {
+  // Caucus-wide passes were removed (2026-11-27): a legacy "pass for the rest of this caucus" counted for the turn
+  // in which it was given and ends here, so every new turn asks again (Volunteer / Pass this turn).
+  if (ctx.s.activeCaucus?.passAll?.length) ctx.s.activeCaucus.passAll = [];
   transition(ctx, { type: "MOD_CAUCUS", deadlineMs: ctx.now + ctx.s.settings.timers.volunteerWindowSec * 1000, volunteers: [] });
   const ai = aiSeats(ctx.s);
   if (ai.length) ctx.effects.push({ type: "ai_volunteer_needed", phaseId: ctx.s.phaseId, seats: ai });
@@ -890,6 +901,7 @@ function maybeCloseWindowEarly(ctx: Ctx) {
   const p = ctx.s.phase as { readySeats: SeatId[]; aiDoneSeats: SeatId[] };
   const humans = Object.values(ctx.s.seats).filter(isHumanOnlinePresent).map((x) => x.id);
   const ais = aiSeats(ctx.s);
+  if (humans.length === 0) return; // no human to be ready: the window runs its normal time (no instant reopen loop)
   if (!(humans.every((h) => p.readySeats.includes(h)) && ais.every((a) => p.aiDoneSeats.includes(a)))) return;
   if (ctx.s.phase.type === "FLOOR_OPEN") return closeFloor(ctx);
   if (ctx.s.phase.type === "VP_FLOOR") return closeVpFloor(ctx);
@@ -1672,20 +1684,9 @@ function dispatch(ctx: Ctx, c: Command) {
       const p = s.phase;
       if (p.type !== "MOD_CAUCUS") reject("no_caucus", "No moderated caucus is taking volunteers", true);
       const mp = p as Extract<Phase, { type: "MOD_CAUCUS" }>;
-      const ac = s.activeCaucus!;
-      const scope = c.scope ?? "turn";
-      if (scope === "resume") {
-        if (!ac.passAll?.includes(c.seat)) throw new Duplicate();
-        ac.passAll = ac.passAll.filter((x) => x !== c.seat);
-        return; // asked again from this turn on (if they have not answered this turn, they are now awaited)
-      }
+      // Only "Pass this turn" exists. Older clients' caucus-wide scopes are refused (nothing is applied silently).
+      if (c.scope && c.scope !== "turn") reject("not_supported", "Only “Pass this turn” is available; you can volunteer or pass again next turn");
       if (mp.volunteers.includes(c.seat)) reject("already_volunteered", "You already volunteered in this turn");
-      if (scope === "caucus") {
-        ac.passAll ??= [];
-        if (ac.passAll.includes(c.seat)) throw new Duplicate();
-        ac.passAll.push(c.seat); // ends with this caucus; volunteering in any turn cancels it
-        return maybeAdvanceOnResponse(ctx);
-      }
       mp.passed ??= [];
       if (mp.passed.includes(c.seat)) throw new Duplicate();
       mp.passed.push(c.seat);

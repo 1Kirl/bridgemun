@@ -386,7 +386,7 @@ export type CaucusState = {
   usedSec: number;
   spokenSeats: SeatId[];
   isExtension: boolean;
-  /** W1: humans who chose "pass for the rest of this caucus" (they may still volunteer in any turn). */
+  /** Legacy (removed 2026-11-27): caucus-wide passes. Honoured only for the turn they were given in; cleared at the next turn. */
   passAll?: SeatId[];
 };
 
@@ -427,6 +427,11 @@ export type ForumEngineState = {
   reorderAdopted?: boolean;
   /** W1: a human's explicit "no motion" and the floor context it was given in (see FLOOR_OPEN.standingSeats). */
   standingNoMotion?: Record<SeatId, string>;
+  /**
+   * Floor windows opened in an unchanged situation (same floorContextKey). The AI is consulted only on every
+   * 4th such window, so an idle floor never turns into a rapid loop of AI calls and database writes.
+   */
+  floorQuiet?: { key: string; count: number };
 
   /**
    * reason "owner": app pause by the room owner. reason "no_humans": idle hold (app policy H1) entered when a
@@ -459,7 +464,7 @@ export type Command =
   | { type: "request_extension"; seat: SeatId }
   | { type: "cast_vote"; seat: SeatId; ballotId: string; choice: VoteChoice }
   | { type: "volunteer"; seat: SeatId }
-  /** turn: this volunteer round only · caucus: every remaining round of this caucus · resume: be asked every round again */
+  /** Pass this volunteer turn only. ("caucus"/"resume" scopes were removed; refused if sent.) */
   | { type: "volunteer_pass"; seat: SeatId; scope?: "turn" | "caucus" | "resume" }
   | { type: "caucus_ready"; seat: SeatId }
   | {

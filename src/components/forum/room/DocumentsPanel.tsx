@@ -36,8 +36,8 @@ export function DocumentsPanel({ state, mySeat, actions, onNewDraft }: Props & {
         <h3 className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">
           <FileText size={14} className="text-brand" /> Documents
         </h3>
-        {canWrite && !creating && (
-          <Button size="sm" variant="outline" onClick={() => (onNewDraft ? onNewDraft() : setCreating(true))} data-testid="side-new-draft">
+        {canWrite && !creating && !onNewDraft && (
+          <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
             <Plus size={13} className="mr-1" /> New draft
           </Button>
         )}

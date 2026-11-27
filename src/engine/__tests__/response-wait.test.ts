@@ -395,7 +395,7 @@ describe("W1 moderated caucus volunteering", () => {
   });
 });
 
-describe("W1 caucus pass scopes", () => {
+describe("Caucus volunteering: Volunteer / Pass this turn only", () => {
   function inCaucus() {
     const sim = started(2, 3);
     sim.do(ai("a0"), { type: "submit_motion", seat: "a0", params: { type: "mod_caucus", topic: "T", speakingSec: 30, totalSec: 300 } });
@@ -407,7 +407,7 @@ describe("W1 caucus pass scopes", () => {
     expect(sim.phase.type).toBe("MOD_CAUCUS");
     return sim;
   }
-  /** a1 volunteers each turn, its speech ends → next volunteer turn. */
+  /** a1 volunteers, its speech ends → next volunteer turn. */
   function nextTurn(sim: Sim) {
     sim.do(ai("a1"), { type: "volunteer", seat: "a1" });
     sim.expire();
@@ -416,7 +416,7 @@ describe("W1 caucus pass scopes", () => {
     expect(sim.phase.type).toBe("MOD_CAUCUS");
   }
 
-  it("“Pass this turn” is for this turn only: asked again next turn", () => {
+  it("Pass this turn applies to this turn only: asked again next turn", () => {
     const sim = inCaucus();
     sim.do(human("owner"), { type: "volunteer_pass", seat: "h1" });
     sim.do(human("u2"), { type: "volunteer_pass", seat: "h2", scope: "turn" });
@@ -424,25 +424,30 @@ describe("W1 caucus pass scopes", () => {
     expect(view(sim.s)!.pending.sort()).toEqual(["h1", "h2"]);
   });
 
-  it("“Pass for the rest of this caucus” is not asked again, can be undone, and never blocks volunteering", () => {
+  it("caucus-wide pass scopes are refused (no hidden persistent pass)", () => {
     const sim = inCaucus();
-    sim.do(human("owner"), { type: "volunteer_pass", seat: "h1", scope: "caucus" });
-    sim.do(human("u2"), { type: "volunteer_pass", seat: "h2" });
-    nextTurn(sim);
-    expect(view(sim.s)!.pending).toEqual(["h2"]);
-    expect(view(sim.s)!.standing).toEqual(["h1"]);
-    sim.do(human("owner"), { type: "volunteer", seat: "h1" }); // still free to speak
-    expect(sim.s.activeCaucus!.passAll).toEqual([]);
-    expect(sim.try(human("owner"), { type: "volunteer_pass", seat: "h1", scope: "caucus" }).ok).toBe(false); // already volunteered this turn
+    expect(sim.try(human("owner"), { type: "volunteer_pass", seat: "h1", scope: "caucus" }).ok).toBe(false);
+    expect(sim.try(human("owner"), { type: "volunteer_pass", seat: "h1", scope: "resume" }).ok).toBe(false);
+    expect(view(sim.s)!.pending).toContain("h1");
   });
 
-  it("the caucus-wide pass ends with the caucus (next caucus asks again)", () => {
+  it("legacy persistent pass: kept for the turn it was given in, cleared from the next turn", () => {
     const sim = inCaucus();
-    sim.do(human("owner"), { type: "volunteer_pass", seat: "h1", scope: "caucus" });
-    expect(sim.s.activeCaucus!.passAll).toEqual(["h1"]);
+    sim.s.activeCaucus!.passAll = ["h1"]; // state written by the previous version
+    expect(view(sim.s)!.responded).toContain("h1"); // this turn's answer is not undone
     sim.do(human("u2"), { type: "volunteer_pass", seat: "h2" });
-    sim.expire(); // nobody volunteers → caucus ends
-    expect(sim.s.activeCaucus).toBeNull();
+    nextTurn(sim);
+    expect(sim.s.activeCaucus!.passAll).toEqual([]);
+    expect(view(sim.s)!.pending.sort()).toEqual(["h1", "h2"]);
+  });
+
+  it("volunteering leads to the normal speaker selection and Start speech", () => {
+    const sim = inCaucus();
+    sim.do(human("u2"), { type: "volunteer", seat: "h2" });
+    sim.do(human("owner"), { type: "volunteer_pass", seat: "h1" });
+    sim.expire();
+    expect(sim.phase.type).toBe("SPEECH_PREP");
+    expect((sim.phase as { seat: string }).seat).toBe("h2");
   });
 });
 
@@ -510,5 +515,50 @@ describe("W1 session time budget", () => {
     aiPass(sim);
     for (const h of ["h1", "h2"]) sim.do(actorOf(h), { type: "floor_pass", seat: h });
     expect(sim.s.settings.sessionEndsAtMs).toBe(end0);
+  });
+});
+
+describe("No runaway floor loop (production incident 2026-11-27)", () => {
+  /** 1 human who never declared attendance + AI: the floor has no required human. */
+  function aiOnlyFloor() {
+    const sim = forum(1, 3);
+    sim.do(human("owner"), { type: "start" });
+    sim.expire(); // briefing
+    for (const id of aiIds(sim)) sim.do(ai(id), { type: "declare_attendance", seat: id, value: "present" });
+    sim.expire(); // roll call timer
+    sim.expire(); // response window for the silent human → quorum met, debate opens
+    expect(sim.phase.type).toBe("FLOOR_OPEN");
+    return sim;
+  }
+
+  it("with no required human, AI passes do not close the window early (no instant reopen)", () => {
+    const sim = aiOnlyFloor();
+    const w0 = (sim.phase as { windowId: string }).windowId;
+    aiPass(sim);
+    expect((sim.phase as { windowId: string }).windowId).toBe(w0); // still open
+    sim.expire(); // normal 45 s
+    expect((sim.phase as { windowId: string }).windowId).not.toBe(w0);
+  });
+
+  it("an unchanged floor consults the AI only on every 4th window", () => {
+    const sim = aiOnlyFloor();
+    const asks = () => sim.effects.filter((e) => e.type === "ai_floor_decision_needed").length;
+    const before = asks();
+    for (let i = 0; i < 8; i++) sim.expire(); // 8 more quiet windows, nothing changes
+    expect(asks() - before).toBe(2); // windows 4 and 8 only
+    expect(sim.s.floorQuiet!.count).toBe(8);
+  });
+
+  it("any change (a new speaker) resets the throttle and the AI is consulted again", () => {
+    const sim = aiOnlyFloor();
+    sim.expire();
+    sim.expire();
+    const before = sim.effects.filter((e) => e.type === "ai_floor_decision_needed").length;
+    sim.do(ai("a1"), { type: "add_to_speakers_list", seat: "a1" });
+    sim.expire(); // window closes → a1 speaks
+    sim.do(ai("a1"), { type: "ai_speech_ready", seat: "a1", text: "x", contextSeq: sim.s.contextSeq });
+    sim.expire(); // speech over → new floor in a changed situation
+    expect(sim.phase.type).toBe("FLOOR_OPEN");
+    expect(sim.effects.filter((e) => e.type === "ai_floor_decision_needed").length).toBe(before + 1);
   });
 });

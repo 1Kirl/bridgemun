@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Bot, Check, ChevronDown, ClipboardCheck, Gavel, Hourglass, MessagesSquare, Mic, Repeat2, Scale, Trophy, User, Users, Vote, WifiOff } from "lucide-react";
 import type { PublicBallot, PublicForumState } from "@/engine/publicView";
-import { EXPIRY_ACTION, type ResponseView } from "@/engine/responses";
+import { EXPIRY_ACTION, RESPONSE_ACTION, type ResponseView } from "@/engine/responses";
 import type { Seat } from "@/engine/types";
 import { describePhase, fmtClock } from "@/lib/phaseText";
 import { DEBATE_MODES, STAGES, actorOf, debateModeOf, outcomeLabel, passRule, stageOf, subStateOf, timerOf, type Stage } from "@/lib/meetingFlow";
@@ -90,7 +90,7 @@ export function Countdown({ atMs, now, warn = true, size = "lg" }: { atMs: numbe
   );
 }
 
-const ACTION_LABEL: Partial<Record<string, string>> = {
+export const ACTION_LABEL: Partial<Record<string, string>> = {
   BRIEFING: "Opening briefing",
   ROLL_CALL: "Roll call",
   SPEECH_PREP: "Getting ready to speak",
@@ -190,68 +190,100 @@ const RV_TITLE: Record<string, string> = {
 };
 
 /** E. Human response status. Shows WHO has responded, never how anyone voted. */
+/**
+ * "Responded on the floor" (side): who must respond in the current step, who has, who is still awaited, who is
+ * offline. Only real response targets are listed; how anyone voted is never shown. Always rendered (stable layout).
+ */
 export function ResponseTracker({ state, rv, mySeat }: { state: PublicForumState; rv: ResponseView | null; mySeat: string }) {
-  if (!rv || rv.required.length === 0) return null;
-  const n = rv.required.length;
-  const done = rv.responded.length;
+  const active = !!rv && rv.required.length > 0;
+  const n = rv?.required.length ?? 0;
+  const done = rv?.responded.length ?? 0;
   return (
     <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm" data-testid="response-tracker">
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-1 flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">
-          <Hourglass size={13} className="text-brand" /> {RV_TITLE[rv.kind]}
+          <Hourglass size={13} className="text-brand" /> Responded on the floor
         </h3>
-        <span className="text-sm font-black text-gray-900" aria-label={`${done} of ${n} human delegates responded`}>
-          {done} / {n} <span className="text-xs font-semibold text-gray-500">humans</span>
-        </span>
+        {active && (
+          <span className="text-sm font-black text-gray-900" aria-label={`${done} of ${n} human delegates responded`}>
+            {done} / {n} <span className="text-xs font-semibold text-gray-500">humans</span>
+          </span>
+        )}
       </div>
-      <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" role="progressbar" aria-valuemin={0} aria-valuemax={n} aria-valuenow={done}>
-        {rv.required.map((id) => (
-          <span key={id} className={`flex-1 ${rv.responded.includes(id) ? "bg-emerald-500" : "bg-gray-200"}`} />
-        ))}
-      </div>
-      <ul className="mt-2 flex flex-wrap gap-1.5">
-        {rv.required.map((id) => {
-          const s = state.seats[id];
-          const ok = rv.responded.includes(id);
-          const off = s.connection === "offline";
-          return (
-            <li key={id} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : off ? "border-gray-200 bg-gray-50 text-gray-400" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-              <Flag code={id} className="h-3 w-4" />
-              {s.countryName}
-              {id === mySeat && <span className="text-[9px] uppercase">(you)</span>}
-              {ok ? <Check size={12} aria-label="responded" /> : <Hourglass size={12} aria-label="awaiting response" />}
-              {off && <WifiOff size={12} aria-label="offline" />}
-              {rv.standing.includes(id) && <span className="text-[9px] font-black uppercase">{rv.kind === "volunteer" ? "passing this caucus" : "no motion stands"}</span>}
-              <span className="sr-only">{ok ? "responded" : "awaiting response"}{off ? ", currently offline (still has the full response time)" : ""}</span>
-            </li>
-          );
-        })}
-      </ul>
-      {rv.pending.some((id) => state.seats[id].connection === "offline") && (
-        <p className="mt-1.5 text-[11px] text-gray-500">A delegate who is offline keeps the full response time: the step waits until their deadline (a refresh or reconnect does not reset or shorten it).</p>
-      )}
-      {rv.standing.length > 0 && (
-        <p className="mt-1.5 text-[11px] text-gray-500">
-          {rv.kind === "volunteer"
-            ? "“Passing this caucus” was chosen by the delegate; they can volunteer in any turn."
-            : "“No motion stands”: the delegate said they had no motion and nothing has changed since, so they are not asked again. They can still move a motion."}
-        </p>
+      {!active || !rv ? (
+        <p className="text-xs text-gray-400">No human response is needed in this step.</p>
+      ) : (
+        <>
+          <p className="mb-2 text-[11px] text-gray-500">
+            Needed now: {RESPONSE_ACTION[rv.kind].toLowerCase()}
+            {rv.holds ? "" : " (optional)"}
+          </p>
+          <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" role="progressbar" aria-valuemin={0} aria-valuemax={n} aria-valuenow={done}>
+            {rv.required.map((id) => (
+              <span key={id} className={`flex-1 ${rv.responded.includes(id) ? "bg-emerald-500" : "bg-gray-200"}`} />
+            ))}
+          </div>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {rv.required.map((id) => {
+              const s = state.seats[id];
+              const ok = rv.responded.includes(id);
+              const off = s.connection === "offline";
+              return (
+                <li key={id} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                  <Flag code={id} className="h-3 w-4" />
+                  {s.countryName}
+                  {id === mySeat && <span className="text-[9px] uppercase">(you)</span>}
+                  {ok ? <Check size={12} aria-label="responded" /> : <Hourglass size={12} aria-label="awaiting response" />}
+                  {off && (
+                    <span className="flex items-center gap-0.5 rounded bg-gray-200 px-1 text-[9px] uppercase text-gray-600">
+                      <WifiOff size={10} /> offline
+                    </span>
+                  )}
+                  {rv.standing.includes(id) && <span className="text-[9px] font-black uppercase">no motion stands</span>}
+                </li>
+              );
+            })}
+          </ul>
+          {(rv.pending.some((id) => state.seats[id].connection === "offline") || rv.standing.length > 0) && (
+            <details className="mt-1.5 text-[11px] text-gray-500">
+              <summary className="cursor-pointer font-bold">What do these mean?</summary>
+              {rv.pending.some((id) => state.seats[id].connection === "offline") && <p>Offline delegates keep their full response time; a refresh or reconnect does not reset it.</p>}
+              {rv.standing.length > 0 && <p>“No motion stands”: the delegate said they had no motion and nothing has changed since; they can still move a motion.</p>}
+            </details>
+          )}
+        </>
       )}
     </section>
   );
 }
 
+
 /** Response-window warning for the current user (60 s: notice, 15 s: urgent). States the actual consequence. */
-/** W1 waiting state: no numbers, only how many human responses remain. */
-export function WaitingBadge({ pending }: { pending: number }) {
+/** Circular "waiting for people" indicator (static ring when the user prefers reduced motion). */
+export function Spinner({ label, tone = "amber" }: { label: string; tone?: "amber" | "brand" }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200" data-testid="waiting-badge">
+    <span
+      role="status"
+      aria-label={label}
+      data-testid="spinner"
+      className={`inline-block h-8 w-8 shrink-0 rounded-full border-[3px] motion-safe:animate-spin ${tone === "amber" ? "border-amber-200 border-t-amber-600" : "border-brand/20 border-t-brand"}`}
+    />
+  );
+}
+
+/** W1 waiting state: no numbers, only how many human responses remain. */
+export function WaitingBadge({ pending, spinner = true }: { pending: number; spinner?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-amber-50 px-3 py-2 ring-1 ring-amber-200" data-testid="waiting-badge">
+      {spinner && <Spinner label="Waiting for human responses" />}
+      <div className="min-w-0">
       <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-amber-800">
-        <Hourglass size={13} /> Waiting for human responses
+        Waiting for human responses
       </p>
       <p className="text-sm font-bold text-amber-900">
         {pending} human response{pending === 1 ? "" : "s"} remaining
       </p>
+      </div>
     </div>
   );
 }

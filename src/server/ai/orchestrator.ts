@@ -195,6 +195,8 @@ export function createAiOrchestrator(db: Firestore, cfg: OrchestratorConfig, get
   }
 
   async function logAction(forumId: string, entry: Record<string, unknown>) {
+    // A late AI result must not re-create data under a forum that was deleted meanwhile.
+    if (!(await db.doc(`forums/${forumId}`).get()).exists) return;
     await db.collection(`forums/${forumId}/aiActions`).add({ ...entry, provider: cfg.llm.name, atMs: Date.now() });
   }
 

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 
 import { Bot, Crown, ListOrdered, MessageSquare, Mic, PauseCircle, Timer, User, Users, Vote, WifiOff } from "lucide-react";
 import type { PublicBallot, PublicForumState } from "@/engine/publicView";
@@ -110,12 +109,20 @@ export function SeatGrid({ state, mySeat }: { state: PublicForumState; mySeat: s
 export function FloorMotions({ state }: { state: PublicForumState }) {
   const p = state.phase;
   const windowId = p.type === "FLOOR_OPEN" || p.type === "MOTION_VOTE" ? p.windowId : null;
-  if (!windowId) return null;
+  if (!windowId)
+    return (
+      <div className={box} data-testid="floor-motions">
+        <h3 className={h3}>
+          <Vote size={14} className="text-brand" /> Motions on the floor
+        </h3>
+        <p className="text-xs text-gray-400">No motion window is open.</p>
+      </div>
+    );
   const list = Object.values(state.motions)
     .filter((m) => m.windowId === windowId)
     .sort((a, b) => a.submittedAtMs - b.submittedAtMs);
   return (
-    <div className={box}>
+    <div className={box} data-testid="floor-motions">
       <h3 className={h3}>
         <Vote size={14} className="text-brand" /> Motions on the floor
       </h3>
@@ -172,7 +179,7 @@ export function CurrentBallot({ state }: { state: PublicForumState }) {
   );
 }
 
-function BallotSubject({ state, b }: { state: PublicForumState; b: PublicBallot }) {
+export function BallotSubject({ state, b }: { state: PublicForumState; b: PublicBallot }) {
   if (b.subject.type === "motion") {
     const m = state.motions[b.subject.motionId];
     return m ? <p className="text-sm font-bold text-gray-800">{describeMotion(m.params)} <span className="font-normal text-gray-500">— moved by {state.seats[m.mover]?.countryName}</span></p> : null;
@@ -233,41 +240,46 @@ export function BallotResults({ state, all = false }: { state: PublicForumState;
   const every = Object.values(state.ballots)
     .filter((b) => b.status === "closed" || b.status === "not_held")
     .sort((a, b) => b.openedAtMs - a.openedAtMs);
-  const [more, setMore] = useState(false);
-  const closed = every.slice(0, all || more ? 100 : 3);
-  if (!every.length) return null;
+  const item = (b: PublicBallot) => (
+    <li key={b.id} className="rounded-lg border border-gray-100 p-2 text-xs" data-testid={`ballot-${b.id}`}>
+      <BallotSubject state={state} b={b} />
+      <div className="mt-2">
+        <VoteChart state={state} b={b} compact />
+        {b.result && b.result.notVotedOffline.length > 0 && <p className="text-[10px] text-gray-500">{b.result.notVotedOffline.length} of the non-voters were offline.</p>}
+      </div>
+      {b.votes && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-[10px] font-bold text-gray-500">Votes by country</summary>
+          <div className="mt-1 grid grid-cols-2 gap-x-3 text-[11px]">
+            {Object.keys(b.eligible)
+              .sort((x, y) => (state.seats[x]?.countryName ?? x).localeCompare(state.seats[y]?.countryName ?? y))
+              .map((s) => (
+                <span key={s}>
+                  {state.seats[s]?.countryName}: <b>{b.votes?.[s] ?? (b.connectionAtClose?.[s] === "offline" ? "did not vote (offline)" : "did not vote")}</b>
+                </span>
+              ))}
+          </div>
+        </details>
+      )}
+    </li>
+  );
   return (
     <div className={box} data-testid="recent-results">
       <h3 className={h3}>Recent results</h3>
-      <ul className="space-y-2">
-        {closed.map((b) => (
-          <li key={b.id} className="rounded-lg border border-gray-100 p-2 text-xs" data-testid={`ballot-${b.id}`}>
-            <BallotSubject state={state} b={b} />
-            <div className="mt-2">
-              <VoteChart state={state} b={b} compact />
-              {b.result && b.result.notVotedOffline.length > 0 && <p className="text-[10px] text-gray-500">{b.result.notVotedOffline.length} of the non-voters were offline.</p>}
-            </div>
-            {b.votes && (
-              <details className="mt-1">
-                <summary className="cursor-pointer text-[10px] font-bold text-gray-500">Votes by country</summary>
-                <div className="mt-1 grid grid-cols-2 gap-x-3 text-[11px]">
-                  {Object.keys(b.eligible)
-                    .sort((x, y) => (state.seats[x]?.countryName ?? x).localeCompare(state.seats[y]?.countryName ?? y))
-                    .map((s) => (
-                      <span key={s}>
-                        {state.seats[s]?.countryName}: <b>{b.votes?.[s] ?? (b.connectionAtClose?.[s] === "offline" ? "did not vote (offline)" : "did not vote")}</b>
-                      </span>
-                    ))}
-                </div>
-              </details>
-            )}
-          </li>
-        ))}
-      </ul>
-      {!all && every.length > 3 && (
-        <button type="button" onClick={() => setMore((x) => !x)} className="mt-2 text-xs font-bold text-brand">
-          {more ? "Show fewer" : `Show all ${every.length} results`}
-        </button>
+      {every.length === 0 ? (
+        <p className="text-xs text-gray-400">No vote has been held yet.</p>
+      ) : all ? (
+        <ul className="space-y-2">{every.map(item)}</ul>
+      ) : (
+        <>
+          <ul className="space-y-2">{item(every[0])}</ul>
+          {every.length > 1 && (
+            <details className="mt-2" data-testid="previous-results">
+              <summary className="cursor-pointer text-xs font-bold text-brand">Previous results ({every.length - 1})</summary>
+              <ul className="mt-2 space-y-2">{every.slice(1).map(item)}</ul>
+            </details>
+          )}
+        </>
       )}
     </div>
   );

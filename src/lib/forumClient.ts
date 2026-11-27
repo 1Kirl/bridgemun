@@ -63,6 +63,7 @@ export function explainError(e: unknown): string {
       not_a_member: "You have not joined this forum.",
       owner_only: "Only the room owner can do this.",
       paused: "The app is paused by the room owner.",
+      database_unavailable: "The server cannot save changes right now (database quota or outage). Please try again later.",
     };
     return map[e.code] ?? e.message;
   }

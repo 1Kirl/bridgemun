@@ -10,7 +10,7 @@ import { MOTION_LABEL, describeMotion, describePhase } from "@/lib/phaseText";
 import type { useForumActions } from "@/hooks/useForumActions";
 import { RESPONSE_ACTION } from "@/engine/responses";
 import { publicResponseView } from "@/lib/meetingFlow";
-import { Countdown, ExpiryWarning } from "./Visuals";
+import { Countdown, ExpiryWarning, Spinner } from "./Visuals";
 
 type Props = {
   state: PublicForumState;
@@ -25,7 +25,17 @@ const box = "rounded-2xl border border-gray-100 bg-white p-4 shadow-sm";
 const h3 = "mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800";
 
 /** "What can I do now?" — every button maps to one engine command; the server validates it. */
-export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & { now: number }) {
+export function ActionPanel({
+  state,
+  mySeat,
+  actions,
+  recorder,
+  now,
+  headerAction,
+  mainBottom,
+  optionalTop,
+  optionalBottom,
+}: Props & { now: number; headerAction?: React.ReactNode; mainBottom?: React.ReactNode; optionalTop?: React.ReactNode; optionalBottom?: React.ReactNode }) {
   const p = state.phase;
   const me = state.seats[mySeat];
   const present = me.attendance === "present" || me.attendance === "present_and_voting";
@@ -65,8 +75,8 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
       ? {
           cls: "border-emerald-200 bg-emerald-50",
           icon: <CheckCircle2 size={18} className="text-emerald-700" />,
-          title: rv?.kind === "volunteer" ? "You are passing for the rest of this caucus" : "Your “no motion” still stands",
-          sub: rv?.kind === "volunteer" ? "Not asked each turn. You can still volunteer in any turn, or ask to be asked again." : "Nothing has changed since you said you had no motion, so you are not asked again. You can still move a motion below while the window is open.",
+          title: "Your “no motion” still stands",
+          sub: "Nothing has changed since you said you had no motion, so you are not asked again. You can still move a motion while the window is open.",
         }
       : { cls: "border-emerald-200 bg-emerald-50", icon: <CheckCircle2 size={18} className="text-emerald-700" />, title: "Done — waiting for others", sub: rv && rv.pending.length ? `${rv.pending.length} other delegate${rv.pending.length > 1 ? "s" : ""} still to respond` : "Waiting for the AI delegations / step timer" },
     speaking: { cls: "border-red-200 bg-red-50", icon: <Mic size={18} className="text-red-700" />, title: "You have the floor", sub: "Speak now; end your speech when you are finished" },
@@ -74,20 +84,26 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
     none: { cls: "border-gray-200 bg-gray-50", icon: <UserCheck size={18} className="text-gray-500" />, title: "No action needed right now", sub: "You can still use the optional actions below" },
   }[status];
 
+  const overBase = !!rv?.wait && now >= rv.wait.baseDeadlineMs;
   return (
-    <div className={`${box} space-y-4`} data-testid="my-action">
-      <div className={`rounded-xl border-2 p-3 ${head.cls}`} data-testid={`my-status-${status}`}>
+    <div className={box} data-testid="my-action">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className={`${h3} mb-0`}>Your actions — {me.countryName}</h3>
+        {headerAction}
+      </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="min-w-0 space-y-4" data-testid="main-actions">
+      <div className={`rounded-xl border-2 p-3 ${head.cls} ${status === "needed" ? "respond-pulse" : ""}`} data-testid={`my-status-${status}`}>
         <div className="flex items-start gap-2">
           {head.icon}
           <div className="min-w-0 flex-1">
             <p className="text-sm font-black text-gray-900">{head.title}</p>
             <p className="text-xs text-gray-600">{head.sub}</p>
           </div>
-          {status === "needed" && rv?.wait && now < rv.wait.baseDeadlineMs && <Countdown atMs={rv.wait.baseDeadlineMs} now={now} size="md" warn={false} />}
+          {status === "needed" && rv?.wait && (overBase ? <Spinner label="Waiting for your response" /> : <Countdown atMs={rv.wait.baseDeadlineMs} now={now} size="md" warn={false} />)}
         </div>
         {status === "needed" && rv && <div className="mt-2"><ExpiryWarning rv={rv} now={now} /></div>}
       </div>
-      <h3 className={h3}>Your actions — {me.countryName}</h3>
 
       {!present && (
         <div className="space-y-2">
@@ -116,31 +132,15 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
           </p>
           <div className="flex flex-wrap gap-2">
             <Button size="md" disabled={busy || p.volunteers.includes(mySeat)} onClick={() => void send({ type: "volunteer", seat: mySeat }, { phaseId: state.phaseId })}>
-              <Hand size={14} className="mr-1" /> {p.volunteers.includes(mySeat) ? "Volunteered ✓" : "Volunteer for this turn"}
+              <Hand size={14} className="mr-1" /> {p.volunteers.includes(mySeat) ? "Volunteered ✓" : "Volunteer to speak"}
             </Button>
-            {!p.volunteers.includes(mySeat) && !(state.activeCaucus?.passAll ?? []).includes(mySeat) && (
-              <Button size="md" variant="secondary" disabled={busy || (p.passed ?? []).includes(mySeat)} onClick={() => void send({ type: "volunteer_pass", seat: mySeat, scope: "turn" }, { phaseId: state.phaseId })}>
-                {(p.passed ?? []).includes(mySeat) ? "Passed this turn ✓" : "Pass this turn only"}
+            {!p.volunteers.includes(mySeat) && (
+              <Button size="md" variant="secondary" disabled={busy || (p.passed ?? []).includes(mySeat)} onClick={() => void send({ type: "volunteer_pass", seat: mySeat }, { phaseId: state.phaseId })}>
+                {(p.passed ?? []).includes(mySeat) ? "Passed this turn ✓" : "Pass this turn"}
               </Button>
             )}
           </div>
-          {!p.volunteers.includes(mySeat) &&
-            ((state.activeCaucus?.passAll ?? []).includes(mySeat) ? (
-              <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                You are passing for the rest of this caucus.
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "volunteer_pass", seat: mySeat, scope: "resume" })}>
-                  Ask me every turn again
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => void send({ type: "volunteer_pass", seat: mySeat, scope: "caucus" }, { phaseId: state.phaseId })}>
-                  Pass for the rest of this caucus
-                </Button>
-                <span className="text-[11px] text-gray-500">Not asked again in this caucus; you can still volunteer in any turn. Ends with the caucus.</span>
-              </div>
-            ))}
-          <p className="text-[11px] text-gray-500">“Pass this turn only” means you are asked again in the next speaking turn.</p>
+          <p className="text-[11px] text-gray-500">Pass applies to this speaking turn only — you can volunteer or pass again next turn.</p>
         </div>
       )}
       {present && p.type === "AMENDMENT_SPONSOR_RESPONSE" && mine && !myDone && (
@@ -162,8 +162,11 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
         </div>
       )}
       {actions.error && <p className="text-xs font-semibold text-red-600" role="alert">{actions.error}</p>}
-      <div className="space-y-2 border-t border-gray-100 pt-3" data-testid="optional-actions">
+      {mainBottom}
+      </div>
+      <div className="min-w-0 space-y-3 border-t border-gray-100 pt-3 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0" data-testid="optional-actions">
         <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Optional</p>
+        {optionalTop}
         {present && <SpeakerControls state={state} mySeat={mySeat} actions={actions} recorder={recorder} part="signup" />}
         {present && me.attendance !== "present_and_voting" && (
           <div className="flex flex-wrap items-center gap-2">
@@ -174,6 +177,8 @@ export function ActionPanel({ state, mySeat, actions, recorder, now }: Props & {
           </div>
         )}
         {p.type !== "LOBBY" && <PointsControls state={state} mySeat={mySeat} actions={actions} />}
+        {optionalBottom}
+      </div>
       </div>
     </div>
   );

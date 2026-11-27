@@ -59,10 +59,16 @@ describe.skipIf(!onEmulator)("Phase 4–5 server pieces on the emulator (mock pr
 
   it("budget: refuses over-cap reservations atomically (forum and day caps)", async () => {
     const caps: Caps = { perForum: { ...DEFAULT_CAPS.perForum, llm_calls: 2 }, perDay: { ...DEFAULT_CAPS.perDay } };
+    await db.doc("forums/bud1").set({ title: "budget test" });
     await reserve(db, "bud1", { llm_calls: 1, llm_tokens: 10 }, caps);
     await reserve(db, "bud1", { llm_calls: 1, llm_tokens: 10 }, caps);
     await expect(reserve(db, "bud1", { llm_calls: 1, llm_tokens: 10 }, caps)).rejects.toBeInstanceOf(BudgetExceeded);
     expect(await readUsage(db, "bud1")).toMatchObject({ llm_calls: 2, llm_tokens: 20 });
+  });
+
+  it("a deleted forum gets no AI budget and nothing is written under it (late AI work after cleanup)", async () => {
+    await expect(reserve(db, "deleted-forum", { llm_calls: 1 }, DEFAULT_CAPS)).rejects.toBeInstanceOf(BudgetExceeded);
+    expect((await db.doc("forums/deleted-forum/usage/ai").get()).exists).toBe(false);
   });
 
   async function setup(opts: { version?: string; script: (name: string, m: LlmMessage[]) => unknown; caps?: Partial<Caps["perForum"]> }) {

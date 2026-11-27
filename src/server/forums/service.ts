@@ -9,7 +9,7 @@ import { APP_DEFAULT_POLICIES } from "@/engine/policies";
 import { toPublicState } from "@/engine/publicView";
 import type { Command, Expectation, ForumEngineState, Seat } from "@/engine/types";
 import { HttpError, type AuthedUser } from "@/server/auth";
-import { loadState, publicPath, runCommand, statePath, type EffectSink } from "@/server/engine/store";
+import { loadState, publicPath, runCommand, statePath, withTxTimeout, type EffectSink } from "@/server/engine/store";
 
 const plain = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 const MAX_SEATS = 60;
@@ -302,7 +302,7 @@ export const PRESENCE_TIMEOUT_MS = 60_000;
 
 export async function setPresence(db: Firestore, user: AuthedUser, forumId: string, online: boolean, sink?: EffectSink) {
   const m = await requireMember(db, user, forumId);
-  await db.doc(`forums/${forumId}/members/${user.uid}`).set({ lastSeenMs: online ? Date.now() : 0 }, { merge: true });
+  await withTxTimeout(db.doc(`forums/${forumId}/members/${user.uid}`).set({ lastSeenMs: online ? Date.now() : 0 }, { merge: true }));
   const r = await runCommand(db, forumId, { actor: { kind: "system" }, command: { type: "connection", seat: m.countryCode, online } }, { onEffects: sink });
   // Heartbeats of present members also detect members whose tab closed without a beacon.
   const s = await loadState(db, forumId);

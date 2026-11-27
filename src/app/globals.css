@@ -57,3 +57,13 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .briefing-card { animation: none; }
 }
+
+/* "Your response is needed": a soft, steady pulse of background and border (no size/position change). */
+@keyframes respond-pulse {
+  0%, 100% { background-color: #fffbeb; border-color: #fcd34d; box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  50% { background-color: #fef3c7; border-color: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.12); }
+}
+.respond-pulse { animation: respond-pulse 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .respond-pulse { animation: none; }
+}
