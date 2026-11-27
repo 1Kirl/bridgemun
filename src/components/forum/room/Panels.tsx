@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { Bot, Crown, ListOrdered, MessageSquare, Mic, PauseCircle, Timer, User, Users, Vote, WifiOff } from "lucide-react";
 import type { PublicBallot, PublicForumState } from "@/engine/publicView";
 import type { RecordEntry } from "@/engine/types";
@@ -83,7 +85,7 @@ export function SeatGrid({ state, mySeat }: { state: PublicForumState; mySeat: s
       <h3 className={h3}>
         <Users size={14} className="text-brand" /> Delegations · {humans} human · {seats.length - humans} AI · {present}/{seats.length} present
       </h3>
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-1.5">
         {seats.map((s) => {
           const isPresent = s.attendance !== "not_recorded";
           return (
@@ -228,13 +230,14 @@ function BallotSubject({ state, b }: { state: PublicForumState; b: PublicBallot 
 }
 
 export function BallotResults({ state, all = false }: { state: PublicForumState; all?: boolean }) {
-  const closed = Object.values(state.ballots)
+  const every = Object.values(state.ballots)
     .filter((b) => b.status === "closed" || b.status === "not_held")
-    .sort((a, b) => b.openedAtMs - a.openedAtMs)
-    .slice(0, all ? 100 : 8);
-  if (!closed.length) return null;
+    .sort((a, b) => b.openedAtMs - a.openedAtMs);
+  const [more, setMore] = useState(false);
+  const closed = every.slice(0, all || more ? 100 : 3);
+  if (!every.length) return null;
   return (
-    <div className={box}>
+    <div className={box} data-testid="recent-results">
       <h3 className={h3}>Recent results</h3>
       <ul className="space-y-2">
         {closed.map((b) => (
@@ -261,6 +264,11 @@ export function BallotResults({ state, all = false }: { state: PublicForumState;
           </li>
         ))}
       </ul>
+      {!all && every.length > 3 && (
+        <button type="button" onClick={() => setMore((x) => !x)} className="mt-2 text-xs font-bold text-brand">
+          {more ? "Show fewer" : `Show all ${every.length} results`}
+        </button>
+      )}
     </div>
   );
 }

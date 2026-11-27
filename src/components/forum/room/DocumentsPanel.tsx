@@ -22,7 +22,7 @@ const STATUS: Record<DocumentState["status"], string> = {
 };
 
 /** Working papers / draft resolutions / amendments (HMUN rules 24–29; approval checks replace the Director). */
-export function DocumentsPanel({ state, mySeat, actions }: Props) {
+export function DocumentsPanel({ state, mySeat, actions, onNewDraft }: Props & { onNewDraft?: () => void }) {
   const [creating, setCreating] = useState(false);
   const docs = Object.values(state.documents).sort((a, b) => a.submittedAtMs - b.submittedAtMs);
   const members = Object.keys(state.seats).length;
@@ -37,15 +37,21 @@ export function DocumentsPanel({ state, mySeat, actions }: Props) {
           <FileText size={14} className="text-brand" /> Documents
         </h3>
         {canWrite && !creating && (
-          <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
+          <Button size="sm" variant="outline" onClick={() => (onNewDraft ? onNewDraft() : setCreating(true))} data-testid="side-new-draft">
             <Plus size={13} className="mr-1" /> New draft
           </Button>
         )}
       </div>
-      <p className="mb-2 text-[11px] text-gray-500">
+      {!canWrite && state.phase.type !== "CLOSED" && (
+        <p className="mb-2 text-[11px] text-gray-500">
+          {state.debateClosed ? "Debate is closed (voting procedure): new documents can no longer be submitted (rule 13)." : "Declare attendance to write or sign documents (rule 31)."}
+        </p>
+      )}
+      <details className="mb-2 text-[11px] text-gray-500">
+        <summary className="cursor-pointer font-bold">How approval works</summary>
         A draft resolution is approved automatically (app stand-in for the Director, rule 26) with ≥{t.sponsors} sponsors, ≥{t.signatories} signatories,
         ≥{state.settings.documents.minPreambular} preambular and ≥{state.settings.documents.minOperative} operative clauses. Signing means “worth debating”, not support (rule 24).
-      </p>
+      </details>
       {creating && <DraftForm onCancel={() => setCreating(false)} onSubmit={async (d) => (await actions.send({ type: "submit_document", seat: mySeat, ...d })) && setCreating(false)} busy={actions.busy} />}
       {docs.length === 0 && !creating && <p className="text-xs text-gray-400">No documents yet.</p>}
       <div className="space-y-3">

@@ -22,6 +22,7 @@ export function Briefing({ state, now }: { state: PublicForumState; now: number 
   if (p.type !== "BRIEFING") return null;
   const elapsed = Math.max(0, now - p.startedMs);
   const left = Math.max(0, p.deadlineMs - now);
+  const total = Math.max(1, p.deadlineMs - p.startedMs);
   const committee = COMMITTEES.find((c) => c.id === state.committeeId);
   // negative delays = the animation continues from where the shared clock is (refresh-safe)
   const anim = (i: number) => ({ animationDelay: `${i * STEP_MS - elapsed}ms` });
@@ -61,18 +62,17 @@ export function Briefing({ state, now }: { state: PublicForumState; now: number 
           policy, not an HMUN rule). AI delegations act on their own; the automatic chair applies the rules.
         </p>
 
-        {/* After the guide: a 5-second countdown to roll call (same server deadline for everyone). */}
-        <div className={`mt-5 flex min-h-[64px] items-center justify-center gap-3 rounded-2xl py-3 ${left <= 5_000 ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"}`} aria-live="polite">
-          {left <= 5_000 ? (
-            <>
-              <span className="text-sm font-bold">Roll call in</span>
-              <span className="font-mono text-4xl font-black tabular-nums" data-testid="briefing-countdown">
-                {Math.max(1, Math.ceil(left / 1000))}
-              </span>
-            </>
-          ) : (
-            <span className="text-sm font-bold">Read the steps — roll call follows</span>
-          )}
+        {/* One shared countdown for the whole briefing (server start → server deadline), with a shrinking gauge. */}
+        <div className="mt-5 rounded-2xl bg-gray-900 px-4 py-3 text-white" aria-live="polite">
+          <div className="flex items-center justify-center gap-3">
+            <span className="text-sm font-bold">Roll call in</span>
+            <span className="font-mono text-4xl font-black tabular-nums" data-testid="briefing-countdown">
+              {Math.max(0, Math.ceil(left / 1000))}
+            </span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/20" role="progressbar" aria-label="Time until roll call" aria-valuemin={0} aria-valuemax={Math.round(total / 1000)} aria-valuenow={Math.ceil(left / 1000)}>
+            <div className="h-full rounded-full bg-brand" style={{ width: `${total ? Math.max(0, Math.min(100, (left / total) * 100)) : 0}%` }} data-testid="briefing-gauge" />
+          </div>
         </div>
       </div>
     </div>

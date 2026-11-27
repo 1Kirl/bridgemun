@@ -83,7 +83,7 @@ export async function createForum(db: Firestore, user: AuthedUser, raw: unknown)
       speakingTimeSec: input.speakingTimeSec,
       // New forums: W1 (wait up to 5 min for required human responses) + 12 s start briefing.
       // + S1: human speeches up to 300 s (official speaking time still counts for caucuses and the agenda).
-      timers: { ...base.timers, responseWaitSec: 300, briefingSec: 12, humanSpeechMaxSec: 300, ...input.timers },
+      timers: { ...base.timers, responseWaitSec: 300, briefingSec: 30, humanSpeechMaxSec: 300, ...input.timers },
       sessionDurationSec: input.durationMin * 60,
       sessionStartMs: 0,
       sessionEndsAtMs: 0,

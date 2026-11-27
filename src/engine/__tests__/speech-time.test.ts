@@ -125,6 +125,45 @@ describe("S1 human speaking time (speakers' list)", () => {
   });
 });
 
+describe("S1 overtime is computed per slot (no fixed 240 s); no double counting", () => {
+  it("max overtime = 300 s − the slot's official time: 240 s at 60 s, 255 s at 45 s", () => {
+    for (const [official, expected] of [
+      [60, 240_000],
+      [45, 255_000],
+    ] as const) {
+      const sim = started();
+      sim.s.speakingTimeSec = official;
+      sim.do(human("u2"), { type: "add_to_speakers_list", seat: "h2" });
+      for (const id of AI) sim.do(ai(id), { type: "floor_pass", seat: id });
+      for (const h of ["h1", "h2"]) sim.do(actorOf(h), { type: "floor_pass", seat: h });
+      sim.do(human("u2"), { type: "start_speech", seat: "h2" });
+      const end0 = sim.s.settings.sessionEndsAtMs;
+      sim.expire();
+      expect(sim.s.settings.sessionEndsAtMs - end0).toBe(expected);
+    }
+  });
+
+  it("preparation wait (W1), app pause and speech overtime (S1) are separate intervals, each counted once", () => {
+    const sim = started();
+    sim.do(human("u2"), { type: "add_to_speakers_list", seat: "h2" });
+    for (const id of AI) sim.do(ai(id), { type: "floor_pass", seat: id });
+    for (const h of ["h1", "h2"]) sim.do(actorOf(h), { type: "floor_pass", seat: h });
+    const end0 = sim.s.settings.sessionEndsAtMs;
+    sim.expire(); // 10 s prep timer passed → held for the speaker
+    sim.advance(50_000); // 50 s of W1 hold
+    sim.do(human("u2"), { type: "start_speech", seat: "h2" });
+    expect(sim.s.usage.responseWaitCreditMs).toBe(50_000);
+    sim.advance(30_000);
+    sim.do(human("owner"), { type: "app_pause" });
+    sim.advance(120_000); // paused: neither speaking time nor overtime nor W1
+    sim.do(human("owner"), { type: "app_resume" });
+    sim.advance(70_000); // 100 s spoken in total → 40 s overtime
+    sim.do(human("u2"), { type: "submit_text_speech", seat: "h2", text: "x" });
+    expect(sim.s.usage.speechOvertimeCreditMs).toBe(40_000);
+    expect(sim.s.settings.sessionEndsAtMs - end0).toBe(90_000);
+  });
+});
+
 describe("S1 in moderated caucus; AI unchanged", () => {
   it("human caucus speech up to 300 s; the caucus counts only the official caucus speaking time", () => {
     const sim = started();

@@ -78,7 +78,7 @@ ballot closed are refused. Each step's responses are stored on that step only.
 
 ## Start briefing
 
-`briefingSec` (12 s): after "Start forum" every member sees the same briefing (driven by the server start time;
+`briefingSec` (30 s for new forums; was 12 s): after "Start forum" every member sees the same briefing (driven by the server start time;
 a refresh resumes at the same point and nothing is shown once roll call has begun). The session clock starts
 when roll call opens.
 
@@ -115,7 +115,8 @@ BridgeMUN online operating policy, **not an HMUN rule** (official speaking time:
   session end (`usage.speechOvertimeCreditMs`), separately from the W1 credit and **not** subject to the W1 cap.
   App pause time is excluded. A session end is only applied at step boundaries, so a speech is never cut by it.
 * Maximum meeting length (policy): planned duration + W1 waiting credit (capped at one more planned duration) +
-  S1 overtime actually used (≤ 240 s per human speech with the 60 s default) + app pauses (≤ 15 min total) +
+  S1 overtime actually used (per human speech at most 300 s minus THAT slot's official speaking time — e.g. 240 s for
+  a 60 s slot, 255 s for a 45 s slot; computed from each slot's `officialSec`, no fixed value) + app pauses (≤ 15 min total) +
   an H1 idle hold (closes after 10 min).
 
 ## Scope

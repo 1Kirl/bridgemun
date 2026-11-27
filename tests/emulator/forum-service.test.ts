@@ -82,7 +82,7 @@ describe.skipIf(!onEmulator)("forum service (Phase 2) on emulator", () => {
     const { forumId } = await createForum(db, U("owner"), plain);
     const s0 = (await loadState(db, forumId))!;
     expect(s0.settings.timers.responseWaitSec).toBe(300);
-    expect(s0.settings.timers.briefingSec).toBe(12);
+    expect(s0.settings.timers.briefingSec).toBe(30);
     expect(s0.settings.timers.humanSpeechMaxSec).toBe(300); // S1
     await userCommand(db, U("owner"), forumId, { command: { type: "start" } });
     const s = (await loadState(db, forumId))!;

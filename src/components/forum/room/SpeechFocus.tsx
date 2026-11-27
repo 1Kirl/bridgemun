@@ -73,9 +73,9 @@ export function SpeechFocus({ state, mySeat, actions, recorder, prep, now }: Pro
             </>
           ) : (
             <>
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Speaking time</p>
-              <p className="font-mono text-3xl font-black text-gray-900">{fmtClock(allowedSec(state, p as Extract<Phase, { type: "SPEECH_PREP" }>) * 1000)}</p>
-              <p className="text-[11px] text-gray-500">starts when you press Start</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Your speaking time</p>
+              <p className="font-mono text-3xl font-black text-gray-400" data-testid="speech-time-not-started">{fmtClock(allowedSec(state, p as Extract<Phase, { type: "SPEECH_PREP" }>) * 1000)}</p>
+              <p className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-gray-500">Not started · begins when you press Start</p>
             </>
           )}
         </div>
@@ -232,9 +232,9 @@ function MicStatus({ prep, recorder, speaking }: { prep: SpeechPrep; recorder: R
         </Button>
       )}
       {(s === "slow" || s === "denied" || s === "unsupported" || s === "unavailable" || s === "error" || (speaking && recorder.detail)) && (
-        <button type="button" className="text-xs font-bold underline" onClick={() => prep.setMode("text")}>
+        <Button size="sm" variant="outline" onClick={() => prep.setMode("text")} data-testid="switch-to-text">
           Use text instead
-        </button>
+        </Button>
       )}
       {speaking && recorder.detail && <span className="w-full text-xs font-semibold">{recorder.detail}</span>}
     </div>

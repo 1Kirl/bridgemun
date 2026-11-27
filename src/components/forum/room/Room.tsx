@@ -2,7 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { FilePlus2 } from "lucide-react";
+import type { PublicForumState } from "@/engine/publicView";
+import type { ResponseView } from "@/engine/responses";
+import { DraftEditor, useDocDraft, type DocDraft } from "./DraftEditor";
 import { useSpeechPrep } from "@/hooks/useSpeechPrep";
 import { SpeechFocus } from "./SpeechFocus";
 import { SpeechPrepCard } from "./SpeechPrepCard";
@@ -38,6 +42,14 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
   // Own turn (recognised or speaking): a focused screen; the rest of the room is folded away but stays mounted.
   const focus = (p.type === "SPEECH_PREP" && p.seat === mySeat) || iHoldFloor;
   const [showDetails, setShowDetails] = useState(false);
+  const doc = useDocDraft(forumId, mySeat);
+  const hasSpeaker = p.type === "SPEECH" || p.type === "SPEECH_PREP" || p.type === "AI_SPEECH_PENDING" || p.type === "SPEECH_CONFIRM";
+  // A text speech whose reply was lost still entered the record: never offer the same draft again.
+  const lastMine = [...record].reverse().find((r) => r.seat === mySeat && r.source === "human_text");
+  useEffect(() => {
+    if (lastMine && prep.draft.trim() && lastMine.text === prep.draft.trim()) prep.clearDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastMine?.seq]);
   const upcoming = !focus && p.type !== "CLOSED" && (state.speakersList.includes(mySeat) || (p.type === "MOD_CAUCUS" && p.volunteers.includes(mySeat)));
   const t = now();
   const rv = publicResponseView(state);
@@ -97,54 +109,49 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
             </div>
           </div>
         )}
-        <main className={`grid flex-1 grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[440px_1fr] ${focus && !showDetails ? "hidden" : ""}`}>
-          <div className="space-y-4">
-            <SituationCard state={state} rv={rv} now={t} />
+        <main className={`grid flex-1 grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_380px] ${focus && !showDetails ? "hidden" : ""}`}>
+          {/* CENTRE: who acts now, the step and its timer, what I must do, whose responses are missing */}
+          <div className="min-w-0 space-y-4" data-testid="room-center">
+            <SituationCard state={state} rv={rv} now={t}>
+              <div className="mt-3 overflow-hidden rounded-2xl bg-[#020617]" data-testid="stage-media">
+                {p.type === "SPEECH" && p.speakerKind === "ai" && p.ai ? (
+                  <>
+                    <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 px-6 py-5 text-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-purple-600/30">
+                        <Bot size={24} className="text-purple-200" />
+                      </div>
+                      <p className="text-base leading-relaxed text-purple-50">{p.ai.text}</p>
+                    </div>
+                    <AiSpeechAudio forumId={forumId} state={state} now={now} />
+                  </>
+                ) : (
+                  // Kept mounted (live audio/video session); collapsed to one line while nobody holds the floor.
+                  <div className={`relative ${hasSpeaker ? "h-[200px] sm:h-[240px]" : "h-10"}`}>
+                    {!hasSpeaker && <p className="absolute inset-0 z-10 flex items-center bg-[#020617] px-4 text-xs font-bold text-gray-400">No one has the floor right now</p>}
+                    <ZoomVideo
+                      forumId={forumId}
+                      onLeave={() => router.push("/")}
+                      onConfirmLeave={async () => true}
+                      videoSdkRole={isOwner ? 1 : 0}
+                      canSpeak={canSpeak}
+                      speakerName={speaker?.countryName}
+                      micMuted={!canSpeak}
+                      onMicMutedChange={() => {}}
+                    />
+                  </div>
+                )}
+              </div>
+            </SituationCard>
+            <CurrentBallot state={state} />
             {upcoming && <SpeechPrepCard prep={prep} />}
             <ActionPanel state={state} mySeat={mySeat} actions={actions} recorder={recorder} now={t} />
             <ResponseTracker state={state} rv={rv} mySeat={mySeat} />
-            <div className="overflow-hidden rounded-3xl bg-[#020617]">
-              <div className="flex items-center gap-2 px-4 py-2 text-white">
-                {speaker ? (
-                  <>
-                    <img src={`https://flagcdn.com/w40/${speaker.id}.png`} alt="" className="h-4 w-6 rounded-sm object-cover" />
-                    <span className="text-sm font-black">{speaker.countryName}</span>
-                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase ${speaker.kind === "ai" ? "bg-purple-600" : "bg-brand"}`}>{speaker.kind === "ai" ? "AI" : "Human"}</span>
-                    {p.type === "SPEECH" && <span className="ml-auto font-mono text-sm">{fmtClock(p.deadlineMs - now())}</span>}
-                  </>
-                ) : (
-                  <span className="text-xs text-gray-400">No speaker right now</span>
-                )}
-              </div>
-              {p.type === "SPEECH" && p.speakerKind === "ai" && p.ai ? (
-                <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 px-6 py-6 text-center">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-600/30">
-                    <Bot size={30} className="text-purple-200" />
-                  </div>
-                  <p className="text-sm text-purple-100">{p.ai.text}</p>
-                </div>
-              ) : null}
-              {p.type === "SPEECH" && p.speakerKind === "ai" ? (
-                <AiSpeechAudio forumId={forumId} state={state} now={now} />
-              ) : (
-                <div className="relative h-[260px]">
-                  <ZoomVideo
-                    forumId={forumId}
-                    onLeave={() => router.push("/")}
-                    onConfirmLeave={async () => true}
-                    videoSdkRole={isOwner ? 1 : 0}
-                    canSpeak={canSpeak}
-                    speakerName={speaker?.countryName}
-                    micMuted={!canSpeak}
-                    onMicMutedChange={() => {}}
-                  />
-                </div>
-              )}
-            </div>
+            <FloorMotions state={state} />
+            <DraftEntry state={state} mySeat={mySeat} rv={rv} doc={doc} actions={actions} />
             {isOwner && (
-              <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">Room owner controls</p>
-                <p className="mb-2 text-xs text-gray-500">
+              <details className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                <summary className="cursor-pointer text-[11px] font-black uppercase tracking-[0.2em] text-gray-800">Room owner controls</summary>
+                <p className="my-2 text-xs text-gray-500">
                   App pause (not a formal suspension): max {Math.round(state.settings.limits.pauseMaxSec / 60)} min each, {Math.max(0, Math.round((state.settings.limits.pauseTotalMaxSec - state.usage.pauseUsedSec) / 60))} min left in total.
                 </p>
                 {state.paused ? (
@@ -156,21 +163,18 @@ export function Room(props: ForumViewProps & { record: RecordEntry[]; now: () =>
                     <Pause size={14} className="mr-1" /> Pause app
                   </Button>
                 )}
-              </div>
+              </details>
             )}
           </div>
-          <div className="space-y-4">
-            <CurrentBallot state={state} />
-            <FloorMotions state={state} />
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <SpeakersList state={state} />
-              <SeatGrid state={state} mySeat={mySeat} />
-            </div>
-            <DocumentsPanel state={state} mySeat={mySeat} actions={actions} />
+          {/* SIDE: reference information, in this fixed order */}
+          <aside className="min-w-0 space-y-4" data-testid="room-side">
+            <SeatGrid state={state} mySeat={mySeat} />
+            <SpeakersList state={state} />
             <BallotResults state={state} />
+            <DocumentsPanel state={state} mySeat={mySeat} actions={actions} onNewDraft={doc.open} />
             <AiRationale forumId={forumId} state={state} positionSetVersion={meta.positionSetVersion} />
             <RecordFeed state={state} record={record} />
-          </div>
+          </aside>
         </main>
         </>
       )}
@@ -211,5 +215,40 @@ function FinalResults({ state, reason }: { state: ForumViewProps["state"]; reaso
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * Where "+ New draft" appears in the centre. Writing is allowed whenever the engine allows it (present, debate not
+ * closed); only the prominence changes: a clear call in negotiation, a small tool otherwise, nothing while the
+ * delegate has a required action (the side Documents panel always keeps its button).
+ */
+function DraftEntry({ state, mySeat, rv, doc, actions }: { state: PublicForumState; mySeat: string; rv: ResponseView | null; doc: DocDraft; actions: ForumViewProps["actions"] }) {
+  const p = state.phase;
+  const present = state.seats[mySeat]?.attendance !== "not_recorded";
+  const canWrite = present && !state.debateClosed && p.type !== "CLOSED" && p.type !== "LOBBY" && p.type !== "BRIEFING";
+  if (!canWrite) return null;
+  const myActionPending = !!rv && rv.holds && rv.pending.includes(mySeat);
+  // Opened on purpose: shown (below the action card, so it never covers a required action).
+  if (doc.draft.open) return <DraftEditor doc={doc} mySeat={mySeat} actions={actions} />;
+  if (p.type === "UNMOD_CAUCUS")
+    return (
+      <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-dashed border-brand/40 bg-brand-light p-4" data-testid="draft-entry-prominent">
+        <div>
+          <p className="text-sm font-black text-brand">Negotiation & drafting</p>
+          <p className="text-xs text-gray-600">Write a draft resolution or working paper, or sign the drafts listed under Documents.</p>
+        </div>
+        <Button onClick={doc.open}>
+          <FilePlus2 size={16} className="mr-1" /> {doc.hasContent ? "Continue your draft" : "New draft"}
+        </Button>
+      </section>
+    );
+  if (myActionPending) return null;
+  return (
+    <div className="flex justify-end" data-testid="draft-entry-small">
+      <Button size="sm" variant="outline" onClick={doc.open}>
+        <FilePlus2 size={14} className="mr-1" /> {doc.hasContent ? "Continue draft" : "New draft"}
+      </Button>
+    </div>
   );
 }

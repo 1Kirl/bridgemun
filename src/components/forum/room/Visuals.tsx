@@ -110,7 +110,7 @@ const ACTION_LABEL: Partial<Record<string, string>> = {
 };
 
 /** B. What is happening now: who acts, the action, the time left, what moves the meeting on. Long text folded away. */
-export function SituationCard({ state, rv, now }: { state: PublicForumState; rv: ResponseView | null; now: number }) {
+export function SituationCard({ state, rv, now, children }: { state: PublicForumState; rv: ResponseView | null; now: number; children?: React.ReactNode }) {
   const actor = actorOf(state);
   const t = timerOf(state, rv, now);
   const d = describePhase(state);
@@ -171,6 +171,7 @@ export function SituationCard({ state, rv, now }: { state: PublicForumState; rv:
           Waiting for required human responses (up to {Math.round((state.settings.timers.responseWaitSec ?? 0) / 60) || "—"} min) is a BridgeMUN online operating policy (W1), not an HMUN rule.
         </p>
       </details>
+      {children}
     </section>
   );
 }
@@ -345,7 +346,7 @@ export function VoteChart({ state, b, compact = false }: { state: PublicForumSta
         )}
         <span className="text-[11px] font-semibold text-gray-500">{b.kind === "procedural" ? "Procedural · Yes/No" : "Substantive · Yes/No/Abstain"} · {e} eligible</span>
       </div>
-      <div className="relative mt-1.5">
+      <div className={`relative ${rule.scale === "eligible" ? "mt-5" : "mt-1.5"}`}>
         <div className={`flex overflow-hidden rounded-md ${compact ? "h-4" : "h-6"}`} role="img" aria-label={rows.map((x) => `${x.label} ${x.n}`).join(", ")}>
           {rows.map((x) => (x.n > 0 ? <div key={x.k} className={`${SEG[x.k]} flex items-center justify-center text-[10px] font-black text-white`} style={{ width: `${(x.n / total) * 100}%` }}>{!compact && x.k !== "notVoted" ? x.n : ""}</div> : null))}
         </div>
